@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>御神籤</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 手機畫面容器 -->
+  <div class="screen">
+    <!-- 固定設計尺寸的舞台 -->
+    <div class="stage">
+
+      <!-- 籤紙 -->
+      <img id="omikuji" class="omikuji" src="images/omikuji1.png" alt="御神籤">
+
+      <!-- 角色前景 -->
+      <img src="images/characters.png" class="characters" alt="角色">
+
+      <!-- 你畫的按鈕 -->
+     <button id="drawBtn" class="draw-btn" aria-label="抽御神籤"></button>
+
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  
+<audio id="bgm" src="audio/bgm.mp3" loop></audio>
+<audio id="drawSound" src="audio/draw.mp3" preload="auto"></audio>
+
+</body>
+</html>
