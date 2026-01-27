@@ -8,27 +8,28 @@
 </head>
 <body>
 
-  <!-- 手機畫面容器 -->
-  <div class="screen">
-    <!-- 固定設計尺寸的舞台 -->
-    <div class="stage">
+  <div class="stage">
+  <!-- 背景 -->
+  <img src="images/bg.jpg" class="bg" alt="背景">
 
-      <!-- 籤紙 -->
-      <img id="omikuji" class="omikuji" src="images/omikuji1.png" alt="御神籤">
+  <!-- 神社圖層 -->
+  <img id="shrine" class="shrine" src="images/shrine.png" alt="神社">
 
-      <!-- 角色前景 -->
-      <img src="images/characters.png" class="characters" alt="角色">
+  <!-- 籤紙 -->
+  <img id="omikuji" class="omikuji" src="images/omikuji1.png" alt="御神籤">
 
-      <!-- 你畫的按鈕 -->
-     <button id="drawBtn" class="draw-btn" aria-label="抽御神籤"></button>
+  <!-- 角色前景 -->
+  <img src="images/characters.png" class="characters" alt="角色">
 
-    </div>
-  </div>
+  <!-- 抽籤按鈕 -->
+  <img src="images/draw-btn.png" id="drawBtn" class="draw-btn" alt="抽御神籤">
+</div>
 
-  <script src="script.js"></script>
-  
+<!-- 音效 -->
 <audio id="bgm" src="audio/bgm.mp3" loop></audio>
 <audio id="drawSound" src="audio/draw.mp3" preload="auto"></audio>
 
+
+  <script src="script.js"></script>
 </body>
 </html>
