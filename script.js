@@ -14,6 +14,7 @@ const images = [
   "images/omikuji6.png",
   "images/omikuji7.png"
 ];
+let currentIndex = 0; // ⭐ 記住目前顯示的是哪一張籤
 
 const weights = [16, 35, 12, 1, 1, 15, 15];
 const STORAGE_KEY = "omikuji-last-date";
@@ -58,10 +59,13 @@ function startShuffle() {
     let rand;
     do {
       rand = Math.floor(Math.random() * images.length);
-    } while (omikuji.src.includes(images[rand]));
+    } while (rand === currentIndex); // 不跟現在一樣
+
+    currentIndex = rand;
     omikuji.src = images[rand];
-  }, 120);
+  }, 160);
 }
+
 
 function stopShuffle() {
   clearInterval(shuffleInterval);
@@ -122,8 +126,10 @@ drawBtn.addEventListener("click", () => {
   stopShuffle();
   playDrawSound();
 
-  const resultIndex = getWeightedResult();
-  omikuji.src = images[resultIndex];
+ const resultIndex = getWeightedResult();
+currentIndex = resultIndex; // ⭐ 同步目前籤圖
+omikuji.src = images[resultIndex];
+
   omikuji.classList.add("glow");
 
   drawBtn.style.animation = "none";
