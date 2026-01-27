@@ -56,12 +56,12 @@ body, html {
     left: 540px;   /* 設計稿中心X */
     top: 960px;    /* 設計稿中心Y */
     transform: translate(-50%, -50%);
-    width: 1000px;  /* ← 改成你實際寬度 */
+    width: 1150px;  /* ← 改成你實際寬度 */
     z-index: 2;
     transition: transform 0.3s ease, filter 0.3s ease;
 }
 
-/* 👥 角色前景圖 */
+/* 👥 角色微呼吸動畫 */
 .characters {
     position: absolute;
     bottom: 0;
@@ -69,7 +69,16 @@ body, html {
     width: 1080px;
     z-index: 3;
     pointer-events: none;
+
+    animation: breathe 4s ease-in-out infinite;
+    transform-origin: center bottom; /* 從腳底為基準呼吸 */
 }
+@keyframes breathe {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.015); } /* 只放大 1.5% */
+    100% { transform: scale(1); }
+}
+
 
 /* 🔘 抽籤按鈕（請填你的設計位置） */
 .draw-btn {
