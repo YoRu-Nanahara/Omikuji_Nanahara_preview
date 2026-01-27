@@ -39,6 +39,15 @@ body, html {
     z-index: 0;
     pointer-events: none;
 }
+#sakura {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1080px;   /* 與舞台設計稿等寬 */
+    height: 1920px;  /* 與舞台設計稿等高 */
+    pointer-events: none;  /* 不阻擋按鈕點擊 */
+    z-index: 5;           /* 比背景高，比籤紙低 */
+}
 
 
 /* 🎴 籤紙（請填你實際設計尺寸） */
