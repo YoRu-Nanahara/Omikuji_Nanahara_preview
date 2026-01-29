@@ -1,3 +1,5 @@
+/* 1️⃣ 在 CSS 最上方先載入 Web Font */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap');
 #loadingScreen {
   position: fixed;
   inset: 0;
@@ -55,6 +57,7 @@
 }
 
 #introText {
+  font-family: 'Open Sans', sans-serif;
   position: absolute;
   top: 10%;
   left: 50%;
