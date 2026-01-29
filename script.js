@@ -7,6 +7,7 @@ const assets = [
   "images/loading-bg.jpg",
   "images/loading-sakura.png",
   "images/bg.jpg",
+  "images/shrine.png",
   "images/characters.png",
   "images/draw-btn.png",
   "images/omikuji1.png",
@@ -25,23 +26,6 @@ const assets = [
 
 let preloadLoadedCount = 0;
 
-function updateLoadingProgress() {
-  preloadLoadedCount++;
-  const percent = Math.floor((preloadLoadedCount / assets.length) * 100);
-  loadingText.textContent = `Loading... ${percent}%`;
-
-  if (preloadLoadedCount === assets.length) {
-    setTimeout(() => {
-      loadingScreen.style.opacity = "0";
-      loadingScreen.style.transition = "opacity 1.5s ease";
-      setTimeout(() => {
-        loadingScreen.style.display = "none";
-      }, 1500);
-    }, 1000);
-  }
-}
-
-// 開始預載
 assets.forEach(src => {
   const ext = src.split(".").pop().toLowerCase();
 
@@ -53,8 +37,101 @@ assets.forEach(src => {
     const img = new Image();
     img.src = src;
     img.onload = updateLoadingProgress;
+    img.onerror = updateLoadingProgress; // ★ 避免卡死
   }
 });
+
+
+/* ===== Loading 預載系統 ===== */
+function updateLoadingProgress() {
+  preloadLoadedCount++;
+  const percent = Math.floor((preloadLoadedCount / assets.length) * 100);
+  loadingText.textContent = `Loading... ${percent}%`;
+
+  if (preloadLoadedCount === assets.length) {
+    setTimeout(() => {
+      hideLoadingScreen();
+    }, 1000);
+  }
+}
+
+/* ===== 隱藏 Loading 並顯示導覽頁 ===== */
+function hideLoadingScreen() {
+  // Loading 淡出
+  loadingScreen.style.opacity = "0";
+  loadingScreen.style.transition = "opacity 1.5s ease";
+
+  setTimeout(() => {
+    loadingScreen.style.display = "none";
+
+    // 顯示導覽頁背景
+    const introScreen = document.getElementById("introScreen");
+    introScreen.style.opacity = "1";
+
+    // 逐行文字浮現
+    showIntroTextLines();
+  }, 1500); // 對應 Loading fade 時間
+}
+
+const blessingWrapper = document.getElementById("blessingWrapper");
+const blessingCard = document.getElementById("blessingCard");
+const introScreen = document.getElementById("introScreen");
+
+/* ===== 顯示卡片 ===== */
+function showBlessingCard() {
+  // 顯示 wrapper
+  blessingWrapper.style.opacity = "1";
+  blessingWrapper.style.pointerEvents = "auto";
+  blessingWrapper.style.transition = "opacity 1s ease";
+
+  // 啟動浮動 + 光暈動畫
+  blessingCard.classList.add("card-animate");
+}
+
+/* ===== 點擊卡片飛走 ===== */
+blessingCard.addEventListener("click", () => {
+  blessingCard.style.pointerEvents = "none";
+  localStorage.setItem("nanaharaBlessed", "yes");
+
+  // 停止浮動 + 光暈動畫
+  blessingCard.classList.remove("card-animate");
+
+  // 加上飛走動畫
+  blessingWrapper.classList.add("card-hide");
+
+  // 導覽頁淡出
+  introScreen.style.transition = "opacity 1.2s ease";
+  introScreen.style.opacity = "0";
+
+  setTimeout(() => {
+    introScreen.style.display = "none";
+    blessingWrapper.style.display = "none";
+  }, 1200);
+});
+
+/* ===== 文字動畫完成後才顯示卡片 ===== */
+function showIntroTextLines() {
+  const lines = document.querySelectorAll("#introText div");
+  const lineDelay = 1.5;
+  const animDuration = 4;
+
+  lines.forEach((line, index) => {
+    line.style.animation = "none";
+    void line.offsetWidth;
+    line.style.animation = `fadeUpLine ${animDuration}s forwards ${index * lineDelay}s`;
+  });
+
+  const totalTime = (lines.length - 1) * lineDelay + animDuration;
+
+  setTimeout(() => {
+    showBlessingCard();
+  }, totalTime * 1000);
+}
+
+
+
+
+
 
 
 const omikuji = document.getElementById("omikuji");
