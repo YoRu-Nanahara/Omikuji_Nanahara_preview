@@ -94,27 +94,32 @@ function showBlessingCard() {
 blessingCard.addEventListener("click", () => {
   blessingCard.style.pointerEvents = "none";
 
-  // 只有第一次祝福才加
-  if (!localStorage.getItem("nanaharaBlessed")) {
-    const blessingRef = firebase.database().ref("nanaharaBlessings");
+  // 取得 Firebase reference
+  const blessingRef = firebase.database().ref("nanaharaBlessings");
+  const countRef = firebase.database().ref("nanaharaBlessingsCount");
 
-    blessingRef.transaction(current => {
-      return (current || 0) + 1;
-    }, (error, committed, snapshot) => {
-      if (error) {
-        console.error("Firebase transaction 失敗：", error);
-      } else if (!committed) {
-        console.log("Transaction 未提交");
-      } else {
-        console.log("祝福成功！目前總數：", snapshot.val());
-        localStorage.setItem("nanaharaBlessed", "yes");
-      }
-    });
-  }
+    // 每次點擊都 push 一筆祝福
+  blessingsRef.push({
+    timestamp: Date.now(),
+    device: navigator.userAgent
+  });
 
+  // 同步更新總數
+  countRef.transaction(current => (current || 0) + 1, (error, committed, snapshot) => {
+    if (error) {
+      console.error("更新總數失敗：", error);
+    } else if (!committed) {
+      console.log("Transaction 未提交");
+    } else {
+      console.log("祝福總數：", snapshot.val());
+    }
+  });
+
+  // 卡片動畫
   blessingCard.classList.remove("card-animate");
   blessingWrapper.classList.add("card-hide");
 
+  // 導覽頁淡出
   introScreen.style.transition = "opacity 1.2s ease";
   introScreen.style.opacity = "0";
 
@@ -123,6 +128,8 @@ blessingCard.addEventListener("click", () => {
     blessingWrapper.style.display = "none";
   }, 1200);
 });
+
+
 
 
 
