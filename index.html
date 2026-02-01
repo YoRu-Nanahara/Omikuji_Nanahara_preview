@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
+<link rel="icon" type="image/png" href="images/favicon.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>御神籤</title>
@@ -17,6 +18,18 @@
 
 
  <div class="stage">
+  <!-- 🎉 抽籤結果分享彈窗 -->
+<div id="resultModal">
+  <div class="modalContent">
+    <img id="resultImage" alt="你的御神籤結果">
+    <div class="modalButtons">
+      <img id="shareBtn" src="images/share-btn.png">
+      <img id="saveBtn" src="images/save-btn.png">
+      <img id="closeModal" src="images/close-btn.png">
+    </div>
+  </div>
+</div>
+
 
   <!-- 導覽頁 -->
  <div id="introScreen">
@@ -40,23 +53,15 @@
 
 
 
-  <!-- 背景 -->
-  <img src="images/bg.jpg" class="bg" alt="背景">
+  <img src="images/bg.jpg" class="bg" crossorigin="anonymous">
+<img src="images/shrine.png" class="shrine" crossorigin="anonymous">
+<img src="images/characters.png" class="characters" crossorigin="anonymous">
+<!-- 櫻花粒子層 -->
+<canvas id="sakura"></canvas>
 
-  <!-- 神社圖層 -->
-  <img id="shrine" class="shrine" src="images/shrine.png" alt="神社">
+<img id="omikuji" class="omikuji" src="images/omikuji1.png" crossorigin="anonymous">
+<img src="images/draw-btn.png" id="drawBtn" class="draw-btn" crossorigin="anonymous">
 
-    <!-- 櫻花粒子層 -->
-  <canvas id="sakura"></canvas>
-  
-  <!-- 籤紙 -->
-  <img id="omikuji" class="omikuji" src="images/omikuji1.png" alt="御神籤">
-
-  <!-- 角色前景 -->
-  <img src="images/characters.png" class="characters" alt="角色">
-
-  <!-- 抽籤按鈕 -->
-  <img src="images/draw-btn.png" id="drawBtn" class="draw-btn" alt="抽御神籤">
 
 
 </div>
@@ -82,9 +87,11 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
+
 </script>
 
 
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
   <script src="script.js"></script>
 </body>

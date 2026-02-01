@@ -281,3 +281,57 @@ body, html {
         transform: translate(-50%, -50%) scale(1);
     }
 }
+
+#resultModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 5000;
+}
+
+.modalContent {
+  width: 860px;
+  background: white;
+  border-radius: 30px;
+  padding: 40px 30px 50px;
+  text-align: center;
+  position: relative;
+  animation: modalPop 0.4s ease;
+}
+
+@keyframes modalPop {
+  from { transform: scale(0.8); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+#resultImage {
+  width: 100%;
+  border-radius: 20px;
+  margin-bottom: 30px;
+}
+
+.modalButtons {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+}
+
+.modalButtons img {
+  width: 420px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.modalButtons img:active {
+  transform: scale(0.92);
+}
+
+#closeModal {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 120px;
+}
