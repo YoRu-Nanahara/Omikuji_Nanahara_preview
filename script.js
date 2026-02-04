@@ -507,3 +507,20 @@ saveBtn.addEventListener("click", () => {
 closeModal.addEventListener("click", () => {
   resultModal.style.display = "none";
 });
+
+
+function updateDayNightMode() {
+  const hour = new Date().getHours();
+
+  if (hour >= 18 || hour < 6) {
+    document.body.classList.add("night-mode");
+  } else {
+    document.body.classList.remove("night-mode");
+  }
+}
+
+// 進站時先判斷一次
+updateDayNightMode();
+
+// 每 5 分鐘檢查一次時間（避免剛好跨 6 點沒刷新）
+setInterval(updateDayNightMode, 5 * 60 * 1000);
