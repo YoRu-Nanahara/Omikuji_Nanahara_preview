@@ -176,7 +176,7 @@ const images = [
   "images/omikuji7.png"
 ];
 
-const weights = [16, 35, 12, 10, 8, 0, 0];
+const weights = [16, 35, 12, 10, 8, 5, 2];
 const STORAGE_KEY = "omikuji-last-date"; // 抽籤時間
 const RESULT_KEY = "omikuji-result";      // 抽籤結果
 
