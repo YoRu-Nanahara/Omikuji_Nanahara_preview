@@ -478,18 +478,97 @@ function popOmamoriPart(part) {
   el.classList.add("pop");
   el.addEventListener("animationend", () => el.classList.remove("pop"), { once: true });
 }
+// =========================
+// Omamori 圖片預載快取（建議放外層，不塞在 bind 裡）
+// =========================
+const omamoriImgCache = new Map(); // url -> HTMLImageElement
+let omamoriPreloadStarted = false;
 
-function cycle(part, dir) {
-  const count = OMAMORI_ASSETS[part].count;
-  let next = omamoriState[part] + dir;
-  if (next < 0) next = count - 1;
-  if (next >= count) next = 0;
+function preloadOne(url) {
+  if (!url) return Promise.resolve(null);
+  if (omamoriImgCache.has(url)) return Promise.resolve(omamoriImgCache.get(url));
 
-  omamoriState[part] = next;
-  applyOmamoriImages();
-  saveOmamoriState();
-  popOmamoriPart(part);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous"; // 同網域無害，之後上 CDN 也安全
+    img.onload = async () => {
+      try {
+        if (img.decode) await img.decode(); // ✅ 把 decode 提前做掉
+      } catch {}
+      omamoriImgCache.set(url, img);
+      resolve(img);
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
 }
+
+function buildAllOmamoriUrls() {
+  const urls = [];
+  for (let i = 0; i < OMAMORI_ASSETS.knot.count; i++) urls.push(toFilePath("knot", i));
+  for (let i = 0; i < OMAMORI_ASSETS.top.count; i++) urls.push(toFilePath("top", i));
+  for (let i = 0; i < OMAMORI_ASSETS.bottom.count; i++) urls.push(toFilePath("bottom", i));
+  return urls;
+}
+
+// 分批預載：避免一次塞爆造成卡頓
+async function preloadOmamoriAllPartsBatch(batchSize = 4) {
+  const urls = buildAllOmamoriUrls();
+  const pending = urls.filter(u => !omamoriImgCache.has(u));
+
+  for (let i = 0; i < pending.length; i += batchSize) {
+    const batch = pending.slice(i, i + batchSize);
+    await Promise.all(batch.map(preloadOne));
+
+    // ✅ 讓出主執行緒（手機超重要）
+    await new Promise(r => setTimeout(r, 16));
+  }
+}
+
+function startOmamoriPreloadIdle() {
+  if (omamoriPreloadStarted) return;
+  omamoriPreloadStarted = true;
+
+  const run = () => preloadOmamoriAllPartsBatch(4);
+
+  // ✅ 盡量別搶動畫：等閒暇時再跑
+  if ("requestIdleCallback" in window) {
+    requestIdleCallback(run, { timeout: 1500 });
+  } else {
+    setTimeout(run, 700);
+  }
+}
+
+let omamoriCycleBusy = false;
+async function cycle(part, dir) {
+  if (omamoriCycleBusy) return;      // ✅ 防連點
+  omamoriCycleBusy = true;
+
+  try {
+    const count = OMAMORI_ASSETS[part].count;
+    let next = omamoriState[part] + dir;
+    if (next < 0) next = count - 1;
+    if (next >= count) next = 0;
+
+    const nextUrl = toFilePath(part, next);
+
+    // ✅ 先確保下一張載入+decode完，再切換
+    await preloadOne(nextUrl);
+
+    omamoriState[part] = next;
+
+    if (part === "knot" && omamoriKnotImg) omamoriKnotImg.src = nextUrl;
+    if (part === "top" && omamoriTopImg) omamoriTopImg.src = nextUrl;
+    if (part === "bottom" && omamoriBottomImg) omamoriBottomImg.src = nextUrl;
+
+    saveOmamoriState();
+    popOmamoriPart(part);
+  } finally {
+    omamoriCycleBusy = false;
+  }
+}
+
+
 
 
 // ===== 5) Focus：顯示/隱藏 =====
@@ -541,14 +620,16 @@ function bindOmamoriControls() {
   omamoriBound = true;
 
   // 部件切換
-  if (btnKnotLeft) btnKnotLeft.addEventListener("click", () => cycle("knot", -1));
-  if (btnKnotRight) btnKnotRight.addEventListener("click", () => cycle("knot", 1));
 
-  if (btnTopLeft) btnTopLeft.addEventListener("click", () => cycle("top", -1));
-  if (btnTopRight) btnTopRight.addEventListener("click", () => cycle("top", 1));
+  if (btnKnotLeft) btnKnotLeft.addEventListener("click", async () => { await cycle("knot", -1); });
+if (btnKnotRight) btnKnotRight.addEventListener("click", async () => { await cycle("knot",  1); });
 
-  if (btnBottomLeft) btnBottomLeft.addEventListener("click", () => cycle("bottom", -1));
-  if (btnBottomRight) btnBottomRight.addEventListener("click", () => cycle("bottom", 1));
+if (btnTopLeft) btnTopLeft.addEventListener("click", async () => { await cycle("top", -1); });
+if (btnTopRight) btnTopRight.addEventListener("click", async () => { await cycle("top",  1); });
+
+if (btnBottomLeft) btnBottomLeft.addEventListener("click", async () => { await cycle("bottom", -1); });
+if (btnBottomRight) btnBottomRight.addEventListener("click", async () => { await cycle("bottom",  1); });
+
 
   // 完成 -> focus
   if (btnOmamoriFinish) {
@@ -560,6 +641,7 @@ function bindOmamoriControls() {
     console.warn("[Omamori] btnOmamoriFinish not found");
   }
 
+
   // Menu -> Omamori（進入御守畫面）
   if (btnOmamori) {
     btnOmamori.addEventListener("click", () => {
@@ -567,6 +649,14 @@ function bindOmamoriControls() {
 
       applyOmamoriImages();
       exitOmamoriFocusMode();
+setTimeout(() => {
+  // 用 idle 更不干擾動畫
+  if ("requestIdleCallback" in window) {
+    requestIdleCallback(() => preloadOmamoriAllPartsBatch(4), { timeout: 1200 });
+  } else {
+    preloadOmamoriAllPartsBatch(4);
+  }
+}, 800);
 
       // ⚠️ goToScreen/menuScreen 必須存在
       if (typeof goToScreen === "function" && menuScreen && omamoriScreen) {
@@ -579,6 +669,7 @@ function bindOmamoriControls() {
       if (typeof startOmamoriAutoTalk === "function") {
         setTimeout(() => startOmamoriAutoTalk(), 650);
       }
+      startOmamoriPreloadIdle();
     });
   } else {
     console.warn("[Menu] btnOmamori not found");
