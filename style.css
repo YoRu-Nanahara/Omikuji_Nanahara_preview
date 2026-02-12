@@ -102,7 +102,6 @@
 }
 
 
-
 #menuScreen {
   position: absolute;
   inset: 0;
@@ -863,21 +862,21 @@ html, body {
 
 /* 角色呼吸：放在 wrapper 上，避免跟彈跳搶 transform */
 #omamoriDialogue .npc-breathe {
-  display: inline-block;            /* 讓 transform 生效 */
-  transform-origin: center bottom;  /* 從腳底呼吸比較自然 */
   animation: npcBreathe 3s ease-in-out infinite;
 }
 
-/* 你的呼吸 keyframes（如果你已有同名就沿用） */
-@keyframes npcBreathe {
-  0%   { transform: scale(1); }
-  50%  { transform: scale(1.015); }
-  100% { transform: scale(1); }
+/* ✅ pop 的時候把 pop 疊上去（用逗號） */
+#omamoriDialogue .npc-breathe.npc-pop {
+  animation: npcBreathe 3s ease-in-out infinite, npcPop 220ms ease-out;
 }
 
 
 /* ===== Omamori 對話框文字調整 ===== */
 
+@keyframes npcBreathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-4px) scale(1.015); }
+}
 
 
 /* 彈跳動畫：放在 img 上，跟呼吸分離 */

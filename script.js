@@ -464,6 +464,19 @@ function applyOmamoriImages() {
 }
 
 
+const OMAMORI_CHAR_ASSETS = {
+  left:  { count: 6, prefix: "images/omamori-characters-left-",  pad: 2, ext: ".png" },
+  right: { count: 6, prefix: "images/omamori-characters-right-", pad: 2, ext: ".png" },
+};
+
+function charPath(side, index0){
+  const cfg = OMAMORI_CHAR_ASSETS[side];
+  const num = String(index0 + 1).padStart(cfg.pad, "0");
+  return `${cfg.prefix}${num}${cfg.ext}`;
+}
+
+
+
 // ===== 4) 部件切換 =====
 function popOmamoriPart(part) {
   const wrapMap = { top: "wrapOmamoriTop", bottom: "wrapOmamoriBottom", knot: "wrapOmamoriKnot" };
@@ -478,6 +491,46 @@ function popOmamoriPart(part) {
   el.classList.add("pop");
   el.addEventListener("animationend", () => el.classList.remove("pop"), { once: true });
 }
+
+// ===== 角色差分圖片預載快取 =====
+const omamoriCharCache = new Map(); // url -> HTMLImageElement
+
+function preloadCharOne(url){
+  if (!url) return Promise.resolve(null);
+  if (omamoriCharCache.has(url)) return Promise.resolve(omamoriCharCache.get(url));
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = async () => {
+      try { if (img.decode) await img.decode(); } catch {}
+      omamoriCharCache.set(url, img);
+      resolve(img);
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+// 可選：進 omamori 畫面後用 idle 預載全部差分（你本來就有 startOmamoriPreloadIdle，可把這個包進去）
+async function preloadAllOmamoriCharVariantsBatch(batchSize = 2){
+  if (typeof OMAMORI_CHAR_VARIANTS === "undefined") return; // ✅ 防呆
+  const urls = [
+    ...(OMAMORI_CHAR_VARIANTS.left || []),
+    ...(OMAMORI_CHAR_VARIANTS.right || []),
+  ];
+  const pending = urls.filter(u => u && !omamoriCharCache.has(u));
+
+  for (let i = 0; i < pending.length; i += batchSize){
+    const batch = pending.slice(i, i + batchSize);
+    await Promise.all(batch.map(preloadCharOne));
+    await new Promise(r => setTimeout(r, 16));
+  }
+}
+
+
+
+
 // =========================
 // Omamori 圖片預載快取（建議放外層，不塞在 bind 裡）
 // =========================
@@ -652,11 +705,16 @@ if (btnBottomRight) btnBottomRight.addEventListener("click", async () => { await
 setTimeout(() => {
   // 用 idle 更不干擾動畫
   if ("requestIdleCallback" in window) {
-    requestIdleCallback(() => preloadOmamoriAllPartsBatch(4), { timeout: 1200 });
+    requestIdleCallback(() => {
+      preloadOmamoriAllPartsBatch(4);
+      preloadAllOmamoriCharVariantsBatch(2); // ✅ 新增：角色差分也預載
+    }, { timeout: 1200 });
   } else {
     preloadOmamoriAllPartsBatch(4);
+    preloadAllOmamoriCharVariantsBatch(2);   // ✅ 新增：角色差分也預載
   }
 }, 800);
+
 
       // ⚠️ goToScreen/menuScreen 必須存在
       if (typeof goToScreen === "function" && menuScreen && omamoriScreen) {
@@ -750,9 +808,14 @@ const OMAMORI_LINES = {
    - 變化時：該邊差分切換 + 彈跳
 ========================= */
 
-// 如果你前面已經宣告過這兩個，就把下面兩行刪掉避免重複
-const omamoriCharLeft = document.getElementById("omamoriCharLeft");
-const omamoriCharRight = document.getElementById("omamoriCharRight");
+let omamoriCharLeft = null;
+let omamoriCharRight = null;
+
+function ensureOmamoriCharEls(){
+  if (!omamoriCharLeft) omamoriCharLeft = document.getElementById("omamoriCharLeft");
+  if (!omamoriCharRight) omamoriCharRight = document.getElementById("omamoriCharRight");
+}
+
 
 // 角色差分（01/02）
 const OMAMORI_CHAR_VARIANTS = {
@@ -803,12 +866,11 @@ function toggleCharacterVariant(side) {
   return next;
 }
 
-/* 角色彈跳：你之前寫的 npc-pop 邏輯可以沿用；這裡提供保險版 */
-function popCharacter(imgEl) {
+function popCharacterByImg(imgEl) {
   if (!imgEl) return;
 
   imgEl.classList.remove("npc-pop");
-  void imgEl.offsetWidth; // reflow，確保每次都能重新觸發動畫
+  void imgEl.offsetWidth;
   imgEl.classList.add("npc-pop");
 
   imgEl.addEventListener(
@@ -818,15 +880,44 @@ function popCharacter(imgEl) {
   );
 }
 
-/* 單邊（left 或 right）做一次變化：換一句 + 換差分 + 彈跳 */
-function omamoriChangeOneSide(side) {
-  // 1) 如果不在 omamori 畫面，直接停掉該邊計時器（避免背景亂跑）
+
+async function setCharacterVariantSafe(side, variantIndex){
+  ensureOmamoriCharEls();
+
+  const imgEl = (side === "left") ? omamoriCharLeft : omamoriCharRight;
+  const variants = OMAMORI_CHAR_VARIANTS[side];
+
+  if (!imgEl || !variants || !variants.length) return;
+
+  const url = variants[variantIndex];
+  if (!url) return;
+
+  // 1) 先預載 + decode（避免第一次切換延遲）
+  await preloadCharOne(url);
+
+  // 2) 再換圖
+  if (imgEl.src !== url) imgEl.src = url;
+
+  // 3) 雙保險：等 DOM img decode
+  try { if (imgEl.decode) await imgEl.decode(); } catch {}
+
+  // 4) 最後才做 pop（確保不是「先跳再換」）
+  popCharacterByImg(imgEl);
+}
+
+
+
+// ✅ 單邊（left / right）一次變化：換台詞 + 換差分 + 彈跳
+async function omamoriChangeOneSide(side) {
+  // 不在 omamori 畫面就停掉（避免背景亂跑）
   if (!omamoriScreen || omamoriScreen.classList.contains("hidden")) {
     stopOmamoriAutoTalk(side);
     return;
   }
 
-  // 2) 換台詞（不連續）
+  ensureOmamoriCharEls();
+
+  // 1) 換台詞（不連續）
   if (side === "left" && omamoriLineLeft && OMAMORI_LINES?.left?.length) {
     const len = OMAMORI_LINES.left.length;
     const idx = pickIndexNoRepeat(len, lastLineIndex.left);
@@ -841,21 +932,20 @@ function omamoriChangeOneSide(side) {
     typeLine("right", omamoriLineRight, OMAMORI_LINES.right[idx]);
   }
 
-  // 3) 換差分 + 彈跳（只動該邊）
-  if (side === "left" && omamoriCharLeft) {
+  // 2) 換差分：先確保圖載好，再換，再 pop
+  if (side === "left") {
     const v = toggleCharacterVariant("left");
-    omamoriCharLeft.src = OMAMORI_CHAR_VARIANTS.left[v];
-    popCharacter(omamoriCharLeft);
+    await setCharacterVariantSafe("left", v);
   }
 
-  if (side === "right" && omamoriCharRight) {
+  if (side === "right") {
     const v = toggleCharacterVariant("right");
-    omamoriCharRight.src = OMAMORI_CHAR_VARIANTS.right[v];
-    popCharacter(omamoriCharRight);
+    await setCharacterVariantSafe("right", v);
   }
 
-  // 4) 排程下一次（只排該邊）
+  // 3) 排程下一次
   scheduleNextOmamoriChange(side);
+
 }
 
 /* 排程下一次（單邊） */
