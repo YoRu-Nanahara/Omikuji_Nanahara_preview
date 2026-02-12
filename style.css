@@ -614,6 +614,57 @@ html, body {
   transform: scale(0.96);
 }
 
+/* =========================
+   ✅ Omamori Glow Layer（效能版）
+   - 取代 filter: drop-shadow 動畫
+   - 只動 opacity（手機超順）
+========================= */
+
+/* 讓 #omamoriPreview 成為定位容器（你本來就有 position:absolute; inset:0; 這裡只補保險） */
+#omamoriPreview{
+  position: absolute;
+  inset: 0;
+}
+
+/* Glow 層：跟御守同一套定位（用跟部件一樣的寬與 left/top） */
+#omamoriGlowLayer{
+  position: absolute;
+
+  /* ✅ 對齊御守本體的位置（跟 .omamori-part 一樣） */
+  left: 135px;
+  top: 100px;
+  width: 800px;
+  height: 995px; /* 453 + 342 */
+
+  pointer-events: none;
+
+  /* 放在本體下面（比 top/bottom/knot 低），這樣像「從裡面透出來」 */
+  z-index: 0; /* 低於 top/bottom(10) & knot(20)，高於背景 */
+
+  opacity: 0;
+
+  /* ✅ 這兩個很重要：逼瀏覽器走合成層，減少卡頓 */
+  transform: translateZ(0);
+  will-change: opacity;
+}
+
+/* ✅ 聚焦時才打開 Glow（只做 opacity 呼吸） */
+#omamoriScreen.focus #omamoriGlowLayer{
+  opacity: 1;
+  animation: omamoriGlowBreath 2.4s ease-in-out infinite;
+}
+
+/* 只動 opacity，不動 filter（效能很好） */
+@keyframes omamoriGlowBreath{
+  0%, 100% { opacity: 0.72; }
+  50%      { opacity: 1.00; }
+}
+
+#omamoriGlowLayer{
+  background: url("images/omamori-glow.png") center/contain no-repeat;
+}
+
+
 /* ✅ 御守 focus（完成聚焦）時，右上角那顆先隱藏，避免跟你三顆 focus actions 重複 */
 #omamoriScreen.focus #btnOmamoriMenu {
   display: none;
@@ -666,7 +717,7 @@ html, body {
   inset: 0;
   z-index: 20;            /* 平常跟部件差不多層 */
   transform-origin: center center;
-  transition: transform 280ms ease, filter 280ms ease;
+ transition: transform 280ms ease;
 }
 
 /* 暗幕：只暗「御守畫面內的東西」，不會影響整個網站其他 screen */
@@ -686,18 +737,16 @@ html, body {
   opacity: 1;
 }
 
-/* 聚焦時：御守放大 + 發光（多層 drop-shadow 疊加會很有「神聖感」） */
 #omamoriScreen.focus #omamoriPreview {
   z-index: 60;
 
-  /* 用動畫取代固定 transform/filter */
-  animation:
-    omamoriFloat 2.2s ease-in-out infinite,
-    omamoriGlowPulse 2.4s ease-in-out infinite;
+  /* ✅ 只留位移/縮放動畫（GPU 合成層），不要再動畫 filter */
+  animation: omamoriFloat 2.2s ease-in-out infinite;
 
-  /* 讓動畫更柔順 */
-  will-change: transform, filter;
+  will-change: transform;
+  transform: translateZ(0);
 }
+
 
 
 /* 聚焦時：把左右鍵與完成鍵「淡出 + 不能點」讓視覺更乾淨 */
@@ -737,6 +786,13 @@ html, body {
       drop-shadow(0 0 14px rgba(255, 230, 180, 0.70))
       drop-shadow(0 0 30px rgba(255, 215, 120, 0.55))
       drop-shadow(0 0 55px rgba(255, 255, 255, 0.28));
+  }
+}
+
+/* 桌機（滑鼠環境）才加「靜態」drop-shadow 提升質感：注意是靜態，不動畫 */
+@media (hover: hover) and (pointer: fine) {
+  #omamoriScreen.focus #omamoriGlowLayer{
+    filter: drop-shadow(0 0 18px rgba(255, 215, 120, 0.35));
   }
 }
 
