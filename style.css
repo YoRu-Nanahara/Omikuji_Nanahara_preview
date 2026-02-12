@@ -1,5 +1,7 @@
 /* 1️⃣ 在 CSS 最上方先載入 Web Font */
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap');
+
+
 #loadingScreen {
   position: fixed;
   inset: 0;
@@ -199,9 +201,9 @@
   bottom: 140px;
 
   transform: translateX(-50%);
-  font-size: 60px;
-  letter-spacing: 3px;
-
+  font-size: 45px;
+  letter-spacing: 4px;
+  font-family: 'Cinzel', serif;
   text-align: center;
 
   z-index: 5;
@@ -230,20 +232,13 @@ body.night-mode #menuWelcomeText {
     0 0 18px rgba(255, 220, 180, 0.4);
 }
 
-@keyframes welcomeFloat {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50%      { transform: translateX(-50%) translateY(-6px); }
-}
 
-#menuWelcomeText {
-  animation: welcomeFloat 4s ease-in-out infinite;
-}
 
 /* ===== Menu LOGO ===== */
 #menuLogo {
   position: absolute;
   left: 50%;
-  bottom: 40px;   /* 比歡迎文字高一點（120 + 約 90）可微調 */
+  bottom: 70px;   /* 比歡迎文字高一點（120 + 約 90）可微調 */
 
   transform: translateX(-50%);
   z-index: 5;
@@ -253,8 +248,13 @@ body.night-mode #menuWelcomeText {
   transition: opacity 1.5s ease;
 }
 
+@keyframes welcomeFloat {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%      { transform: translateX(-50%) translateY(-8px); }
+}
+
 #menuLogo img {
-  width: 500px;   /* LOGO 大小可調 */
+  width: 800px;   /* LOGO 大小可調 */
   height: auto;
   display: block;
 }
@@ -634,7 +634,7 @@ html, body {
   border: none;
   background: transparent;
   cursor: pointer;
-   opacity: 80%;
+   opacity: 100%;
 
   z-index: 4999; /* 壓過角色/背景/御守，不壓 modal（modal 你是 20000） */
 }
