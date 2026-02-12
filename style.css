@@ -193,14 +193,12 @@
 }
 
 /* ===== Menu 底部歡迎文字 ===== */
-/* ===== Menu 底部歡迎文字 ===== */
 #menuWelcomeText {
   position: absolute;
   left: 50%;
   bottom: 120px;
 
   transform: translateX(-50%);
-  font-family: 'Open Sans', sans-serif;
   font-size: 60px;
   letter-spacing: 3px;
 
@@ -241,8 +239,45 @@ body.night-mode #menuWelcomeText {
   animation: welcomeFloat 4s ease-in-out infinite;
 }
 
+/* ===== Menu LOGO ===== */
+#menuLogo {
+  position: absolute;
+  left: 50%;
+  bottom: 280px;   /* 比歡迎文字高一點（120 + 約 90）可微調 */
 
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: none;
 
+  opacity: 0;
+  transition: opacity 1.5s ease;
+}
+
+#menuLogo img {
+  width: 220px;   /* LOGO 大小可調 */
+  height: auto;
+  display: block;
+}
+
+#menuScreen:not(.hidden) #menuLogo {
+  opacity: 1;
+}
+
+#menuLogo {
+  animation: welcomeFloat 4s ease-in-out infinite;
+}
+
+body:not(.night-mode) #menuScreen:not(.hidden) #menuLogo img {
+  filter:
+    drop-shadow(0 0 10px rgba(255,255,255,0.2))
+    drop-shadow(0 0 25px rgba(255,210,210,0.6));
+}
+
+body.night-mode #menuScreen:not(.hidden) #menuLogo img {
+  filter:
+    drop-shadow(0 0 10px rgba(255,230,200,0.6))
+    drop-shadow(0 0 30px rgba(255,220,180,0.5));
+}
 
 
 
