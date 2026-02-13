@@ -231,7 +231,7 @@
 body:not(.night-mode) #menuScreen:not(.hidden) #menuLogo img {
   filter:
     drop-shadow(0 0 35px rgb(255, 240, 240))
-    drop-shadow(0 0 15px rgba(255, 137, 202, 0.808))
+    drop-shadow(0 0 10px rgba(255, 137, 202, 0.808))
     drop-shadow(0 0 10px rgba(255, 231, 151, 0.973));
 }
 
