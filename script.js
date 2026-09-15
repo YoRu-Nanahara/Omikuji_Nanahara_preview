@@ -6355,10 +6355,11 @@ const GARDEN_WALK_AREAS = {
         { x: 454, y: 957 },
         { x: 490, y: 988 },
         { x: 671, y: 960 },
-        { x: 510, y: 1200 },
-        { x: 237, y: 1309 },
-        { x: 242, y: 1419 },
-        { x: 276, y: 1507 },
+        { x: 510, y: 1000 },
+        { x: 150, y: 1100 },
+        { x: 150, y: 1309 },
+        { x: 160, y: 1419 },
+        { x: 210, y: 1507 },
         { x: 578, y: 1690 },
         { x: 1023, y: 1687 },
         { x: 992, y: 1851 },
@@ -6445,81 +6446,173 @@ function isGardenSegmentWalkable(a, b) {
 */
 const GARDEN_PATH_NODES = [
   /*
-    far 遠景區：
-    沿著黃色遠景區中心線走。
+    far 遠景區
   */
-  { name: "far-right", x: 885, y: 470 },
-  { name: "far-mid-right", x: 760, y: 495 },
-  { name: "far-mid", x: 610, y: 525 },
+  { name: "far-right", x: 850, y: 520 },
+  { name: "far-mid-right", x: 760, y: 535 },
+  { name: "far-mid", x: 610, y: 550 },
   { name: "far-left", x: 430, y: 570 },
   { name: "far-down-left", x: 285, y: 665 },
   { name: "far-gate", x: 165, y: 735 },
 
   /*
-    far / ground 銜接：
-    遠景與一般庭院的主要出入口。
+    far / ground 銜接
   */
   { name: "ground-gate", x: 105, y: 805 },
-  { name: "left-upper", x: 115, y: 900 },
+  { name: "left-upper", x: 100, y: 900 },
 
   /*
-    左側主路：
-    從遠景入口往中庭、前景繞行的安全主幹。
+    左側狹窄主路
+    新版範圍在 y=1100~1300 左右時，安全區大約在 x=40~140，
+    所以這段不要放太右。
   */
-  { name: "left-main-a", x: 115, y: 980 },
-  { name: "left-main-b", x: 165, y: 1120 },
-  { name: "left-main-c", x: 220, y: 1320 },
-  { name: "left-neck", x: 235, y: 1450 },
+  { name: "left-main-a", x: 100, y: 1000 },
+  { name: "left-main-b", x: 95, y: 1120 },
+  { name: "left-main-c", x: 95, y: 1260 },
+  { name: "left-neck", x: 105, y: 1400 },
+  { name: "neck-low", x: 140, y: 1490 },
+  { name: "front-entrance", x: 270, y: 1545 },
 
   /*
-    上庭院 / 右上建築前方：
-    這段會支援角色在 y=600~800 左右時，
-    走到右上轉角前方並切到 cornerFront layer。
+    上庭院 / 右上建築前方
   */
   { name: "upper-mid-low", x: 300, y: 950 },
   { name: "upper-mid", x: 420, y: 850 },
   { name: "upper-right", x: 610, y: 705 },
-  { name: "corridor-right", x: 900, y: 625 },
-  { name: "right-upper", x: 1000, y: 690 },
+  { name: "corridor-right", x: 900, y: 640 },
+  { name: "right-upper", x: 1000, y: 700 },
 
   /*
-    前景區：
-    y > 1400 後會進 front layer，高於枯山水。
+    前景區
   */
-  { name: "front-left", x: 300, y: 1540 },
+  { name: "front-left", x: 300, y: 1580 },
   { name: "front-center-left", x: 430, y: 1640 },
   { name: "front-center", x: 600, y: 1725 },
   { name: "front-right", x: 850, y: 1725 },
 
   /*
-    底部區：
-    畫面最下方可走範圍。
+    底部區
   */
   { name: "bottom-left", x: 380, y: 1810 },
   { name: "bottom-center", x: 600, y: 1810 },
   { name: "bottom-right", x: 930, y: 1810 },
 ];
 
+
 const GARDEN_AUTO_TARGET_POINTS = [
   // 遠景
-  { name: "auto-far-right", x: 850, y: 515, zone: "far" },
-  { name: "auto-far-mid", x: 610, y: 535, zone: "far" },
+  { name: "auto-far-right", x: 850, y: 520, zone: "far" },
+  { name: "auto-far-mid", x: 610, y: 550, zone: "far" },
   { name: "auto-far-left", x: 430, y: 570, zone: "far" },
   { name: "auto-far-gate", x: 165, y: 735, zone: "far" },
 
   // 上庭院
-  { name: "auto-upper-right", x: 900, y: 625, zone: "ground" },
+  { name: "auto-upper-right", x: 900, y: 640, zone: "ground" },
   { name: "auto-upper-mid", x: 610, y: 705, zone: "ground" },
   { name: "auto-upper-left", x: 420, y: 850, zone: "ground" },
 
-  // 中庭
-  { name: "auto-left-main", x: 165, y: 1120, zone: "ground" },
-  { name: "auto-mid-low", x: 300, y: 950, zone: "ground" },
-  { name: "auto-front-left", x: 300, y: 1540, zone: "ground" },
+  // 左側主路
+  { name: "auto-left-upper", x: 100, y: 900, zone: "ground" },
+  { name: "auto-left-main-a", x: 100, y: 1000, zone: "ground" },
+  { name: "auto-left-main-b", x: 95, y: 1120, zone: "ground" },
+  { name: "auto-left-main-c", x: 95, y: 1260, zone: "ground" },
+  { name: "auto-left-neck", x: 105, y: 1400, zone: "ground" },
+
+  // 前景入口
+  { name: "auto-front-entrance", x: 270, y: 1545, zone: "ground" },
+  { name: "auto-front-left", x: 300, y: 1580, zone: "ground" },
+  { name: "auto-front-center-left", x: 430, y: 1640, zone: "ground" },
   { name: "auto-front-center", x: 600, y: 1725, zone: "ground" },
   { name: "auto-front-right", x: 850, y: 1725, zone: "ground" },
+
+  // 底部
+  { name: "auto-bottom-left", x: 380, y: 1810, zone: "ground" },
   { name: "auto-bottom-center", x: 600, y: 1810, zone: "ground" },
+  { name: "auto-bottom-right", x: 930, y: 1810, zone: "ground" },
 ];
+
+
+const GARDEN_INITIAL_FAR_CHANCE = 0.12;
+const GARDEN_INITIAL_MIN_DISTANCE = 180;
+const GARDEN_INITIAL_JITTER_X = 45;
+const GARDEN_INITIAL_JITTER_Y = 28;
+
+function pickRandomGardenInitialPoint(options = {}) {
+  const {
+    allowFar = true,
+    avoidPoint = null,
+    minDistance = 0,
+  } = options;
+
+  const useFar =
+    allowFar &&
+    Math.random() < GARDEN_INITIAL_FAR_CHANCE;
+
+  let pool = GARDEN_AUTO_TARGET_POINTS.filter((p) => {
+    if (useFar) return p.zone === "far";
+    return p.zone === "ground";
+  });
+
+  pool = pool.filter((p) => isGardenWalkablePoint(p.x, p.y));
+
+  if (pool.length === 0) {
+    pool = GARDEN_AUTO_TARGET_POINTS.filter((p) =>
+      isGardenWalkablePoint(p.x, p.y)
+    );
+  }
+
+  if (pool.length === 0) {
+    return { x: 600, y: 1725 };
+  }
+
+  for (let i = 0; i < 30; i++) {
+    const base = pool[Math.floor(Math.random() * pool.length)];
+
+    const x = base.x + randomBetween(-GARDEN_INITIAL_JITTER_X, GARDEN_INITIAL_JITTER_X);
+    const y = base.y + randomBetween(-GARDEN_INITIAL_JITTER_Y, GARDEN_INITIAL_JITTER_Y);
+
+    if (!isGardenWalkablePoint(x, y)) continue;
+
+    if (avoidPoint && minDistance > 0) {
+      const dx = x - avoidPoint.x;
+      const dy = y - avoidPoint.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < minDistance) continue;
+    }
+
+    return { x, y };
+  }
+
+  const fallback = pool[Math.floor(Math.random() * pool.length)];
+  return { x: fallback.x, y: fallback.y };
+}
+
+function randomizeGardenCharacterStartPositions() {
+  const chifuyuPoint = pickRandomGardenInitialPoint({
+    allowFar: true,
+  });
+
+  const chinatsuPoint = pickRandomGardenInitialPoint({
+    allowFar: true,
+    avoidPoint: chifuyuPoint,
+    minDistance: GARDEN_INITIAL_MIN_DISTANCE,
+  });
+
+  chifuyuWalkTestState.x = chifuyuPoint.x;
+  chifuyuWalkTestState.y = chifuyuPoint.y;
+  chifuyuWalkTestState.path = [];
+  chifuyuWalkTestState.isMoving = false;
+  chifuyuWalkTestState.frameIndex = 0;
+  chifuyuWalkTestState.frameTimer = 0;
+
+  chinatsuWalkTestState.x = chinatsuPoint.x;
+  chinatsuWalkTestState.y = chinatsuPoint.y;
+  chinatsuWalkTestState.path = [];
+  chinatsuWalkTestState.isMoving = false;
+  chinatsuWalkTestState.frameIndex = 0;
+  chinatsuWalkTestState.frameTimer = 0;
+}
 
 
 
@@ -6735,12 +6828,19 @@ function getChifuyuDepthLayerByPosition(x, y) {
 
   /*
     右上建築轉角：
-    角色腳底 y 在 600~800 左右時，高於 building-corner。
+    角色腳底 y 在 600~900 左右時，高於 building-corner。
     x >= 560 是為了避免左側同高度區域也被搬到轉角前方。
   */
-  if (zone === "ground" && x >= 560 && y >= 600 && y <= 800) {
-    return "cornerFront";
-  }
+  const GARDEN_CORNER_FRONT_X_MIN = 560;
+const GARDEN_CORNER_FRONT_Y_OVER = 780;
+
+if (
+  zone === "ground" &&
+  x >= GARDEN_CORNER_FRONT_X_MIN &&
+  y > GARDEN_CORNER_FRONT_Y_OVER
+) {
+  return "cornerFront";
+}
 
   /*
     前景：
@@ -7214,9 +7314,9 @@ function setChinatsuMovePath(points) {
    姊姊陪伴式散步
 ========================= */
 
-const CHINATSU_AUTO_IDLE_MIN_MS = 1800;
-const CHINATSU_AUTO_IDLE_MAX_MS = 4600;
-const CHINATSU_AUTO_PICK_RETRY = 40;
+const CHINATSU_AUTO_IDLE_MIN_MS = 4200;
+const CHINATSU_AUTO_IDLE_MAX_MS = 10500;
+const CHINATSU_AUTO_PICK_RETRY = 18;
 
 function scheduleNextChinatsuAutoMove(now = performance.now()) {
   chinatsuAutoWalkState.nextMoveTime =
@@ -7262,7 +7362,7 @@ function startChinatsuAutoWalkToCompanionTarget() {
   };
 
   for (let i = 0; i < CHINATSU_AUTO_PICK_RETRY; i++) {
-    const target = pickRandomPointNearChifuyu();
+    const target = pickRandomGardenWalkTarget();
     if (!target) continue;
 
     const dx = target.x - start.x;
@@ -7695,30 +7795,37 @@ function stopChifuyuWalkMoveTest() {
 function initGardenScreen() {
   chifuyuWalkTestState.lastTime = performance.now();
 
-  // 防呆：如果角色目前站在 blocked，就移到安全起點
-  if (!isGardenWalkablePoint(chifuyuWalkTestState.x, chifuyuWalkTestState.y)) {
-    console.warn(
-      "[Garden] Chifuyu start point is blocked. Reset to safe point."
-    );
+  // 每次進入庭院時，重新決定兩人的初始位置
+  randomizeGardenCharacterStartPositions();
 
+  // 防呆：如果千冬抽到 blocked，就移到安全起點
+  if (!isGardenWalkablePoint(chifuyuWalkTestState.x, chifuyuWalkTestState.y)) {
     chifuyuWalkTestState.x = 600;
     chifuyuWalkTestState.y = 1725;
     chifuyuWalkTestState.path = [];
     chifuyuWalkTestState.isMoving = false;
   }
 
-setChifuyuAnimationMode("idle", true);
-setChinatsuAnimationMode("idle", true);
+  // 防呆：如果千夏抽到 blocked，就移到安全起點附近
+  if (!isGardenWalkablePoint(chinatsuWalkTestState.x, chinatsuWalkTestState.y)) {
+    chinatsuWalkTestState.x = 430;
+    chinatsuWalkTestState.y = 1680;
+    chinatsuWalkTestState.path = [];
+    chinatsuWalkTestState.isMoving = false;
+  }
 
-renderChifuyuWalkTest();
-renderChinatsuWalkTest();
+  setChifuyuAnimationMode("idle", true);
+  setChinatsuAnimationMode("idle", true);
 
-resetChifuyuAutoWalk();
-resetChinatsuAutoWalk();
+  renderChifuyuWalkTest();
+  renderChinatsuWalkTest();
 
-drawGardenWalkDebug();
+  resetChifuyuAutoWalk();
+  resetChinatsuAutoWalk();
 
-startChifuyuWalkMoveTest();
+  drawGardenWalkDebug();
+
+  startChifuyuWalkMoveTest();
 }
 
 // 自由移動模式：不再讓玩家點擊控制千冬
