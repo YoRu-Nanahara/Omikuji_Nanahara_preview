@@ -312,19 +312,32 @@ function showIntroTextLines() {
 
 const btnOmikuji = document.getElementById("btnOmikuji");
 const btnMission = document.getElementById("btnMission");
+const btnGarden = document.getElementById("btnGarden");
 
 const leftDoor = document.querySelector(".door.left");
 const rightDoor = document.querySelector(".door.right");
 
 const omikujiScreen = document.getElementById("omikujiScreen");
+const gardenScreen = document.getElementById("gardenScreen");
 const windGameScreen = document.getElementById("windGameScreen");
 const windGameBg = document.getElementById("windGameBg");
 const btnWindGameMenu = document.getElementById("btnWindGameMenu");
 const windPauseOverlay = document.getElementById("windPauseOverlay");
 
-function goToScreen(fromScreen, toScreen, holdTime = 600, onClosedReady = null) {
-  leftDoor.classList.remove("hide", "closed");
-  rightDoor.classList.remove("hide", "closed");
+function goToScreen(
+  fromScreen,
+  toScreen,
+  holdTime = 600,
+  onClosedReady = null,
+  onScreenShown = null
+) {
+  if (!fromScreen || !toScreen || !leftDoor || !rightDoor) return;
+
+  leftDoor.classList.remove("hide", "closed", "show");
+  rightDoor.classList.remove("hide", "closed", "show");
+
+  // 重新觸發門動畫
+  void leftDoor.offsetWidth;
 
   leftDoor.classList.add("show");
   rightDoor.classList.add("show");
@@ -338,17 +351,28 @@ function goToScreen(fromScreen, toScreen, holdTime = 600, onClosedReady = null) 
     leftDoor.classList.remove("show");
     rightDoor.classList.remove("show");
 
-    fromScreen.classList.add("hidden");
-    toScreen.classList.remove("hidden");
-
+    // 拉門完全闔上後，先做預載 / 準備
     if (typeof onClosedReady === "function") {
       await onClosedReady();
     }
 
+    // 再切畫面
+    fromScreen.classList.add("hidden");
+    toScreen.classList.remove("hidden");
+
+    // 畫面已顯示後才初始化角色 / 動畫
+    requestAnimationFrame(() => {
+      if (typeof onScreenShown === "function") {
+        onScreenShown();
+      }
+    });
+
+    // 最後開門
     setTimeout(() => {
       requestAnimationFrame(() => {
         leftDoor.classList.remove("closed");
         rightDoor.classList.remove("closed");
+
         leftDoor.classList.add("hide");
         rightDoor.classList.add("hide");
       });
@@ -613,6 +637,87 @@ function exitWindGamePerformanceMode() {
   }
 }
 
+
+/* =========================
+   Garden Preload
+========================= */
+
+const CHIFUYU_WALK_SHEET_SRC =
+  "images/garden/chifuyu/chifuyu-walk-sheet.png?v=5";
+
+const CHIFUYU_IDLE_SHEET_SRC =
+  "images/garden/chifuyu/chifuyu-idle-sheet.png?v=5";
+
+
+  const CHINATSU_WALK_SHEET_SRC =
+  "images/garden/chinatsu/chinatsu-walk-sheet.png?v=1";
+
+const CHINATSU_IDLE_SHEET_SRC =
+  "images/garden/chinatsu/chinatsu-idle-sheet.png?v=1";
+
+
+let gardenAssetsLoaded = false;
+let gardenAssetsPromise = null;
+
+const GARDEN_IMAGE_ASSETS = [
+  "images/garden/courtyard/courtyard-bg-day.jpg",
+  "images/garden/courtyard/courtyard-obj-karesansui-front.png",
+  "images/garden/courtyard/courtyard-fg-building-front-edge.png",
+  "images/garden/courtyard/courtyard-fg-lantern-left.png",
+  "images/garden/courtyard/courtyard-fg-building-corner.png",
+  "images/garden/courtyard/courtyard-fg-sakura-top.png",
+  "images/garden/courtyard/courtyard-fg-building-occluder.png", // 建築遮擋圖層
+  "images/garden/courtyard/courtyard-fg-far-area.png", // 遠景場景圖層
+CHIFUYU_IDLE_SHEET_SRC,
+CHIFUYU_WALK_SHEET_SRC,
+
+CHINATSU_IDLE_SHEET_SRC,
+CHINATSU_WALK_SHEET_SRC,
+];
+
+function preloadGardenImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+
+    img.onload = async () => {
+      if (img.decode) {
+        try {
+          await img.decode();
+        } catch {}
+      }
+
+      resolve({ src, ok: true });
+    };
+
+    img.onerror = () => {
+      console.warn("[Garden] preload image failed:", src);
+      resolve({ src, ok: false });
+    };
+
+    img.src = src;
+  });
+}
+
+async function preloadGardenAssets() {
+  if (gardenAssetsLoaded) return;
+
+  if (gardenAssetsPromise) {
+    await gardenAssetsPromise;
+    return;
+  }
+
+  gardenAssetsPromise = Promise.all(
+    GARDEN_IMAGE_ASSETS.map(preloadGardenImage)
+  );
+
+  await gardenAssetsPromise;
+
+if (typeof warmupGardenCharacterAnimationSheets === "function") {
+  await warmupGardenCharacterAnimationSheets();
+}
+
+gardenAssetsLoaded = true;
+}
 
 
 /* =========================
@@ -4124,6 +4229,44 @@ btnOmikuji.addEventListener("click", () => {
   goToScreen(menuScreen, omikujiScreen, 600);
 });
 
+if (btnGarden) {
+  btnGarden.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (typeof goToScreen === "function" && menuScreen && gardenScreen) {
+      goToScreen(
+        menuScreen,
+        gardenScreen,
+        600,
+
+        // 拉門關上後先預載
+        async () => {
+          await preloadGardenAssets();
+        },
+
+        // gardenScreen 顯示後再初始化庭園
+        () => {
+          if (typeof initGardenScreen === "function") {
+            initGardenScreen();
+          }
+        }
+      );
+    } else {
+      menuScreen.classList.add("hidden");
+      gardenScreen.classList.remove("hidden");
+
+      if (typeof scaleGameRoot === "function") {
+        scaleGameRoot();
+      }
+
+      if (typeof initGardenScreen === "function") {
+        initGardenScreen();
+      }
+    }
+  });
+}
+
 if (btnMission) {
   btnMission.addEventListener("click", () => {
     prepareWindGameBackground();
@@ -4154,6 +4297,7 @@ if (btnMission) {
 // ===== Omikuji / Omamori 右上角 Menu 按鈕 =====
 const btnOmikujiMenu = document.getElementById("btnOmikujiMenu");
 const btnOmamoriMenu = document.getElementById("btnOmamoriMenu");
+const btnGardenMenu = document.getElementById("btnGardenMenu");
 
 // 共用回 Menu 行為（會自動帶門動畫）
 function backToMenuFrom(screenEl) {
@@ -4164,10 +4308,14 @@ function backToMenuFrom(screenEl) {
     exitOmamoriFocusMode();
   }
 
+  // 如果是庭園畫面，回去前停止庭園動畫
+  if (screenEl === gardenScreen && typeof stopChifuyuWalkMoveTest === "function") {
+    stopChifuyuWalkMoveTest();
+  }
+
   if (typeof goToScreen === "function") {
     goToScreen(screenEl, menuScreen, 600);
   } else {
-    // 保底：沒有門動畫就直接切
     screenEl.classList.add("hidden");
     menuScreen.classList.remove("hidden");
   }
@@ -4186,6 +4334,14 @@ if (btnOmamoriMenu) {
     e.preventDefault();
     e.stopPropagation();
     backToMenuFrom(omamoriScreen);
+  });
+}
+
+if (btnGardenMenu) {
+  btnGardenMenu.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    backToMenuFrom(gardenScreen);
   });
 }
 
@@ -5999,4 +6155,1447 @@ updateDayNightMode();
 
 // 每 5 分鐘檢查一次時間（避免剛好跨 6 點沒刷新）
 setInterval(updateDayNightMode, 5 * 60 * 1000);
+
+
+
+/* =========================
+   Garden Character Layers
+========================= */
+
+const gardenCharFarLayer = document.getElementById("gardenCharFarLayer");
+const gardenCharNormalLayer = document.getElementById("gardenCharNormalLayer");
+const gardenCharFrontLayer = document.getElementById("gardenCharFrontLayer");
+const gardenCharCornerFrontLayer = document.getElementById("gardenCharCornerFrontLayer");
+
+let chifuyuCurrentDepthLayer = "normal";
+
+function moveChifuyuToDepthLayer(layerName) {
+  if (!chifuyuWalkTestWrap) return;
+  if (chifuyuCurrentDepthLayer === layerName) return;
+
+  let targetLayer = gardenCharNormalLayer;
+
+  if (layerName === "far") {
+    targetLayer = gardenCharFarLayer;
+  }
+
+  if (layerName === "front") {
+    targetLayer = gardenCharFrontLayer;
+  }
+
+  if (layerName === "cornerFront") {
+    targetLayer = gardenCharCornerFrontLayer;
+  }
+
+  if (!targetLayer) return;
+
+  targetLayer.appendChild(chifuyuWalkTestWrap);
+  chifuyuCurrentDepthLayer = layerName;
+}
+
+/* =========================
+   Garden Walk Areas
+   暫定版：用多邊形限制可移動區域
+========================= */
+
+function pointInPolygon(x, y, polygon) {
+  let inside = false;
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x;
+    const yi = polygon[i].y;
+    const xj = polygon[j].x;
+    const yj = polygon[j].y;
+
+    const intersect =
+      yi > y !== yj > y &&
+      x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+
+    if (intersect) inside = !inside;
+  }
+
+  return inside;
+}
+
+/* =========================
+   Garden Walk Areas
+   Debug Version
+========================= */
+
+const GARDEN_WALK_DEBUG = false;
+
+const GARDEN_WALK_AREAS = {
+  ground: [
+    {
+      name: "ground-main",
+      points: [
+      
+        { x: 910, y: 600 },
+        { x: 961, y: 640 },
+        { x: 1054, y: 650 },
+         { x: 998, y: 802 },
+        { x: 699, y: 740 },
+         { x: 451, y: 974 },
+        { x: 454, y: 957 },
+        { x: 490, y: 988 },
+        { x: 671, y: 960 },
+        { x: 510, y: 1200 },
+        { x: 237, y: 1309 },
+        { x: 242, y: 1419 },
+        { x: 276, y: 1507 },
+        { x: 578, y: 1690 },
+        { x: 1023, y: 1687 },
+        { x: 992, y: 1851 },
+        { x: 375, y: 1848 },
+        { x: 34, y: 1552 },
+        { x: 28, y: 765 },
+        { x: 262, y: 757 },
+        { x: 147, y: 909 },
+        { x: 271, y: 921 },
+        { x: 448, y: 672 },
+        { x: 485, y: 650 },
+      
+      ],
+    },
+  ],
+
+  far: [
+    {
+      name: "far-path",
+      points: [
+        { x: 344, y: 532 },
+        { x: 908, y: 501 },
+        { x: 930, y: 503 },
+        { x:685, y: 585 },
+        { x:428, y: 585 },
+        { x:271, y: 678 },
+        { x:256, y: 760 },
+        { x: 28, y: 771 },
+      ],
+    },
+  ],
+};
+
+function getGardenMoveZoneAt(x, y) {
+  for (const area of GARDEN_WALK_AREAS.far) {
+    if (pointInPolygon(x, y, area.points)) {
+      return "far";
+    }
+  }
+
+  for (const area of GARDEN_WALK_AREAS.ground) {
+    if (pointInPolygon(x, y, area.points)) {
+      return "ground";
+    }
+  }
+
+  return "blocked";
+}
+
+/* =========================
+   Garden Path Finding
+   角色不能穿越 blocked 區域
+========================= */
+
+function isGardenWalkablePoint(x, y) {
+  return getGardenMoveZoneAt(x, y) !== "blocked";
+}
+
+function isGardenSegmentWalkable(a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  const stepSize = 10;
+  const steps = Math.max(1, Math.ceil(dist / stepSize));
+
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const x = a.x + dx * t;
+    const y = a.y + dy * t;
+
+    if (!isGardenWalkablePoint(x, y)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/*
+  中繼點：
+  這些點必須放在 ground / far 可走範圍內。
+  之後角色如果不能直線走，就會透過這些點繞行。
+*/
+const GARDEN_PATH_NODES = [
+  /*
+    far 遠景區：
+    沿著黃色遠景區中心線走。
+  */
+  { name: "far-right", x: 885, y: 470 },
+  { name: "far-mid-right", x: 760, y: 495 },
+  { name: "far-mid", x: 610, y: 525 },
+  { name: "far-left", x: 430, y: 570 },
+  { name: "far-down-left", x: 285, y: 665 },
+  { name: "far-gate", x: 165, y: 735 },
+
+  /*
+    far / ground 銜接：
+    遠景與一般庭院的主要出入口。
+  */
+  { name: "ground-gate", x: 105, y: 805 },
+  { name: "left-upper", x: 115, y: 900 },
+
+  /*
+    左側主路：
+    從遠景入口往中庭、前景繞行的安全主幹。
+  */
+  { name: "left-main-a", x: 115, y: 980 },
+  { name: "left-main-b", x: 165, y: 1120 },
+  { name: "left-main-c", x: 220, y: 1320 },
+  { name: "left-neck", x: 235, y: 1450 },
+
+  /*
+    上庭院 / 右上建築前方：
+    這段會支援角色在 y=600~800 左右時，
+    走到右上轉角前方並切到 cornerFront layer。
+  */
+  { name: "upper-mid-low", x: 300, y: 950 },
+  { name: "upper-mid", x: 420, y: 850 },
+  { name: "upper-right", x: 610, y: 705 },
+  { name: "corridor-right", x: 900, y: 625 },
+  { name: "right-upper", x: 1000, y: 690 },
+
+  /*
+    前景區：
+    y > 1400 後會進 front layer，高於枯山水。
+  */
+  { name: "front-left", x: 300, y: 1540 },
+  { name: "front-center-left", x: 430, y: 1640 },
+  { name: "front-center", x: 600, y: 1725 },
+  { name: "front-right", x: 850, y: 1725 },
+
+  /*
+    底部區：
+    畫面最下方可走範圍。
+  */
+  { name: "bottom-left", x: 380, y: 1810 },
+  { name: "bottom-center", x: 600, y: 1810 },
+  { name: "bottom-right", x: 930, y: 1810 },
+];
+
+const GARDEN_AUTO_TARGET_POINTS = [
+  // 遠景
+  { name: "auto-far-right", x: 850, y: 515, zone: "far" },
+  { name: "auto-far-mid", x: 610, y: 535, zone: "far" },
+  { name: "auto-far-left", x: 430, y: 570, zone: "far" },
+  { name: "auto-far-gate", x: 165, y: 735, zone: "far" },
+
+  // 上庭院
+  { name: "auto-upper-right", x: 900, y: 625, zone: "ground" },
+  { name: "auto-upper-mid", x: 610, y: 705, zone: "ground" },
+  { name: "auto-upper-left", x: 420, y: 850, zone: "ground" },
+
+  // 中庭
+  { name: "auto-left-main", x: 165, y: 1120, zone: "ground" },
+  { name: "auto-mid-low", x: 300, y: 950, zone: "ground" },
+  { name: "auto-front-left", x: 300, y: 1540, zone: "ground" },
+  { name: "auto-front-center", x: 600, y: 1725, zone: "ground" },
+  { name: "auto-front-right", x: 850, y: 1725, zone: "ground" },
+  { name: "auto-bottom-center", x: 600, y: 1810, zone: "ground" },
+];
+
+
+
+function findGardenPath(start, target) {
+  if (!isGardenWalkablePoint(start.x, start.y)) return null;
+  if (!isGardenWalkablePoint(target.x, target.y)) return null;
+
+  // 直線能走，就直接走
+  if (isGardenSegmentWalkable(start, target)) {
+    return [target];
+  }
+
+  const nodes = [
+    { name: "start", x: start.x, y: start.y },
+    ...GARDEN_PATH_NODES.filter(p => isGardenWalkablePoint(p.x, p.y)),
+    { name: "target", x: target.x, y: target.y },
+  ];
+
+  const startIndex = 0;
+  const targetIndex = nodes.length - 1;
+
+  const graph = nodes.map(() => []);
+
+  // 建立安全連線：只有兩點之間全程可走，才連起來
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const a = nodes[i];
+      const b = nodes[j];
+
+      const dx = b.x - a.x;
+const dy = b.y - a.y;
+const cost = Math.sqrt(dx * dx + dy * dy);
+
+// 避免太遠的節點直接偷連，讓角色比較像沿著路走
+const MAX_NODE_LINK_DISTANCE = 360;
+
+if (cost > MAX_NODE_LINK_DISTANCE) continue;
+if (!isGardenSegmentWalkable(a, b)) continue;
+
+      graph[i].push({ to: j, cost });
+      graph[j].push({ to: i, cost });
+    }
+  }
+
+  const dist = new Array(nodes.length).fill(Infinity);
+  const prev = new Array(nodes.length).fill(-1);
+  const visited = new Array(nodes.length).fill(false);
+
+  dist[startIndex] = 0;
+
+  for (let loop = 0; loop < nodes.length; loop++) {
+    let current = -1;
+    let best = Infinity;
+
+    for (let i = 0; i < nodes.length; i++) {
+      if (!visited[i] && dist[i] < best) {
+        best = dist[i];
+        current = i;
+      }
+    }
+
+    if (current === -1) break;
+    if (current === targetIndex) break;
+
+    visited[current] = true;
+
+    for (const edge of graph[current]) {
+      const nextDist = dist[current] + edge.cost;
+
+      if (nextDist < dist[edge.to]) {
+        dist[edge.to] = nextDist;
+        prev[edge.to] = current;
+      }
+    }
+  }
+
+  if (prev[targetIndex] === -1) {
+    return null;
+  }
+
+  const path = [];
+  let cur = targetIndex;
+
+  while (cur !== startIndex && cur !== -1) {
+    path.push({
+      x: nodes[cur].x,
+      y: nodes[cur].y,
+    });
+
+    cur = prev[cur];
+  }
+
+  path.reverse();
+  return path;
+}
+
+function drawGardenWalkDebug() {
+  const canvas = document.getElementById("gardenWalkDebugCanvas");
+  if (!canvas) return;
+
+  if (!GARDEN_WALK_DEBUG) {
+    canvas.style.display = "none";
+    return;
+  }
+
+  canvas.style.display = "block";
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  ctx.clearRect(0, 0, 1080, 1920);
+
+  function drawPolygon(area, fillStyle, strokeStyle) {
+    const points = area.points;
+    if (!points || points.length < 3) return;
+
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].x, points[i].y);
+    }
+
+    ctx.closePath();
+
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
+
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // 控制點
+    for (const p of points) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+      ctx.fillStyle = strokeStyle;
+      ctx.fill();
+    }
+
+    // 區域名稱
+    const label = points[0];
+    ctx.font = "28px sans-serif";
+    ctx.fillStyle = strokeStyle;
+    ctx.fillText(area.name, label.x + 12, label.y - 12);
+  }
+
+  for (const area of GARDEN_WALK_AREAS.ground) {
+    drawPolygon(
+      area,
+      "rgba(0, 255, 0, 0.22)",
+      "rgba(0, 255, 0, 0.9)"
+    );
+  }
+
+  for (const area of GARDEN_WALK_AREAS.far) {
+    drawPolygon(
+      area,
+      "rgba(255, 230, 0, 0.28)",
+      "rgba(255, 230, 0, 0.95)"
+    );
+  }
+}
+
+
+
+function drawGardenPathDebug(path) {
+  if (!GARDEN_WALK_DEBUG) return;
+  if (!path || path.length === 0) return;
+
+  const canvas = document.getElementById("gardenWalkDebugCanvas");
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  drawGardenWalkDebug();
+
+  ctx.save();
+
+  ctx.strokeStyle = "rgba(80, 200, 255, 0.95)";
+  ctx.lineWidth = 6;
+  ctx.setLineDash([18, 12]);
+
+  ctx.beginPath();
+  ctx.moveTo(chifuyuWalkTestState.x, chifuyuWalkTestState.y);
+
+  for (const p of path) {
+    ctx.lineTo(p.x, p.y);
+  }
+
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+
+  for (const p of path) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(80, 200, 255, 1)";
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function getChifuyuDepthLayerByPosition(x, y) {
+  const zone = getGardenMoveZoneAt(x, y);
+
+  // 遠景區：進 far layer，被建築遮擋層處理
+  if (zone === "far") {
+    return "far";
+  }
+
+  /*
+    右上建築轉角：
+    角色腳底 y 在 600~800 左右時，高於 building-corner。
+    x >= 560 是為了避免左側同高度區域也被搬到轉角前方。
+  */
+  if (zone === "ground" && x >= 560 && y >= 600 && y <= 800) {
+    return "cornerFront";
+  }
+
+  /*
+    前景：
+    y > 1400 時高於枯山水。
+  */
+  if (zone === "ground" && y > 1400) {
+    return "front";
+  }
+
+  // y < 600 或其他一般區域：低於右上轉角
+  return "normal";
+}
+
+/* =========================
+   Chifuyu Walk Move Test
+========================= */
+
+const chifuyuWalkTestWrap = document.getElementById("chifuyuWalkTestWrap");
+const chifuyuWalkTest = document.getElementById("chifuyuWalkTest");
+
+
+
+const CHIFUYU_WALK_SHEET_CLASS = "chifuyu-walk-sheet";
+const CHIFUYU_IDLE_SHEET_CLASS = "chifuyu-idle-sheet";
+
+const CHIFUYU_FRAME_POSITIONS = [
+  "-2px -2px",
+  "-656px -2px",
+  "-1310px -2px",
+  "-1964px -2px",
+  "-2618px -2px",
+
+  "-2px -656px",
+  "-656px -656px",
+  "-1310px -656px",
+  "-1964px -656px",
+  "-2618px -656px",
+
+  "-2px -1310px",
+  "-656px -1310px",
+  "-1310px -1310px",
+  "-1964px -1310px",
+  "-2618px -1310px",
+
+  "-2px -1964px",
+  "-656px -1964px",
+  "-1310px -1964px",
+  "-1964px -1964px",
+  "-2618px -1964px",
+
+  "-2px -2618px",
+  "-656px -2618px",
+  "-1310px -2618px",
+  "-1964px -2618px",
+  "-2618px -2618px",
+
+  "-3272px -2px",
+  "-3272px -656px",
+  "-3272px -1310px",
+  "-3272px -1964px",
+  "-3272px -2618px",
+
+  "-2px -3272px",
+  "-656px -3272px",
+];
+
+const CHIFUYU_IDLE_FRAME_POSITIONS = CHIFUYU_FRAME_POSITIONS.slice(0, 31);
+
+const CHIFUYU_ANIMS = {
+  walk: {
+    sheetClass: CHIFUYU_WALK_SHEET_CLASS,
+    frameMs: 42,
+    positions: CHIFUYU_FRAME_POSITIONS,
+  },
+
+  idle: {
+    sheetClass: CHIFUYU_IDLE_SHEET_CLASS,
+    frameMs: 80,
+    positions: CHIFUYU_IDLE_FRAME_POSITIONS,
+  },
+};
+
+
+let gardenCharacterAnimationWarmupDone = false;
+
+async function warmupGardenCharacterAnimationSheets() {
+  if (gardenCharacterAnimationWarmupDone) return;
+  gardenCharacterAnimationWarmupDone = true;
+
+  const holder = document.createElement("div");
+  holder.id = "gardenCharacterAnimationWarmup";
+  holder.style.position = "fixed";
+  holder.style.left = "-3000px";
+  holder.style.top = "-3000px";
+  holder.style.width = "650px";
+  holder.style.height = "650px";
+  holder.style.pointerEvents = "none";
+  holder.style.overflow = "hidden";
+  holder.style.opacity = "0";
+
+  function createWarmupFrame(sheetClass, src) {
+    const el = document.createElement("div");
+
+    el.className = sheetClass;
+    el.style.width = "650px";
+    el.style.height = "650px";
+    el.style.backgroundImage = `url("${src}")`;
+    el.style.backgroundRepeat = "no-repeat";
+    el.style.backgroundPosition = CHIFUYU_FRAME_POSITIONS[0];
+
+    return el;
+  }
+
+  const chifuyuIdle = createWarmupFrame(
+    CHIFUYU_IDLE_SHEET_CLASS,
+    CHIFUYU_IDLE_SHEET_SRC
+  );
+
+  const chifuyuWalk = createWarmupFrame(
+    CHIFUYU_WALK_SHEET_CLASS,
+    CHIFUYU_WALK_SHEET_SRC
+  );
+
+  const chinatsuIdle = createWarmupFrame(
+    CHINATSU_IDLE_SHEET_CLASS,
+    CHINATSU_IDLE_SHEET_SRC
+  );
+
+  const chinatsuWalk = createWarmupFrame(
+    CHINATSU_WALK_SHEET_CLASS,
+    CHINATSU_WALK_SHEET_SRC
+  );
+
+  holder.appendChild(chifuyuIdle);
+  holder.appendChild(chifuyuWalk);
+  holder.appendChild(chinatsuIdle);
+  holder.appendChild(chinatsuWalk);
+
+  document.body.appendChild(holder);
+
+  // 強制瀏覽器計算 layout / background image
+  void chifuyuIdle.offsetWidth;
+  void chifuyuWalk.offsetWidth;
+  void chinatsuIdle.offsetWidth;
+  void chinatsuWalk.offsetWidth;
+
+  // 等兩幀，讓瀏覽器有時間把圖片真正準備好
+  await new Promise(resolve => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resolve);
+    });
+  });
+}
+
+
+const chifuyuWalkTestState = {
+  x: 600,
+  y: 1725,
+
+  direction: 1,
+
+  animMode: "idle",
+
+  frameIndex: 0,
+  frameTimer: 0,
+
+  moveSpeed: 150,
+
+  path: [],
+  isMoving: false,
+
+  lastTime: performance.now(),
+};
+
+function setChifuyuAnimationMode(mode, force = false) {
+  if (!chifuyuWalkTest) return;
+
+  const anim = CHIFUYU_ANIMS[mode] || CHIFUYU_ANIMS.idle;
+
+  if (
+    !force &&
+    chifuyuWalkTestState.animMode === mode &&
+    chifuyuWalkTest.classList.contains(anim.sheetClass)
+  ) {
+    return;
+  }
+
+  chifuyuWalkTestState.animMode = mode;
+  chifuyuWalkTestState.frameIndex = 0;
+  chifuyuWalkTestState.frameTimer = 0;
+
+  chifuyuWalkTest.classList.remove(
+    CHIFUYU_WALK_SHEET_CLASS,
+    CHIFUYU_IDLE_SHEET_CLASS
+  );
+
+  chifuyuWalkTest.classList.add(anim.sheetClass);
+  chifuyuWalkTest.style.backgroundPosition = anim.positions[0];
+}
+
+
+
+function updateChifuyuAnimationFrame(deltaMs) {
+  if (!chifuyuWalkTest) return;
+
+  const anim =
+    CHIFUYU_ANIMS[chifuyuWalkTestState.animMode] || CHIFUYU_ANIMS.idle;
+
+  chifuyuWalkTestState.frameTimer += deltaMs;
+
+  while (chifuyuWalkTestState.frameTimer >= anim.frameMs) {
+    chifuyuWalkTestState.frameTimer -= anim.frameMs;
+
+    chifuyuWalkTestState.frameIndex =
+      (chifuyuWalkTestState.frameIndex + 1) % anim.positions.length;
+
+    chifuyuWalkTest.style.backgroundPosition =
+      anim.positions[chifuyuWalkTestState.frameIndex];
+
+    
+  }
+}
+
+function updateChifuyuWalkPosition(deltaMs) {
+  const state = chifuyuWalkTestState;
+
+  if (!state.path || state.path.length === 0) {
+    state.isMoving = false;
+    return;
+  }
+
+  state.isMoving = true;
+
+  const target = state.path[0];
+
+  const dx = target.x - state.x;
+  const dy = target.y - state.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  const step = state.moveSpeed * (deltaMs / 1000);
+
+  if (dist <= step) {
+    state.x = target.x;
+    state.y = target.y;
+    state.path.shift();
+
+    if (state.path.length === 0) {
+      state.isMoving = false;
+    }
+
+    return;
+  }
+
+  if (Math.abs(dx) > 2) {
+    state.direction = dx > 0 ? 1 : -1;
+  }
+
+  state.x += (dx / dist) * step;
+  state.y += (dy / dist) * step;
+}
+
+function getGardenLocalPointFromEvent(e) {
+  const root = document.getElementById("gameRoot");
+  if (!root) return null;
+
+  const rect = root.getBoundingClientRect();
+
+  const x = (e.clientX - rect.left) * (1080 / rect.width);
+  const y = (e.clientY - rect.top) * (1920 / rect.height);
+
+  return { x, y };
+}
+
+function setChifuyuMovePath(points) {
+  chifuyuWalkTestState.path = points.map(p => ({ x: p.x, y: p.y }));
+  chifuyuWalkTestState.isMoving = chifuyuWalkTestState.path.length > 0;
+}
+
+
+
+/* =========================
+   Chinatsu Garden Character
+   千夏庭園角色
+========================= */
+
+const chinatsuWalkTestWrap = document.getElementById("chinatsuWalkTestWrap");
+const chinatsuWalkTest = document.getElementById("chinatsuWalkTest");
+console.log("[Garden Chinatsu DOM]", {
+  chinatsuWalkTestWrap,
+  chinatsuWalkTest,
+});
+const CHINATSU_WALK_SHEET_CLASS = "chinatsu-walk-sheet";
+const CHINATSU_IDLE_SHEET_CLASS = "chinatsu-idle-sheet";
+
+const CHINATSU_ANIMS = {
+  walk: {
+    sheetClass: CHINATSU_WALK_SHEET_CLASS,
+    frameMs: 48,
+    positions: CHIFUYU_FRAME_POSITIONS,
+  },
+
+  idle: {
+    sheetClass: CHINATSU_IDLE_SHEET_CLASS,
+    frameMs: 90,
+    positions: CHIFUYU_IDLE_FRAME_POSITIONS,
+  },
+};
+
+const chinatsuWalkTestState = {
+  x: 430,
+  y: 1680,
+
+  direction: 1,
+
+  animMode: "idle",
+
+  frameIndex: 0,
+  frameTimer: 0,
+
+  moveSpeed: 145,
+
+  path: [],
+  isMoving: false,
+
+  currentDepthLayer: "normal",
+};
+
+const chinatsuAutoWalkState = {
+  nextMoveTime: 0,
+  wasMoving: false,
+};
+
+function moveChinatsuToDepthLayer(layerName) {
+  if (!chinatsuWalkTestWrap) return;
+  if (chinatsuWalkTestState.currentDepthLayer === layerName) return;
+
+  let targetLayer = gardenCharNormalLayer;
+
+  if (layerName === "far") {
+    targetLayer = gardenCharFarLayer;
+  }
+
+  if (layerName === "front") {
+    targetLayer = gardenCharFrontLayer;
+  }
+
+  if (layerName === "cornerFront") {
+    targetLayer = gardenCharCornerFrontLayer;
+  }
+
+  if (!targetLayer) return;
+
+  targetLayer.appendChild(chinatsuWalkTestWrap);
+  chinatsuWalkTestState.currentDepthLayer = layerName;
+}
+
+function setChinatsuAnimationMode(mode, force = false) {
+  if (!chinatsuWalkTest) return;
+
+  const anim = CHINATSU_ANIMS[mode] || CHINATSU_ANIMS.idle;
+
+  if (
+    !force &&
+    chinatsuWalkTestState.animMode === mode &&
+    chinatsuWalkTest.classList.contains(anim.sheetClass)
+  ) {
+    return;
+  }
+
+  chinatsuWalkTestState.animMode = mode;
+  chinatsuWalkTestState.frameIndex = 0;
+  chinatsuWalkTestState.frameTimer = 0;
+
+  chinatsuWalkTest.classList.remove(
+    CHINATSU_WALK_SHEET_CLASS,
+    CHINATSU_IDLE_SHEET_CLASS
+  );
+
+  chinatsuWalkTest.classList.add(anim.sheetClass);
+  chinatsuWalkTest.style.backgroundPosition = anim.positions[0];
+}
+
+function updateChinatsuAnimationFrame(deltaMs) {
+  if (!chinatsuWalkTest) return;
+
+  const anim =
+    CHINATSU_ANIMS[chinatsuWalkTestState.animMode] || CHINATSU_ANIMS.idle;
+
+  chinatsuWalkTestState.frameTimer += deltaMs;
+
+  while (chinatsuWalkTestState.frameTimer >= anim.frameMs) {
+    chinatsuWalkTestState.frameTimer -= anim.frameMs;
+
+    chinatsuWalkTestState.frameIndex =
+      (chinatsuWalkTestState.frameIndex + 1) % anim.positions.length;
+
+    chinatsuWalkTest.style.backgroundPosition =
+      anim.positions[chinatsuWalkTestState.frameIndex];
+  }
+}
+
+function getChinatsuMoveSpeedByY(y) {
+  const farY = 470;
+  const nearY = 1810;
+
+  const farSpeed = 95;
+  const nearSpeed = 150;
+
+  const t = Math.max(0, Math.min(1, (y - farY) / (nearY - farY)));
+
+  return farSpeed + t * (nearSpeed - farSpeed);
+}
+
+function updateChinatsuWalkPosition(deltaMs) {
+  const state = chinatsuWalkTestState;
+
+  if (!state.path || state.path.length === 0) {
+    state.isMoving = false;
+    return;
+  }
+
+  state.isMoving = true;
+
+  const target = state.path[0];
+
+  const dx = target.x - state.x;
+  const dy = target.y - state.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  const currentSpeed = getChinatsuMoveSpeedByY(state.y);
+  const step = currentSpeed * (deltaMs / 1000);
+
+  if (dist <= step) {
+    state.x = target.x;
+    state.y = target.y;
+    state.path.shift();
+
+    if (state.path.length === 0) {
+      state.isMoving = false;
+    }
+
+    return;
+  }
+
+  if (Math.abs(dx) > 2) {
+    state.direction = dx > 0 ? 1 : -1;
+  }
+
+  state.x += (dx / dist) * step;
+  state.y += (dy / dist) * step;
+}
+
+function setChinatsuMovePath(points) {
+  chinatsuWalkTestState.path = points.map(p => ({ x: p.x, y: p.y }));
+  chinatsuWalkTestState.isMoving = chinatsuWalkTestState.path.length > 0;
+}
+
+/* =========================
+   Chinatsu Companion Auto Walk
+   姊姊陪伴式散步
+========================= */
+
+const CHINATSU_AUTO_IDLE_MIN_MS = 1800;
+const CHINATSU_AUTO_IDLE_MAX_MS = 4600;
+const CHINATSU_AUTO_PICK_RETRY = 40;
+
+function scheduleNextChinatsuAutoMove(now = performance.now()) {
+  chinatsuAutoWalkState.nextMoveTime =
+    now + randomBetween(CHINATSU_AUTO_IDLE_MIN_MS, CHINATSU_AUTO_IDLE_MAX_MS);
+}
+
+function pickRandomPointNearChifuyu() {
+  const baseX = chifuyuWalkTestState.x;
+  const baseY = chifuyuWalkTestState.y;
+
+  let candidates = GARDEN_AUTO_TARGET_POINTS
+    .filter((p) => isGardenWalkablePoint(p.x, p.y))
+    .map((p) => {
+      const dx = p.x - baseX;
+      const dy = (p.y - baseY) * 1.35;
+
+      return {
+        x: p.x,
+        y: p.y,
+        dist: Math.sqrt(dx * dx + dy * dy),
+      };
+    })
+    .filter((p) => p.dist >= 110 && p.dist <= 420);
+
+  if (candidates.length > 0) {
+    // 從比較靠近千冬的前幾個點中抽，避免每次都貼太近
+    candidates.sort((a, b) => a.dist - b.dist);
+    candidates = candidates.slice(0, 6);
+
+    const index = Math.floor(Math.random() * candidates.length);
+    const p = candidates[index];
+
+    return { x: p.x, y: p.y };
+  }
+
+  return pickRandomGardenWalkTarget();
+}
+
+function startChinatsuAutoWalkToCompanionTarget() {
+  const start = {
+    x: chinatsuWalkTestState.x,
+    y: chinatsuWalkTestState.y,
+  };
+
+  for (let i = 0; i < CHINATSU_AUTO_PICK_RETRY; i++) {
+    const target = pickRandomPointNearChifuyu();
+    if (!target) continue;
+
+    const dx = target.x - start.x;
+    const dy = target.y - start.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // 避免姊姊小碎步抖動
+    if (dist < 110) continue;
+
+    const path = findGardenPath(start, target);
+    if (!path || path.length === 0) continue;
+
+    setChinatsuMovePath(path);
+    return true;
+  }
+
+  return false;
+}
+
+function updateChinatsuAutoWalk(now) {
+  // 正在走就不打斷
+  if (chinatsuWalkTestState.isMoving) {
+    chinatsuAutoWalkState.wasMoving = true;
+    return;
+  }
+
+  // 剛停下，重新安排下一次行動
+  if (chinatsuAutoWalkState.wasMoving) {
+    chinatsuAutoWalkState.wasMoving = false;
+    scheduleNextChinatsuAutoMove(now);
+    return;
+  }
+
+  if (now < chinatsuAutoWalkState.nextMoveTime) {
+    return;
+  }
+
+  const moved = startChinatsuAutoWalkToCompanionTarget();
+
+  if (!moved) {
+    scheduleNextChinatsuAutoMove(now);
+  }
+}
+
+function resetChinatsuAutoWalk() {
+  chinatsuAutoWalkState.wasMoving = false;
+  scheduleNextChinatsuAutoMove(performance.now());
+}
+
+
+function renderChinatsuWalkTest() {
+  if (!chinatsuWalkTestWrap) return;
+
+  const depthLayer = getChifuyuDepthLayerByPosition(
+    chinatsuWalkTestState.x,
+    chinatsuWalkTestState.y
+  );
+
+  moveChinatsuToDepthLayer(depthLayer);
+
+  const facingScale =
+    chinatsuWalkTestState.direction === 1
+      ? 1
+      : -1;
+
+  const depthScale = getGardenScaleByY(chinatsuWalkTestState.y);
+
+  chinatsuWalkTestWrap.style.transform =
+    `translate3d(${chinatsuWalkTestState.x}px, ${chinatsuWalkTestState.y}px, 0) ` +
+    `translate(-50%, -100%) ` +
+    `scaleX(${facingScale}) ` +
+    `scale(${depthScale})`;
+
+  chinatsuWalkTestWrap.style.zIndex = Math.round(chinatsuWalkTestState.y);
+}
+
+function updateChinatsuGardenCharacter(deltaMs, now) {
+  updateChinatsuWalkPosition(deltaMs);
+
+  updateChinatsuAutoWalk(now);
+
+  if (chinatsuWalkTestState.isMoving) {
+    setChinatsuAnimationMode("walk");
+  } else {
+    setChinatsuAnimationMode("idle");
+  }
+
+  updateChinatsuAnimationFrame(deltaMs);
+
+  renderChinatsuWalkTest();
+}
+
+
+
+/* =========================
+   Chifuyu Auto Walk
+   自由散步系統
+========================= */
+
+const CHIFUYU_AUTO_WALK_ENABLED = true;
+
+// 停下來多久後再走下一段
+const CHIFUYU_AUTO_IDLE_MIN_MS = 3500;
+const CHIFUYU_AUTO_IDLE_MAX_MS = 9000;
+
+// 目標點重抽次數，避免抽到 blocked 或找不到路
+const CHIFUYU_AUTO_PICK_RETRY = 40;
+
+// 隨機目標比例
+// farChance 越高，千冬越常走去遠景
+const CHIFUYU_AUTO_FAR_CHANCE = 0.18;
+
+const chifuyuAutoWalkState = {
+  nextMoveTime: 0,
+  wasMoving: false,
+};
+
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+function scheduleNextChifuyuAutoMove(now = performance.now()) {
+  chifuyuAutoWalkState.nextMoveTime =
+    now + randomBetween(CHIFUYU_AUTO_IDLE_MIN_MS, CHIFUYU_AUTO_IDLE_MAX_MS);
+}
+
+function getGardenAreaBounds(area) {
+  const points = area.points;
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (const p of points) {
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
+  }
+
+  return { minX, maxX, minY, maxY };
+}
+
+function pickRandomPointInGardenArea(area) {
+  const bounds = getGardenAreaBounds(area);
+
+  for (let i = 0; i < CHIFUYU_AUTO_PICK_RETRY; i++) {
+    const x = randomBetween(bounds.minX, bounds.maxX);
+    const y = randomBetween(bounds.minY, bounds.maxY);
+
+    if (pointInPolygon(x, y, area.points)) {
+      return { x, y };
+    }
+  }
+
+  return null;
+}
+
+function pickRandomGardenWalkTarget() {
+  const useFar =
+    Math.random() < CHIFUYU_AUTO_FAR_CHANCE;
+
+  let pool = GARDEN_AUTO_TARGET_POINTS.filter((p) => {
+    if (useFar) return p.zone === "far";
+    return p.zone === "ground";
+  });
+
+  pool = pool.filter((p) => isGardenWalkablePoint(p.x, p.y));
+
+  if (pool.length === 0) {
+    pool = GARDEN_AUTO_TARGET_POINTS.filter((p) =>
+      isGardenWalkablePoint(p.x, p.y)
+    );
+  }
+
+  if (pool.length === 0) return null;
+
+  const index = Math.floor(Math.random() * pool.length);
+  const p = pool[index];
+
+  return { x: p.x, y: p.y };
+}
+
+function startChifuyuAutoWalkToRandomTarget() {
+  const start = {
+    x: chifuyuWalkTestState.x,
+    y: chifuyuWalkTestState.y,
+  };
+
+  for (let i = 0; i < CHIFUYU_AUTO_PICK_RETRY; i++) {
+    const target = pickRandomGardenWalkTarget();
+    if (!target) continue;
+
+    const dx = target.x - start.x;
+    const dy = target.y - start.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // 避免抽到離現在太近的點，看起來像原地抖動
+    if (dist < 140) continue;
+
+    const path = findGardenPath(start, target);
+    if (!path || path.length === 0) continue;
+
+
+    if (GARDEN_WALK_DEBUG && typeof drawGardenPathDebug === "function") {
+      drawGardenPathDebug(path);
+    }
+
+    setChifuyuMovePath(path);
+    return true;
+  }
+
+
+  return false;
+}
+
+function updateChifuyuAutoWalk(now) {
+  if (!CHIFUYU_AUTO_WALK_ENABLED) return;
+
+  // 正在移動時，不要打斷目前路線
+  if (chifuyuWalkTestState.isMoving) {
+    chifuyuAutoWalkState.wasMoving = true;
+    return;
+  }
+
+  // 剛從移動狀態停下來：安排下一次發呆時間
+  if (chifuyuAutoWalkState.wasMoving) {
+    chifuyuAutoWalkState.wasMoving = false;
+    scheduleNextChifuyuAutoMove(now);
+    return;
+  }
+
+  // 還沒到下一次移動時間
+  if (now < chifuyuAutoWalkState.nextMoveTime) {
+    return;
+  }
+
+  const moved = startChifuyuAutoWalkToRandomTarget();
+
+  // 無論成功或失敗，都先安排下一次，避免每一幀狂抽
+  if (!moved) {
+    scheduleNextChifuyuAutoMove(now);
+  }
+}
+
+function resetChifuyuAutoWalk() {
+  chifuyuAutoWalkState.wasMoving = false;
+  scheduleNextChifuyuAutoMove(performance.now());
+}
+
+
+
+function handleGardenPointerDown(e) {
+  if (e.target.closest("button")) return;
+
+  const point = getGardenLocalPointFromEvent(e);
+  if (!point) return;
+
+  const targetZone = getGardenMoveZoneAt(point.x, point.y);
+
+
+  drawGardenClickDebugPoint(point.x, point.y, targetZone);
+
+  if (targetZone === "blocked") {
+    return;
+  }
+
+  const start = {
+    x: chifuyuWalkTestState.x,
+    y: chifuyuWalkTestState.y,
+  };
+
+  const path = findGardenPath(start, point);
+
+  if (!path || path.length === 0) {
+    return;
+  }
+
+
+  drawGardenPathDebug(path);
+  setChifuyuMovePath(path);
+}
+
+function drawGardenClickDebugPoint(x, y, zone) {
+  if (!GARDEN_WALK_DEBUG) return;
+
+  const canvas = document.getElementById("gardenWalkDebugCanvas");
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  // 先重畫可走區
+  drawGardenWalkDebug();
+
+  ctx.beginPath();
+  ctx.arc(x, y, 14, 0, Math.PI * 2);
+
+  if (zone === "far") {
+    ctx.fillStyle = "rgba(255, 230, 0, 1)";
+  } else if (zone === "ground") {
+    ctx.fillStyle = "rgba(0, 255, 0, 1)";
+  } else {
+    ctx.fillStyle = "rgba(255, 0, 0, 1)";
+  }
+
+  ctx.fill();
+
+  ctx.font = "26px sans-serif";
+  ctx.fillStyle = "white";
+  ctx.strokeStyle = "black";
+  ctx.lineWidth = 4;
+
+  const text = `${Math.round(x)}, ${Math.round(y)} / ${zone}`;
+  ctx.strokeText(text, x + 18, y - 18);
+  ctx.fillText(text, x + 18, y - 18);
+}
+
+function renderChifuyuWalkTest() {
+  if (!chifuyuWalkTestWrap) return;
+
+  const depthLayer = getChifuyuDepthLayerByPosition(
+    chifuyuWalkTestState.x,
+    chifuyuWalkTestState.y
+  );
+
+  moveChifuyuToDepthLayer(depthLayer);
+
+  const facingScale =
+    chifuyuWalkTestState.direction === 1
+      ? -1
+      : 1;
+
+  const depthScale = getGardenScaleByY(chifuyuWalkTestState.y);
+
+  chifuyuWalkTestWrap.style.transform =
+    `translate3d(${chifuyuWalkTestState.x}px, ${chifuyuWalkTestState.y}px, 0) ` +
+    `translate(-50%, -100%) ` +
+    `scaleX(${facingScale}) ` +
+    `scale(${depthScale})`;
+
+  chifuyuWalkTestWrap.style.zIndex = Math.round(chifuyuWalkTestState.y);
+}
+
+function getGardenScaleByY(y) {
+  /*
+    y 越小 = 越遠 = 越小
+    y 越大 = 越近 = 越大
+
+    目前建議：
+    farY   控制遠景最小尺寸的位置
+    nearY  控制前景最大尺寸的位置
+  */
+
+  const farY = 470;
+  const nearY = 1810;
+
+  const farScale = 0.6;
+  const nearScale = 1.3;
+
+  const t = Math.max(0, Math.min(1, (y - farY) / (nearY - farY)));
+
+  return farScale + t * (nearScale - farScale);
+}
+
+function chifuyuWalkMoveLoop(now) {
+  if (!gardenScreen || gardenScreen.classList.contains("hidden")) {
+    chifuyuWalkMoveFrame = null;
+    return;
+  }
+
+  const rawDeltaMs = now - chifuyuWalkTestState.lastTime;
+chifuyuWalkTestState.lastTime = now;
+
+// 避免切頁、轉場、手機瞬間卡頓後，下一幀一次補太多造成角色跳動
+const deltaMs = Math.min(rawDeltaMs, 50);
+
+  updateChifuyuWalkPosition(deltaMs);
+
+// 自由散步：停下後等待一段時間，再自動找下一個可走位置
+updateChifuyuAutoWalk(now);
+
+if (chifuyuWalkTestState.isMoving) {
+  setChifuyuAnimationMode("walk");
+} else {
+  setChifuyuAnimationMode("idle");
+}
+
+updateChifuyuAnimationFrame(deltaMs);
+
+renderChifuyuWalkTest();
+
+updateChinatsuGardenCharacter(deltaMs, now);
+
+chifuyuWalkMoveFrame = requestAnimationFrame(chifuyuWalkMoveLoop);
+
+}
+
+let chifuyuWalkMoveFrame = null;
+
+function startChifuyuWalkMoveTest() {
+  if (chifuyuWalkMoveFrame) return;
+
+  chifuyuWalkTestState.lastTime = performance.now();
+  chifuyuWalkMoveFrame = requestAnimationFrame(chifuyuWalkMoveLoop);
+}
+
+function stopChifuyuWalkMoveTest() {
+  if (chifuyuWalkMoveFrame) {
+    cancelAnimationFrame(chifuyuWalkMoveFrame);
+    chifuyuWalkMoveFrame = null;
+  }
+
+  chifuyuWalkTestState.path = [];
+  chifuyuWalkTestState.isMoving = false;
+
+  chinatsuWalkTestState.path = [];
+  chinatsuWalkTestState.isMoving = false;
+
+  if (typeof setChifuyuAnimationMode === "function") {
+    setChifuyuAnimationMode("idle", true);
+  }
+
+  if (typeof setChinatsuAnimationMode === "function") {
+    setChinatsuAnimationMode("idle", true);
+  }
+}
+
+function initGardenScreen() {
+  chifuyuWalkTestState.lastTime = performance.now();
+
+  // 防呆：如果角色目前站在 blocked，就移到安全起點
+  if (!isGardenWalkablePoint(chifuyuWalkTestState.x, chifuyuWalkTestState.y)) {
+    console.warn(
+      "[Garden] Chifuyu start point is blocked. Reset to safe point."
+    );
+
+    chifuyuWalkTestState.x = 600;
+    chifuyuWalkTestState.y = 1725;
+    chifuyuWalkTestState.path = [];
+    chifuyuWalkTestState.isMoving = false;
+  }
+
+setChifuyuAnimationMode("idle", true);
+setChinatsuAnimationMode("idle", true);
+
+renderChifuyuWalkTest();
+renderChinatsuWalkTest();
+
+resetChifuyuAutoWalk();
+resetChinatsuAutoWalk();
+
+drawGardenWalkDebug();
+
+startChifuyuWalkMoveTest();
+}
+
+// 自由移動模式：不再讓玩家點擊控制千冬
+// if (gardenScreen) {
+//   gardenScreen.addEventListener("pointerdown", handleGardenPointerDown);
+// }
 

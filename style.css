@@ -171,12 +171,13 @@
 
 
 .menu-buttons {
-  display: flex;          /* 讓按鈕水平排列 */
-  flex-direction: column; /* 改成垂直排列 */
-  align-items: center;    /* 水平置中 */
-  gap: 20px;              /* 按鈕間距 */
-    /* 三顆按鈕時，整組稍微往上，避免壓到下方 LOGO */
-  transform: translateY(-110px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 25px;
+
+  /* 四顆按鈕時往上移一點，避免壓到 LOGO */
+  transform: translateY(-165px);
 }
 
 
@@ -196,9 +197,18 @@
   height: auto;
 }
 
+
+
 .menu-btn-mission {
   width: 638px; /* 這裡單獨調 Mission 按鈕大小 */
   margin-top: -45px;
+}
+
+/* Garden 按鈕單獨往下 */
+#btnGarden {
+  position: relative;
+  top: 50px;
+  margin-bottom: 40px;
 }
 
 /* ===== Menu LOGO ===== */
@@ -2646,4 +2656,318 @@ body.autumn-mode.night-mode .menu-background.day {
 
 body.autumn-mode.night-mode .menu-background.night {
   display: block !important;
+}
+
+
+.chifuyu-walk-sheet,
+.chifuyu-idle-sheet {
+  width: 650px;
+  height: 650px;
+  background-repeat: no-repeat;
+  display: block;
+}
+
+.chifuyu-walk-sheet,
+.chifuyu-idle-sheet {
+  width: 650px;
+  height: 650px;
+  background-repeat: no-repeat;
+  display: block;
+}
+
+.chifuyu-walk-sheet {
+  background-image: url("images/garden/chifuyu/chifuyu-walk-sheet.png?v=5");
+}
+
+.chifuyu-idle-sheet {
+  background-image: url("images/garden/chifuyu/chifuyu-idle-sheet.png?v=5");
+}
+
+
+#chifuyuWalkShadow {
+  position: absolute;
+  left: 50%;
+  bottom: 55px;
+  width: 200px;
+  height: 42px;
+  transform: translateX(-70%);
+  border-radius: 50%;
+
+  background: radial-gradient(
+    ellipse at center,
+    rgba(19, 12, 12, 0.56) 0%,
+    rgba(19, 12, 12, 0.42) 34%,
+    rgba(19, 12, 12, 0.22) 58%,
+    rgba(19, 12, 12, 0) 88%
+  );
+  filter: none;
+
+  z-index: 1;
+  pointer-events: none;
+}
+
+#chifuyuWalkTest {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+}
+
+
+.chinatsu-walk-sheet,
+.chinatsu-idle-sheet {
+  width: 650px;
+  height: 650px;
+  background-repeat: no-repeat;
+  display: block;
+}
+
+.chinatsu-walk-sheet {
+  background-image: url("images/garden/chinatsu/chinatsu-walk-sheet.png?v=1");
+}
+
+.chinatsu-idle-sheet {
+  background-image: url("images/garden/chinatsu/chinatsu-idle-sheet.png?v=1");
+}
+
+#gardenScreen #chinatsuWalkTestWrap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 650px;
+  height: 650px;
+  transform-origin: center bottom;
+  z-index: 500;
+  pointer-events: none;
+  will-change: transform;
+}
+
+#gardenScreen #chinatsuWalkTest {
+  transform-origin: center bottom;
+}
+
+#chinatsuWalkShadow {
+  position: absolute;
+  left: 50%;
+  bottom: 55px;
+  width: 200px;
+  height: 38px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+
+  background: radial-gradient(
+    ellipse at center,
+    rgba(19, 12, 12, 0.56) 0%,
+    rgba(19, 12, 12, 0.40) 34%,
+    rgba(19, 12, 12, 0.20) 58%,
+    rgba(19, 12, 12, 0) 88%
+  );
+  filter: none;
+
+  z-index: 1;
+  pointer-events: none;
+}
+
+#chinatsuWalkTest {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+}
+
+
+
+
+/* =========================
+   Garden Screen
+========================= */
+
+#gardenScreen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: black;
+}
+
+#gardenScene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.garden-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+
+  width: 1080px;
+  height: 1920px;
+
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 背景底圖 */
+.garden-bg {
+  z-index: 0;
+}
+
+/* =========================
+   Garden Character Depth Layers
+========================= */
+
+.garden-character-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 遠景場景圖層：不是遮擋物，只是遠景本身 */
+.garden-fg-far-area {
+  z-index: 390;
+}
+
+/* 遠景角色：站在遠景圖層上，但會被建築遮擋 */
+#gardenCharFarLayer {
+  z-index: 410;
+}
+
+/* 建築遮擋圖層：專門蓋住 far layer 的角色 */
+.garden-fg-building-occluder {
+  z-index: 430;
+}
+
+/* 建築走廊前緣 */
+.garden-fg-building-front-edge {
+  z-index: 450;
+}
+
+/* 普通角色層：高於建築遮擋圖層 */
+#gardenCharNormalLayer {
+  z-index: 500;
+}
+
+/* 前景角色層：必要時高於更多建築面 */
+#gardenCharFrontLayer {
+  z-index: 560;
+}
+
+/* 前景角色層：高於枯山水，但低於燈籠、建築轉角、櫻花 */
+#gardenCharFrontLayer {
+  z-index: 700;
+}
+
+/* 枯山水前緣：高於角色 */
+.garden-obj-karesansui-front {
+  z-index: 650;
+}
+
+/* 左下燈籠 */
+.garden-fg-lantern-left {
+  z-index: 820;
+}
+
+/* 右上建築轉角 */
+.garden-fg-building-corner {
+  z-index: 880;
+}
+
+/* 左上櫻花 */
+.garden-fg-sakura-top {
+  z-index: 920;
+}
+
+/* 千冬走路測試角色 */
+#gardenScreen #chifuyuWalkTestWrap {
+  position: absolute;
+
+  left: 0;
+  top: 0;
+
+  width: 650px;
+  height: 650px;
+
+  transform-origin: center bottom;
+  z-index: 500;
+
+  pointer-events: none;
+  will-change: transform;
+}
+
+#gardenScreen #chifuyuWalkTest {
+  transform-origin: center bottom;
+}
+
+/* 右上建築轉角 */
+.garden-fg-building-corner {
+  z-index: 880;
+}
+
+/* 右上轉角前方角色層：高於轉角，但低於最前景櫻花 */
+#gardenCharCornerFrontLayer {
+  z-index: 900;
+}
+
+/* 左上櫻花前景 */
+.garden-fg-sakura-top {
+  z-index: 920;
+}
+
+
+
+
+/* ===== Garden Screen Safety Fix ===== */
+
+#gardenScreen {
+  position: absolute;
+  inset: 0;
+  width: 1080px;
+  height: 1920px;
+  overflow: hidden;
+  background: black;
+}
+
+#gardenScene {
+  position: absolute;
+  inset: 0;
+  width: 1080px;
+  height: 1920px;
+  overflow: hidden;
+  z-index: 0;
+}
+
+#gardenScene .garden-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+
+  width: 1080px;
+  height: 1920px;
+
+  display: block;
+  object-fit: cover;
+
+  pointer-events: none;
+  user-select: none;
+}
+
+#gardenScene .garden-bg {
+  z-index: 0;
+  opacity: 1;
+}
+
+
+
+#gardenWalkDebugCanvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1080px;
+  height: 1920px;
+  z-index: 9999;
+  pointer-events: none;
+  display: none
 }

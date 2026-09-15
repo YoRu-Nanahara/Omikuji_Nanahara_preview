@@ -55,8 +55,12 @@
       </button>
 
       <button id="btnOmamori" class="menu-btn">
-        <img src="images/menu-btn-omamori.png" alt="">
-      </button>
+  <img src="images/menu-btn-omamori.png" alt="">
+</button>
+
+<button id="btnGarden" class="menu-btn menu-btn-garden" type="button">
+  <img src="images/menu-btn-garden.png" alt="Garden">
+</button>
 
 <button id="btnMission" class="menu-btn menu-btn-mission" type="button">
   <img src="images/menu-btn-mission.png" alt="Mission">
@@ -64,13 +68,105 @@
 
     </div>
 
-    <!-- LOGO：放在 buttons 外面，定位才乾淨 -->
+       <!-- LOGO：放在 buttons 外面，定位才乾淨 -->
     <div id="menuLogo">
       <img src="images/nanahara-logo.png" alt="Nanahara Shrine Logo">
     </div>
 
   </div>
-</div>
+</div> <!-- /menuScreen -->
+
+
+<!-- Garden：庭園畫面 -->
+<div id="gardenScreen" class="screen hidden">
+  <button id="btnGardenMenu" class="ui-btn-menu-topright" type="button" aria-label="Back to Menu">
+    <img src="images/ui-btn-menu.png" alt="Back to Menu">
+  </button>
+
+  <div id="gardenScene">
+    <!-- 背景底圖 -->
+    <img
+      class="garden-layer garden-bg"
+      src="images/garden/courtyard/courtyard-bg-day.jpg"
+      alt=""
+    >
+
+    <!-- 遠景場景圖層：不是遮擋物 -->
+    <img
+      class="garden-layer garden-fg-far-area"
+      src="images/garden/courtyard/courtyard-fg-far-area.png"
+      alt=""
+    >
+
+    <!-- 遠景角色層 -->
+    <div id="gardenCharFarLayer" class="garden-character-layer"></div>
+
+    <!-- 建築遮擋圖層：遮住 far layer 的角色 -->
+    <img
+      class="garden-layer garden-fg-building-occluder"
+      src="images/garden/courtyard/courtyard-fg-building-occluder.png"
+      alt=""
+    >
+
+    <!-- 建築走廊前緣 -->
+    <img
+      class="garden-layer garden-fg-building-front-edge"
+      src="images/garden/courtyard/courtyard-fg-building-front-edge.png"
+      alt=""
+    >
+
+    <!-- 一般角色層：千冬、千夏初始都放這裡 -->
+    <div id="gardenCharNormalLayer" class="garden-character-layer">
+      <div id="chifuyuWalkTestWrap">
+        <div id="chifuyuWalkShadow"></div>
+        <div id="chifuyuWalkTest" class="chifuyu-idle-sheet"></div>
+      </div>
+
+      <div id="chinatsuWalkTestWrap">
+        <div id="chinatsuWalkShadow"></div>
+        <div id="chinatsuWalkTest" class="chinatsu-idle-sheet"></div>
+      </div>
+    </div>
+
+    <!-- 前景角色層：y > 1400 時用 -->
+    <div id="gardenCharFrontLayer" class="garden-character-layer"></div>
+
+    <!-- 枯山水前緣 -->
+    <img
+      class="garden-layer garden-obj-karesansui-front"
+      src="images/garden/courtyard/courtyard-obj-karesansui-front.png"
+      alt=""
+    >
+
+    <!-- 左下燈籠 -->
+    <img
+      class="garden-layer garden-fg-lantern-left"
+      src="images/garden/courtyard/courtyard-fg-lantern-left.png"
+      alt=""
+    >
+
+    <!-- 右上建築轉角 -->
+    <img
+      class="garden-layer garden-fg-building-corner"
+      src="images/garden/courtyard/courtyard-fg-building-corner.png"
+      alt=""
+    >
+
+    <!-- 右上轉角前方角色層 -->
+    <div id="gardenCharCornerFrontLayer" class="garden-character-layer"></div>
+
+    <!-- 左上櫻花前景 -->
+    <img
+      class="garden-layer garden-fg-sakura-top"
+      src="images/garden/courtyard/courtyard-fg-sakura-top.png"
+      alt=""
+    >
+
+    <!-- Debug canvas：只保留一個，而且放最後 -->
+    <canvas id="gardenWalkDebugCanvas" width="1080" height="1920"></canvas>
+  </div>
+</div> <!-- /gardenScreen -->
+
 
       <!-- Omikuji：也放進同一舞台 -->
       <div id="omikujiScreen" class="screen hidden">
@@ -290,6 +386,7 @@
   <img src="images/ui-btn-pause.png" alt="Pause">
 </button>
 </div>
+
   </div>   <!-- /gameRoot -->
 </div>     <!-- /viewport -->
  
@@ -312,6 +409,7 @@
     <img id="capKnot" alt="">
   </div>
 </div>
+
 
 
 <!-- Firebase -->
