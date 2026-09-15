@@ -6709,6 +6709,25 @@ if (!isGardenSegmentWalkable(a, b)) continue;
   return path;
 }
 
+
+function getGardenPathDistance(start, path) {
+  if (!start || !path || path.length === 0) return 0;
+
+  let total = 0;
+  let prev = start;
+
+  for (const p of path) {
+    const dx = p.x - prev.x;
+    const dy = p.y - prev.y;
+
+    total += Math.sqrt(dx * dx + dy * dy);
+    prev = p;
+  }
+
+  return total;
+}
+
+
 function drawGardenWalkDebug() {
   const canvas = document.getElementById("gardenWalkDebugCanvas");
   if (!canvas) return;
@@ -7309,6 +7328,9 @@ function setChinatsuMovePath(points) {
   chinatsuWalkTestState.isMoving = chinatsuWalkTestState.path.length > 0;
 }
 
+const CHIFUYU_AUTO_WALK_MAX_DISTANCE = 620;
+const CHINATSU_AUTO_WALK_MAX_DISTANCE = 560;
+
 /* =========================
    Chinatsu Companion Auto Walk
    姊姊陪伴式散步
@@ -7372,11 +7394,17 @@ function startChinatsuAutoWalkToCompanionTarget() {
     // 避免姊姊小碎步抖動
     if (dist < 110) continue;
 
-    const path = findGardenPath(start, target);
-    if (!path || path.length === 0) continue;
+if (dist > CHINATSU_AUTO_WALK_MAX_DISTANCE * 1.15) continue;
 
-    setChinatsuMovePath(path);
-    return true;
+const path = findGardenPath(start, target);
+if (!path || path.length === 0) continue;
+
+const pathDistance = getGardenPathDistance(start, path);
+
+if (pathDistance > CHINATSU_AUTO_WALK_MAX_DISTANCE) continue;
+
+setChinatsuMovePath(path);
+return true;
   }
 
   return false;
@@ -7463,6 +7491,8 @@ function updateChinatsuGardenCharacter(deltaMs, now) {
 ========================= */
 
 const CHIFUYU_AUTO_WALK_ENABLED = true;
+
+
 
 // 停下來多久後再走下一段
 const CHIFUYU_AUTO_IDLE_MIN_MS = 3500;
@@ -7558,24 +7588,30 @@ function startChifuyuAutoWalkToRandomTarget() {
     if (!target) continue;
 
     const dx = target.x - start.x;
-    const dy = target.y - start.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+const dy = target.y - start.y;
+const dist = Math.sqrt(dx * dx + dy * dy);
 
-    // 避免抽到離現在太近的點，看起來像原地抖動
-    if (dist < 140) continue;
+// 避免抽到離現在太近的點，看起來像原地抖動
+if (dist < 140) continue;
+
+// 先用直線距離粗略排除太遠目標，避免浪費尋路
+if (dist > CHIFUYU_AUTO_WALK_MAX_DISTANCE * 1.15) continue;
 
     const path = findGardenPath(start, target);
-    if (!path || path.length === 0) continue;
+if (!path || path.length === 0) continue;
 
+const pathDistance = getGardenPathDistance(start, path);
 
-    if (GARDEN_WALK_DEBUG && typeof drawGardenPathDebug === "function") {
-      drawGardenPathDebug(path);
-    }
+// 單次移動太遠就重抽
+if (pathDistance > CHIFUYU_AUTO_WALK_MAX_DISTANCE) continue;
 
-    setChifuyuMovePath(path);
-    return true;
-  }
+if (GARDEN_WALK_DEBUG && typeof drawGardenPathDebug === "function") {
+  drawGardenPathDebug(path);
+}
 
+setChifuyuMovePath(path);
+return true;
+}
 
   return false;
 }
@@ -7832,4 +7868,3 @@ function initGardenScreen() {
 // if (gardenScreen) {
 //   gardenScreen.addEventListener("pointerdown", handleGardenPointerDown);
 // }
-
