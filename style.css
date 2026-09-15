@@ -2782,6 +2782,25 @@ body.autumn-mode.night-mode .menu-background.night {
    Garden Screen
 ========================= */
 
+#gardenScene {
+  contain: layout paint;
+}
+
+.garden-character-layer {
+  contain: layout paint;
+}
+
+#chifuyuWalkTest,
+#chinatsuWalkTest {
+  contain: paint;
+}
+
+#chifuyuWalkTestWrap,
+#chinatsuWalkTestWrap {
+  backface-visibility: hidden;
+}
+
+
 #gardenScreen {
   position: absolute;
   inset: 0;

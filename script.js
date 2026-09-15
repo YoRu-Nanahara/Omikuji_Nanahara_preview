@@ -4242,8 +4242,9 @@ if (btnGarden) {
 
         // 拉門關上後先預載
         async () => {
-          await preloadGardenAssets();
-        },
+  pauseSakuraForGarden();
+  await preloadGardenAssets();
+},
 
         // gardenScreen 顯示後再初始化庭園
         () => {
@@ -4303,14 +4304,37 @@ const btnGardenMenu = document.getElementById("btnGardenMenu");
 function backToMenuFrom(screenEl) {
   if (!screenEl || !menuScreen) return;
 
-  // 如果是御守畫面，回去前保險退出 focus
   if (screenEl === omamoriScreen && typeof exitOmamoriFocusMode === "function") {
     exitOmamoriFocusMode();
   }
 
-  // 如果是庭園畫面，回去前停止庭園動畫
-  if (screenEl === gardenScreen && typeof stopChifuyuWalkMoveTest === "function") {
-    stopChifuyuWalkMoveTest();
+  if (screenEl === gardenScreen) {
+    if (typeof stopChifuyuWalkMoveTest === "function") {
+      stopChifuyuWalkMoveTest();
+    }
+
+    if (typeof goToScreen === "function") {
+      goToScreen(
+        screenEl,
+        menuScreen,
+        600,
+        null,
+        () => {
+          if (typeof resumeSakuraFromGarden === "function") {
+            resumeSakuraFromGarden();
+          }
+        }
+      );
+    } else {
+      screenEl.classList.add("hidden");
+      menuScreen.classList.remove("hidden");
+
+      if (typeof resumeSakuraFromGarden === "function") {
+        resumeSakuraFromGarden();
+      }
+    }
+
+    return;
   }
 
   if (typeof goToScreen === "function") {
@@ -5845,6 +5869,40 @@ let sakuraWindMode = "normal";
 // 小遊戲暫停時凍結櫻花 canvas
 let sakuraPausedByWindGame = false;
 
+let sakuraPausedByGarden = false;
+
+function clearSakuraCanvas() {
+  const canvas = document.getElementById("sakura");
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function pauseSakuraForGarden() {
+  sakuraPausedByGarden = true;
+  document.body.classList.add("garden-active");
+
+  clearSakuraCanvas();
+
+  const canvas = document.getElementById("sakura");
+  if (canvas) {
+    canvas.style.display = "none";
+  }
+}
+
+function resumeSakuraFromGarden() {
+  const canvas = document.getElementById("sakura");
+  if (canvas) {
+    canvas.style.display = "";
+  }
+
+  sakuraPausedByGarden = false;
+  document.body.classList.remove("garden-active");
+}
+
 let sakuraWindPower = 1;
 let sakuraWindTargetPower = 1;
 
@@ -5951,10 +6009,10 @@ function resumeSakuraForWindGame() {
 }
 
 function updatePetals() {
-  if (sakuraPausedByWindGame) {
-    requestAnimationFrame(updatePetals);
-    return;
-  }
+  if (sakuraPausedByWindGame || sakuraPausedByGarden) {
+  requestAnimationFrame(updatePetals);
+  return;
+}
 
   const isWindGame = sakuraWindMode === "windGame";
 
@@ -6693,16 +6751,27 @@ const CHIFUYU_FRAME_POSITIONS = [
 
 const CHIFUYU_IDLE_FRAME_POSITIONS = CHIFUYU_FRAME_POSITIONS.slice(0, 31);
 
+const GARDEN_MOBILE_PERF_MODE =
+  window.matchMedia("(pointer: coarse)").matches ||
+  window.matchMedia("(max-width: 768px)").matches;
+
+const CHIFUYU_WALK_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 58 : 42;
+const CHIFUYU_IDLE_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 110 : 80;
+
+const CHINATSU_WALK_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 64 : 48;
+const CHINATSU_IDLE_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 120 : 90;
+
+
 const CHIFUYU_ANIMS = {
   walk: {
     sheetClass: CHIFUYU_WALK_SHEET_CLASS,
-    frameMs: 42,
+    frameMs: CHIFUYU_WALK_FRAME_MS,
     positions: CHIFUYU_FRAME_POSITIONS,
   },
 
   idle: {
     sheetClass: CHIFUYU_IDLE_SHEET_CLASS,
-    frameMs: 80,
+    frameMs: CHIFUYU_IDLE_FRAME_MS,
     positions: CHIFUYU_IDLE_FRAME_POSITIONS,
   },
 };
@@ -6922,13 +6991,13 @@ const CHINATSU_IDLE_SHEET_CLASS = "chinatsu-idle-sheet";
 const CHINATSU_ANIMS = {
   walk: {
     sheetClass: CHINATSU_WALK_SHEET_CLASS,
-    frameMs: 48,
+    frameMs: CHINATSU_WALK_FRAME_MS,
     positions: CHIFUYU_FRAME_POSITIONS,
   },
 
   idle: {
     sheetClass: CHINATSU_IDLE_SHEET_CLASS,
-    frameMs: 90,
+    frameMs: CHINATSU_IDLE_FRAME_MS,
     positions: CHIFUYU_IDLE_FRAME_POSITIONS,
   },
 };
