@@ -324,6 +324,28 @@ const windGameBg = document.getElementById("windGameBg");
 const btnWindGameMenu = document.getElementById("btnWindGameMenu");
 const windPauseOverlay = document.getElementById("windPauseOverlay");
 
+
+let shrineScreenTransitionBusy = false;
+
+function lockShrineTransitionInput() {
+  shrineScreenTransitionBusy = true;
+
+  const doors = document.getElementById("transitionDoors");
+  if (doors) {
+    doors.classList.add("is-blocking");
+  }
+}
+
+function unlockShrineTransitionInput() {
+  shrineScreenTransitionBusy = false;
+
+  const doors = document.getElementById("transitionDoors");
+  if (doors) {
+    doors.classList.remove("is-blocking");
+  }
+}
+
+
 function goToScreen(
   fromScreen,
   toScreen,
@@ -332,6 +354,37 @@ function goToScreen(
   onScreenShown = null
 ) {
   if (!fromScreen || !toScreen || !leftDoor || !rightDoor) return;
+
+  // 轉場中不接受新的畫面切換
+  if (btnGarden) {
+  btnGarden.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (shrineScreenTransitionBusy) return;
+
+    if (typeof goToScreen === "function" && menuScreen && gardenScreen) {
+      goToScreen(
+        menuScreen,
+        gardenScreen,
+        600,
+
+        async () => {
+          pauseSakuraForGarden();
+          await preloadGardenAssets();
+        },
+
+        () => {
+          if (typeof initGardenScreen === "function") {
+            initGardenScreen();
+          }
+        }
+      );
+    }
+  });
+}
+
+  lockShrineTransitionInput();
 
   leftDoor.classList.remove("hide", "closed", "show");
   rightDoor.classList.remove("hide", "closed", "show");
@@ -351,23 +404,19 @@ function goToScreen(
     leftDoor.classList.remove("show");
     rightDoor.classList.remove("show");
 
-    // 拉門完全闔上後，先做預載 / 準備
     if (typeof onClosedReady === "function") {
       await onClosedReady();
     }
 
-    // 再切畫面
     fromScreen.classList.add("hidden");
     toScreen.classList.remove("hidden");
 
-    // 畫面已顯示後才初始化角色 / 動畫
     requestAnimationFrame(() => {
       if (typeof onScreenShown === "function") {
         onScreenShown();
       }
     });
 
-    // 最後開門
     setTimeout(() => {
       requestAnimationFrame(() => {
         leftDoor.classList.remove("closed");
@@ -375,6 +424,15 @@ function goToScreen(
 
         leftDoor.classList.add("hide");
         rightDoor.classList.add("hide");
+
+        // 等開門動畫跑完後才解鎖操作
+        rightDoor.addEventListener(
+          "animationend",
+          () => {
+            unlockShrineTransitionInput();
+          },
+          { once: true }
+        );
       });
     }, holdTime);
   }
