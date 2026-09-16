@@ -680,12 +680,17 @@ const CHIFUYU_WALK_SHEET_SRC =
 const CHIFUYU_IDLE_SHEET_SRC =
   "images/garden/chifuyu/chifuyu-idle-sheet.png?v=5";
 
+const CHIFUYU_TALK_SHEET_SRC =
+  "images/garden/chifuyu/chifuyu-talk-sheet.png?v=1";
 
-  const CHINATSU_WALK_SHEET_SRC =
+const CHINATSU_WALK_SHEET_SRC =
   "images/garden/chinatsu/chinatsu-walk-sheet.png?v=1";
 
 const CHINATSU_IDLE_SHEET_SRC =
   "images/garden/chinatsu/chinatsu-idle-sheet.png?v=1";
+
+const CHINATSU_TALK_SHEET_SRC =
+  "images/garden/chinatsu/chinatsu-talk-sheet.png?v=1";
 
 
 let gardenAssetsLoaded = false;
@@ -705,9 +710,12 @@ const GARDEN_IMAGE_ASSETS = [
   
 CHIFUYU_IDLE_SHEET_SRC,
 CHIFUYU_WALK_SHEET_SRC,
+CHIFUYU_TALK_SHEET_SRC,
 
 CHINATSU_IDLE_SHEET_SRC,
 CHINATSU_WALK_SHEET_SRC,
+CHINATSU_TALK_SHEET_SRC,
+
 ];
 
 function preloadGardenImage(src) {
@@ -7090,6 +7098,102 @@ const chifuyuWalkTest = document.getElementById("chifuyuWalkTest");
 
 const CHIFUYU_WALK_SHEET_CLASS = "chifuyu-walk-sheet";
 const CHIFUYU_IDLE_SHEET_CLASS = "chifuyu-idle-sheet";
+const CHIFUYU_TALK_SHEET_CLASS = "chifuyu-talk-sheet";
+
+
+function buildSpriteFramePositions(frameCount, columns, cellW = 654, cellH = 654, offsetX = 2, offsetY = 2) {
+  const positions = [];
+
+  for (let i = 0; i < frameCount; i++) {
+    const col = i % columns;
+    const row = Math.floor(i / columns);
+
+    positions.push(`-${offsetX + col * cellW}px -${offsetY + row * cellH}px`);
+  }
+
+  return positions;
+}
+
+
+const GARDEN_TALK_RAW_FRAME_POSITIONS = [
+  "-2px -2px",
+  "-656px -2px",
+  "-1310px -2px",
+  "-1964px -2px",
+  "-2618px -2px",
+  "-3272px -2px",
+  "-3926px -2px",
+
+  "-2px -656px",
+  "-656px -656px",
+  "-1310px -656px",
+  "-1964px -656px",
+  "-2618px -656px",
+  "-3272px -656px",
+  "-3926px -656px",
+
+  "-2px -1310px",
+  "-656px -1310px",
+  "-1310px -1310px",
+  "-1964px -1310px",
+  "-2618px -1310px",
+  "-3272px -1310px",
+  "-3926px -1310px",
+
+  "-2px -1964px",
+  "-656px -1964px",
+  "-1310px -1964px",
+  "-1964px -1964px",
+  "-2618px -1964px",
+  "-3272px -1964px",
+  "-3926px -1964px",
+
+  "-2px -2618px",
+  "-656px -2618px",
+  "-1310px -2618px",
+  "-1964px -2618px",
+  "-2618px -2618px",
+  "-3272px -2618px",
+  "-3926px -2618px",
+
+  "-2px -3272px",
+  "-656px -3272px",
+  "-1310px -3272px",
+  "-1964px -3272px",
+  "-2618px -3272px",
+  "-3272px -3272px",
+  "-3926px -3272px",
+
+  "-2px -3926px",
+  "-656px -3926px",
+  "-1310px -3926px",
+  "-1964px -3926px",
+  "-2618px -3926px",
+  "-3272px -3926px",
+  "-3926px -3926px",
+
+  "-4580px -2px",
+  "-4580px -656px",
+  "-4580px -1310px",
+  "-4580px -1964px",
+  "-4580px -2618px",
+  "-4580px -3272px",
+  "-4580px -3926px",
+
+  "-2px -4580px",
+  "-656px -4580px",
+  "-1310px -4580px",
+  "-1964px -4580px",
+];
+
+// talk 動畫正常順播。
+// 先略過最後 1 幀，避免 TexturePacker 尾端空白格造成循環閃爍。
+const CHIFUYU_TALK_FRAME_POSITIONS =
+  GARDEN_TALK_RAW_FRAME_POSITIONS.slice(0, 59);
+
+const CHINATSU_TALK_FRAME_POSITIONS =
+  GARDEN_TALK_RAW_FRAME_POSITIONS.slice(0, 59);
+
 
 const CHIFUYU_FRAME_POSITIONS = [
   "-2px -2px",
@@ -7141,8 +7245,11 @@ const GARDEN_MOBILE_PERF_MODE =
 const CHIFUYU_WALK_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 58 : 42;
 const CHIFUYU_IDLE_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 110 : 80;
 
+
 const CHINATSU_WALK_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 64 : 48;
 const CHINATSU_IDLE_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 120 : 90;
+const CHIFUYU_TALK_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 66 : 48;
+const CHINATSU_TALK_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 72 : 52;
 
 
 const CHIFUYU_ANIMS = {
@@ -7157,6 +7264,12 @@ const CHIFUYU_ANIMS = {
     frameMs: CHIFUYU_IDLE_FRAME_MS,
     positions: CHIFUYU_IDLE_FRAME_POSITIONS,
   },
+
+talk: {
+  sheetClass: CHIFUYU_TALK_SHEET_CLASS,
+  frameMs: CHIFUYU_TALK_FRAME_MS,
+  positions: CHIFUYU_TALK_FRAME_POSITIONS,
+},
 };
 
 
@@ -7210,18 +7323,32 @@ async function warmupGardenCharacterAnimationSheets() {
     CHINATSU_WALK_SHEET_SRC
   );
 
-  holder.appendChild(chifuyuIdle);
-  holder.appendChild(chifuyuWalk);
-  holder.appendChild(chinatsuIdle);
-  holder.appendChild(chinatsuWalk);
+  const chifuyuTalk = createWarmupFrame(
+  CHIFUYU_TALK_SHEET_CLASS,
+  CHIFUYU_TALK_SHEET_SRC
+);
+
+const chinatsuTalk = createWarmupFrame(
+  CHINATSU_TALK_SHEET_CLASS,
+  CHINATSU_TALK_SHEET_SRC
+);
+
+ holder.appendChild(chifuyuIdle);
+holder.appendChild(chifuyuWalk);
+holder.appendChild(chifuyuTalk);
+holder.appendChild(chinatsuIdle);
+holder.appendChild(chinatsuWalk);
+holder.appendChild(chinatsuTalk);
 
   document.body.appendChild(holder);
 
   // 強制瀏覽器計算 layout / background image
-  void chifuyuIdle.offsetWidth;
-  void chifuyuWalk.offsetWidth;
-  void chinatsuIdle.offsetWidth;
-  void chinatsuWalk.offsetWidth;
+ void chifuyuIdle.offsetWidth;
+void chifuyuWalk.offsetWidth;
+void chifuyuTalk.offsetWidth;
+void chinatsuIdle.offsetWidth;
+void chinatsuWalk.offsetWidth;
+void chinatsuTalk.offsetWidth;
 
   // 等兩幀，讓瀏覽器有時間把圖片真正準備好
   await new Promise(resolve => {
@@ -7242,6 +7369,10 @@ const chifuyuWalkTestState = {
 
   frameIndex: 0,
   frameTimer: 0,
+
+  frameIndex: 0,
+  frameTimer: 0,
+  animLoopCount: 0,
 
   moveSpeed: 150,
 
@@ -7265,13 +7396,15 @@ function setChifuyuAnimationMode(mode, force = false) {
   }
 
   chifuyuWalkTestState.animMode = mode;
-  chifuyuWalkTestState.frameIndex = 0;
-  chifuyuWalkTestState.frameTimer = 0;
+chifuyuWalkTestState.frameIndex = 0;
+chifuyuWalkTestState.frameTimer = 0;
+chifuyuWalkTestState.animLoopCount = 0;
 
   chifuyuWalkTest.classList.remove(
-    CHIFUYU_WALK_SHEET_CLASS,
-    CHIFUYU_IDLE_SHEET_CLASS
-  );
+  CHIFUYU_WALK_SHEET_CLASS,
+  CHIFUYU_IDLE_SHEET_CLASS,
+  CHIFUYU_TALK_SHEET_CLASS
+);
 
   chifuyuWalkTest.classList.add(anim.sheetClass);
   chifuyuWalkTest.style.backgroundPosition = anim.positions[0];
@@ -7282,60 +7415,57 @@ function setChifuyuAnimationMode(mode, force = false) {
 function updateChifuyuAnimationFrame(deltaMs) {
   if (!chifuyuWalkTest) return;
 
-  const anim =
-    CHIFUYU_ANIMS[chifuyuWalkTestState.animMode] || CHIFUYU_ANIMS.idle;
-
-  chifuyuWalkTestState.frameTimer += deltaMs;
-
-  while (chifuyuWalkTestState.frameTimer >= anim.frameMs) {
-    chifuyuWalkTestState.frameTimer -= anim.frameMs;
-
-    chifuyuWalkTestState.frameIndex =
-      (chifuyuWalkTestState.frameIndex + 1) % anim.positions.length;
-
-    chifuyuWalkTest.style.backgroundPosition =
-      anim.positions[chifuyuWalkTestState.frameIndex];
-
-    
-  }
-}
-
-function updateChifuyuWalkPosition(deltaMs) {
   const state = chifuyuWalkTestState;
 
-  if (!state.path || state.path.length === 0) {
-    state.isMoving = false;
+  const anim =
+    CHIFUYU_ANIMS[state.animMode] || CHIFUYU_ANIMS.idle;
+
+  // 千冬的聊天動畫已經完整跑完指定輪數後，
+  // 先固定停在 talk 第 0 幀，等千夏也完成
+  if (
+    gardenChatState.mode === "chat" &&
+    state.animMode === "talk" &&
+    isGardenTalkReadyToEndForCharacter("chifuyu")
+  ) {
+    state.frameIndex = 0;
+    state.frameTimer = 0;
+    chifuyuWalkTest.style.backgroundPosition = anim.positions[0];
     return;
   }
 
-  state.isMoving = true;
+  state.frameTimer += deltaMs;
 
-  const target = state.path[0];
+  while (state.frameTimer >= anim.frameMs) {
+    state.frameTimer -= anim.frameMs;
 
-  const dx = target.x - state.x;
-  const dy = target.y - state.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
+    const nextFrameIndex =
+      (state.frameIndex + 1) % anim.positions.length;
 
-  const step = state.moveSpeed * (deltaMs / 1000);
-
-  if (dist <= step) {
-    state.x = target.x;
-    state.y = target.y;
-    state.path.shift();
-
-    if (state.path.length === 0) {
-      state.isMoving = false;
+    if (nextFrameIndex === 0 && state.frameIndex !== 0) {
+      state.animLoopCount = (state.animLoopCount || 0) + 1;
     }
 
-    return;
-  }
+    state.frameIndex = nextFrameIndex;
 
-  if (Math.abs(dx) > 2) {
-    state.direction = dx > 0 ? 1 : -1;
-  }
+    chifuyuWalkTest.style.backgroundPosition =
+      anim.positions[state.frameIndex];
 
-  state.x += (dx / dist) * step;
-  state.y += (dy / dist) * step;
+    // talk 動畫跑完指定輪數，並回到下一輪第 0 幀
+    if (
+      gardenChatState.mode === "chat" &&
+      state.animMode === "talk" &&
+      (state.animLoopCount || 0) >= Math.max(1, gardenChatState.targetLoops || 1) &&
+      state.frameIndex === 0
+    ) {
+      markGardenTalkReadyToEnd("chifuyu");
+
+      state.frameIndex = 0;
+      state.frameTimer = 0;
+      chifuyuWalkTest.style.backgroundPosition = anim.positions[0];
+
+      return;
+    }
+  }
 }
 
 function getGardenLocalPointFromEvent(e) {
@@ -7364,12 +7494,10 @@ function setChifuyuMovePath(points) {
 
 const chinatsuWalkTestWrap = document.getElementById("chinatsuWalkTestWrap");
 const chinatsuWalkTest = document.getElementById("chinatsuWalkTest");
-console.log("[Garden Chinatsu DOM]", {
-  chinatsuWalkTestWrap,
-  chinatsuWalkTest,
-});
+
 const CHINATSU_WALK_SHEET_CLASS = "chinatsu-walk-sheet";
 const CHINATSU_IDLE_SHEET_CLASS = "chinatsu-idle-sheet";
+const CHINATSU_TALK_SHEET_CLASS = "chinatsu-talk-sheet";
 
 const CHINATSU_ANIMS = {
   walk: {
@@ -7383,6 +7511,12 @@ const CHINATSU_ANIMS = {
     frameMs: CHINATSU_IDLE_FRAME_MS,
     positions: CHIFUYU_IDLE_FRAME_POSITIONS,
   },
+
+  talk: {
+  sheetClass: CHINATSU_TALK_SHEET_CLASS,
+  frameMs: CHINATSU_TALK_FRAME_MS,
+  positions: CHINATSU_TALK_FRAME_POSITIONS,
+},
 };
 
 const chinatsuWalkTestState = {
@@ -7395,6 +7529,10 @@ const chinatsuWalkTestState = {
 
   frameIndex: 0,
   frameTimer: 0,
+
+  frameIndex: 0,
+  frameTimer: 0,
+  animLoopCount: 0,
 
   moveSpeed: 145,
 
@@ -7447,13 +7585,15 @@ function setChinatsuAnimationMode(mode, force = false) {
   }
 
   chinatsuWalkTestState.animMode = mode;
-  chinatsuWalkTestState.frameIndex = 0;
-  chinatsuWalkTestState.frameTimer = 0;
+chinatsuWalkTestState.frameIndex = 0;
+chinatsuWalkTestState.frameTimer = 0;
+chinatsuWalkTestState.animLoopCount = 0;
 
   chinatsuWalkTest.classList.remove(
-    CHINATSU_WALK_SHEET_CLASS,
-    CHINATSU_IDLE_SHEET_CLASS
-  );
+  CHINATSU_WALK_SHEET_CLASS,
+  CHINATSU_IDLE_SHEET_CLASS,
+  CHINATSU_TALK_SHEET_CLASS
+);
 
   chinatsuWalkTest.classList.add(anim.sheetClass);
   chinatsuWalkTest.style.backgroundPosition = anim.positions[0];
@@ -7462,19 +7602,56 @@ function setChinatsuAnimationMode(mode, force = false) {
 function updateChinatsuAnimationFrame(deltaMs) {
   if (!chinatsuWalkTest) return;
 
+  const state = chinatsuWalkTestState;
+
   const anim =
-    CHINATSU_ANIMS[chinatsuWalkTestState.animMode] || CHINATSU_ANIMS.idle;
+    CHINATSU_ANIMS[state.animMode] || CHINATSU_ANIMS.idle;
 
-  chinatsuWalkTestState.frameTimer += deltaMs;
+  // 千夏的聊天動畫已經完整跑完指定輪數後，
+  // 先固定停在 talk 第 0 幀，等千冬也完成
+  if (
+    gardenChatState.mode === "chat" &&
+    state.animMode === "talk" &&
+    isGardenTalkReadyToEndForCharacter("chinatsu")
+  ) {
+    state.frameIndex = 0;
+    state.frameTimer = 0;
+    chinatsuWalkTest.style.backgroundPosition = anim.positions[0];
+    return;
+  }
 
-  while (chinatsuWalkTestState.frameTimer >= anim.frameMs) {
-    chinatsuWalkTestState.frameTimer -= anim.frameMs;
+  state.frameTimer += deltaMs;
 
-    chinatsuWalkTestState.frameIndex =
-      (chinatsuWalkTestState.frameIndex + 1) % anim.positions.length;
+  while (state.frameTimer >= anim.frameMs) {
+    state.frameTimer -= anim.frameMs;
+
+    const nextFrameIndex =
+      (state.frameIndex + 1) % anim.positions.length;
+
+    if (nextFrameIndex === 0 && state.frameIndex !== 0) {
+      state.animLoopCount = (state.animLoopCount || 0) + 1;
+    }
+
+    state.frameIndex = nextFrameIndex;
 
     chinatsuWalkTest.style.backgroundPosition =
-      anim.positions[chinatsuWalkTestState.frameIndex];
+      anim.positions[state.frameIndex];
+
+    // talk 動畫跑完指定輪數，並回到下一輪第 0 幀
+    if (
+      gardenChatState.mode === "chat" &&
+      state.animMode === "talk" &&
+      (state.animLoopCount || 0) >= Math.max(1, gardenChatState.targetLoops || 1) &&
+      state.frameIndex === 0
+    ) {
+      markGardenTalkReadyToEnd("chinatsu");
+
+      state.frameIndex = 0;
+      state.frameTimer = 0;
+      chinatsuWalkTest.style.backgroundPosition = anim.positions[0];
+
+      return;
+    }
   }
 }
 
@@ -7647,6 +7824,683 @@ function resetChinatsuAutoWalk() {
 }
 
 
+
+/* =========================
+   Garden Chat System
+   進庭院 / 散步中偶爾聊天
+========================= */
+
+const GARDEN_INITIAL_CHAT_CHANCE = 0.5;
+
+// 散步中自然聊天：不要太頻繁
+const GARDEN_WANDER_CHAT_CHANCE = 0.18;
+const GARDEN_CHAT_CHECK_MIN_MS = 5000;
+const GARDEN_CHAT_CHECK_MAX_MS = 9000;
+
+const GARDEN_CHAT_LOOP_MIN = 2;
+const GARDEN_CHAT_LOOP_MAX = 4;
+
+const GARDEN_AFTER_CHAT_IDLE_MIN_MS = 600;
+const GARDEN_AFTER_CHAT_IDLE_MAX_MS = 1400;
+
+const GARDEN_CHAT_APPROACH_MAX_PATH_DISTANCE = 2200;
+const GARDEN_CHAT_APPROACH_TIMEOUT_MS = 18000;
+const GARDEN_CHAT_APPROACH_CANDIDATE_COUNT = 5;
+
+function randomIntBetween(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+// 散步中自然停下聊天，只允許在前景安全區發生
+const GARDEN_NATURAL_CHAT_AREAS = [
+  {
+    name: "front",
+    zone: "ground",
+    xMin: 220,
+    xMax: 970,
+    yMin: 1450,
+    yMax: 1840,
+    baseMinDistance: 320,
+    baseMaxDistance: 520,
+    maxYDiff: 100,
+  },
+
+  {
+    name: "far",
+    zone: "far",
+    xMin: 300,
+    xMax: 790,
+    yMin: 535,
+    yMax: 590,
+    baseMinDistance: 320,
+    baseMaxDistance: 520,
+    maxYDiff: 70,
+  },
+
+  {
+    name: "corridor",
+    zone: "ground",
+    xMin: 600,
+    xMax: 1010,
+    yMin: 690,
+    yMax: 820,
+    baseMinDistance: 320,
+    baseMaxDistance: 520,
+    maxYDiff: 95,
+  },
+];
+
+const GARDEN_NATURAL_CHAT_MIN_DISTANCE = 320;
+const GARDEN_NATURAL_CHAT_MAX_DISTANCE = 500;
+const GARDEN_NATURAL_CHAT_MAX_Y_DIFF = 90;
+
+// 進場直接聊天用的固定安全點位
+const GARDEN_CHAT_SPOTS = [
+  {
+    name: "front-center",
+    chifuyu: { x: 420, y: 1720, direction: 1 },
+    chinatsu: { x: 800, y: 1720, direction: -1 },
+  },
+
+  {
+    name: "front-left",
+    chifuyu: { x: 200, y: 1585, direction: 1 },
+    chinatsu: { x: 560, y: 1615, direction: -1 },
+  },
+
+  {
+    name: "front-center",
+    chifuyu: { x: 800, y: 1720, direction: -1 },
+    chinatsu: { x: 420, y: 1720, direction: 1 },
+  },
+
+
+   {
+    name: "bottom-center",
+    chifuyu: { x: 790, y: 1810, direction: -1 },
+    chinatsu: { x: 390, y: 1810, direction: 1 },
+  },
+
+  // 遠景：角色較小，所以實際座標距離也縮短
+{
+  name: "far-center",
+  chifuyu: { x: 500, y: 560, direction: 1 },
+  chinatsu: { x: 780, y: 560, direction: -1 },
+  distanceMultiplier: 1.12,
+},
+
+{
+  name: "far-center",
+  chifuyu: { x: 780, y: 560, direction: -1 },
+  chinatsu:{ x: 500, y: 560, direction: 1 },
+},
+
+{
+  name: "far-right",
+  chifuyu: { x: 780, y: 540, direction: -1 },
+  chinatsu: { x: 560, y: 540, direction: 1 },
+},
+
+
+// 走廊：比上一版稍微往下
+{
+  name: "corridor-right",
+  chifuyu: { x: 550, y: 740, direction: 1 },
+  chinatsu: { x: 800, y: 740, direction: -1 },
+},
+
+{
+  name: "upper-right",
+  chifuyu: { x: 780, y: 700, direction: -1 },
+  chinatsu: { x: 520, y: 700, direction: 1 },
+},
+];
+
+const gardenChatState = {
+  mode: "wander", // wander / approachChat / chat
+
+  targetLoops: 0,
+  shouldEndOnNextFrame: false,
+
+  chifuyuTalkReadyToEnd: false,
+  chinatsuTalkReadyToEnd: false,
+
+  approachSpot: null,
+  approachStartedAt: 0,
+
+  nextCheckTime: 0,
+  currentSpotName: "",
+};
+
+
+function resetGardenTalkEndFlags() {
+  gardenChatState.shouldEndOnNextFrame = false;
+  gardenChatState.chifuyuTalkReadyToEnd = false;
+  gardenChatState.chinatsuTalkReadyToEnd = false;
+}
+
+function isGardenTalkReadyToEndForCharacter(characterName) {
+  if (characterName === "chifuyu") {
+    return gardenChatState.chifuyuTalkReadyToEnd;
+  }
+
+  if (characterName === "chinatsu") {
+    return gardenChatState.chinatsuTalkReadyToEnd;
+  }
+
+  return false;
+}
+
+function markGardenTalkReadyToEnd(characterName) {
+  if (characterName === "chifuyu") {
+    gardenChatState.chifuyuTalkReadyToEnd = true;
+  }
+
+  if (characterName === "chinatsu") {
+    gardenChatState.chinatsuTalkReadyToEnd = true;
+  }
+}
+
+function areBothGardenTalkAnimationsReadyToEnd() {
+  return (
+    gardenChatState.chifuyuTalkReadyToEnd &&
+    gardenChatState.chinatsuTalkReadyToEnd
+  );
+}
+
+
+
+
+function isGardenChatting() {
+  return gardenChatState.mode === "chat";
+}
+
+function isGardenChatBlockingWalk() {
+  // chat：正在聊天，不准自動散步介入
+  // approachChat：正在走向聊天點，也不准自動散步改路線
+  return (
+    gardenChatState.mode === "chat" ||
+    gardenChatState.mode === "approachChat"
+  );
+}
+
+function scheduleNextGardenChatCheck(now = performance.now()) {
+  gardenChatState.nextCheckTime =
+    now + randomBetween(GARDEN_CHAT_CHECK_MIN_MS, GARDEN_CHAT_CHECK_MAX_MS);
+}
+
+function clearGardenChatState() {
+  gardenChatState.mode = "wander";
+  gardenChatState.targetLoops = 0;
+  gardenChatState.shouldEndOnNextFrame = false;
+
+  gardenChatState.approachSpot = null;
+  gardenChatState.approachStartedAt = 0;
+
+  gardenChatState.currentSpotName = "";
+
+  resetGardenTalkEndFlags();
+
+  chifuyuWalkTestState.path = [];
+  chifuyuWalkTestState.isMoving = false;
+
+  chinatsuWalkTestState.path = [];
+  chinatsuWalkTestState.isMoving = false;
+
+  scheduleNextGardenChatCheck(performance.now());
+}
+
+function getGardenNaturalChatAreaForPoint(p) {
+  if (!p) return null;
+
+  const zone = getGardenMoveZoneAt(p.x, p.y);
+
+  for (const area of GARDEN_NATURAL_CHAT_AREAS) {
+    if (area.zone && area.zone !== zone) continue;
+
+    if (
+      p.x >= area.xMin &&
+      p.x <= area.xMax &&
+      p.y >= area.yMin &&
+      p.y <= area.yMax
+    ) {
+      return area;
+    }
+  }
+
+  return null;
+}
+
+function isPointInsideNaturalChatArea(p) {
+  return !!getGardenNaturalChatAreaForPoint(p);
+}
+
+function isGardenChatSpotValid(spot) {
+  if (!spot || !spot.chifuyu || !spot.chinatsu) return false;
+
+  if (!isGardenWalkablePoint(spot.chifuyu.x, spot.chifuyu.y)) return false;
+  if (!isGardenWalkablePoint(spot.chinatsu.x, spot.chinatsu.y)) return false;
+
+  if (
+    !isGardenChatDistanceValid(spot.chifuyu, spot.chinatsu, {
+      baseMinDistance: spot.baseMinDistance ?? 320,
+      baseMaxDistance: spot.baseMaxDistance ?? 520,
+      maxYDiff: spot.maxYDiff ?? 110,
+      distanceMultiplier: spot.distanceMultiplier ?? 1,
+    })
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function pickRandomGardenChatSpot() {
+  const validSpots = GARDEN_CHAT_SPOTS.filter(isGardenChatSpotValid);
+
+  if (validSpots.length === 0) {
+    return null;
+  }
+
+  return validSpots[Math.floor(Math.random() * validSpots.length)];
+}
+
+function getGardenChatApproachPlanForSpot(spot) {
+  if (!isGardenChatSpotValid(spot)) return null;
+
+  const chifuyuStart = {
+    x: chifuyuWalkTestState.x,
+    y: chifuyuWalkTestState.y,
+  };
+
+  const chinatsuStart = {
+    x: chinatsuWalkTestState.x,
+    y: chinatsuWalkTestState.y,
+  };
+
+  const chifuyuPath = findGardenPath(chifuyuStart, spot.chifuyu);
+  const chinatsuPath = findGardenPath(chinatsuStart, spot.chinatsu);
+
+  if (!chifuyuPath || !chinatsuPath) return null;
+
+  const chifuyuDistance =
+    getGardenPathDistance(chifuyuStart, chifuyuPath);
+
+  const chinatsuDistance =
+    getGardenPathDistance(chinatsuStart, chinatsuPath);
+
+  if (chifuyuDistance > GARDEN_CHAT_APPROACH_MAX_PATH_DISTANCE) return null;
+  if (chinatsuDistance > GARDEN_CHAT_APPROACH_MAX_PATH_DISTANCE) return null;
+
+  return {
+    spot,
+    chifuyuPath,
+    chinatsuPath,
+    totalDistance: chifuyuDistance + chinatsuDistance,
+  };
+}
+
+function pickGardenChatApproachPlan() {
+  const plans = [];
+
+  for (const spot of GARDEN_CHAT_SPOTS) {
+    const plan = getGardenChatApproachPlanForSpot(spot);
+
+    if (plan) {
+      plans.push(plan);
+    }
+  }
+
+  if (plans.length === 0) return null;
+
+  // 優先選附近聊天點，避免從前景一路跑到遠景太突兀
+  plans.sort((a, b) => a.totalDistance - b.totalDistance);
+
+  const candidates = plans.slice(
+    0,
+    Math.min(GARDEN_CHAT_APPROACH_CANDIDATE_COUNT, plans.length)
+  );
+
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+function startGardenChatApproach(now = performance.now()) {
+  if (gardenChatState.mode !== "wander") return false;
+
+  const plan = pickGardenChatApproachPlan();
+
+  if (!plan) {
+    console.warn("[Garden Chat] no valid approach plan", {
+      chifuyu: {
+        x: Math.round(chifuyuWalkTestState.x),
+        y: Math.round(chifuyuWalkTestState.y),
+        moving: chifuyuWalkTestState.isMoving,
+      },
+      chinatsu: {
+        x: Math.round(chinatsuWalkTestState.x),
+        y: Math.round(chinatsuWalkTestState.y),
+        moving: chinatsuWalkTestState.isMoving,
+      },
+    });
+
+    return false;
+  }
+
+  gardenChatState.mode = "approachChat";
+  gardenChatState.approachSpot = plan.spot;
+  gardenChatState.approachStartedAt = now;
+  gardenChatState.currentSpotName = plan.spot.name || "approach";
+
+  resetGardenTalkEndFlags();
+
+  // 中斷原本自由散步，改走向聊天點
+  chifuyuWalkTestState.path = [];
+  chifuyuWalkTestState.isMoving = false;
+
+  chinatsuWalkTestState.path = [];
+  chinatsuWalkTestState.isMoving = false;
+
+  chifuyuAutoWalkState.wasMoving = false;
+  chinatsuAutoWalkState.wasMoving = false;
+
+  setChifuyuMovePath(plan.chifuyuPath);
+  setChinatsuMovePath(plan.chinatsuPath);
+
+  console.log("[Garden Chat] approach started:", {
+    spot: plan.spot.name,
+    totalDistance: Math.round(plan.totalDistance),
+  });
+
+  return true;
+}
+
+window.testGardenChatApproach = function () {
+  return startGardenChatApproach(performance.now());
+};
+
+function cancelGardenChatApproach(now = performance.now()) {
+  gardenChatState.mode = "wander";
+  gardenChatState.approachSpot = null;
+  gardenChatState.approachStartedAt = 0;
+  gardenChatState.currentSpotName = "";
+
+  chifuyuWalkTestState.path = [];
+  chifuyuWalkTestState.isMoving = false;
+
+  chinatsuWalkTestState.path = [];
+  chinatsuWalkTestState.isMoving = false;
+
+  resetGardenTalkEndFlags();
+  scheduleNextGardenChatCheck(now);
+}
+
+function updateGardenChatApproach(now = performance.now()) {
+  if (gardenChatState.mode !== "approachChat") return false;
+
+  if (now - gardenChatState.approachStartedAt > GARDEN_CHAT_APPROACH_TIMEOUT_MS) {
+    cancelGardenChatApproach(now);
+    return false;
+  }
+
+  // 還沒抵達聊天點
+  if (chifuyuWalkTestState.isMoving) return false;
+  if (chinatsuWalkTestState.isMoving) return false;
+
+  const spot = gardenChatState.approachSpot;
+
+  if (!spot) {
+    cancelGardenChatApproach(now);
+    return false;
+  }
+
+  // 抵達後微調到聊天點，避免因浮點數殘差造成站位歪掉
+  chifuyuWalkTestState.x = spot.chifuyu.x;
+  chifuyuWalkTestState.y = spot.chifuyu.y;
+  chifuyuWalkTestState.direction = spot.chifuyu.direction;
+
+  chinatsuWalkTestState.x = spot.chinatsu.x;
+  chinatsuWalkTestState.y = spot.chinatsu.y;
+  chinatsuWalkTestState.direction = spot.chinatsu.direction;
+
+  gardenChatState.approachSpot = null;
+  gardenChatState.approachStartedAt = 0;
+
+  startGardenChat(now, null);
+
+  gardenChatState.currentSpotName = spot.name || "approach";
+
+  return true;
+}
+
+function faceGardenCharactersToEachOther() {
+  if (chifuyuWalkTestState.x <= chinatsuWalkTestState.x) {
+    chifuyuWalkTestState.direction = 1;
+    chinatsuWalkTestState.direction = -1;
+  } else {
+    chifuyuWalkTestState.direction = -1;
+    chinatsuWalkTestState.direction = 1;
+  }
+}
+
+function applyGardenChatSpot(spot) {
+  if (!spot) return false;
+
+  chifuyuWalkTestState.x = spot.chifuyu.x;
+  chifuyuWalkTestState.y = spot.chifuyu.y;
+  chifuyuWalkTestState.direction = spot.chifuyu.direction;
+  chifuyuWalkTestState.path = [];
+  chifuyuWalkTestState.isMoving = false;
+
+  chinatsuWalkTestState.x = spot.chinatsu.x;
+  chinatsuWalkTestState.y = spot.chinatsu.y;
+  chinatsuWalkTestState.direction = spot.chinatsu.direction;
+  chinatsuWalkTestState.path = [];
+  chinatsuWalkTestState.isMoving = false;
+
+  renderChifuyuWalkTest();
+  renderChinatsuWalkTest();
+
+  return true;
+}
+
+function startGardenChat(now = performance.now(), spot = null) {
+  if (gardenChatState.mode === "chat") return false;
+
+  if (spot) {
+    const applied = applyGardenChatSpot(spot);
+    if (!applied) return false;
+
+    gardenChatState.currentSpotName = spot.name || "";
+  } else {
+    faceGardenCharactersToEachOther();
+    gardenChatState.currentSpotName = "natural";
+  }
+
+  gardenChatState.mode = "chat";
+gardenChatState.targetLoops = randomIntBetween(
+  GARDEN_CHAT_LOOP_MIN,
+  GARDEN_CHAT_LOOP_MAX
+);
+
+resetGardenTalkEndFlags();
+
+  chifuyuWalkTestState.path = [];
+  chifuyuWalkTestState.isMoving = false;
+
+  chinatsuWalkTestState.path = [];
+  chinatsuWalkTestState.isMoving = false;
+
+  setChifuyuAnimationMode("talk", true);
+  setChinatsuAnimationMode("talk", true);
+
+  // 保險：從 talk 第 0 幀重新計算完整輪數
+  chifuyuWalkTestState.animLoopCount = 0;
+  chinatsuWalkTestState.animLoopCount = 0;
+
+  renderChifuyuWalkTest();
+  renderChinatsuWalkTest();
+
+  return true;
+}
+
+function startGardenChatAtRandomSpot(now = performance.now()) {
+  const spot = pickRandomGardenChatSpot();
+
+  if (!spot) {
+    return false;
+  }
+
+  return startGardenChat(now, spot);
+}
+
+function endGardenChat(now = performance.now()) {
+  gardenChatState.mode = "wander";
+gardenChatState.targetLoops = 0;
+
+gardenChatState.approachSpot = null;
+gardenChatState.approachStartedAt = 0;
+
+gardenChatState.currentSpotName = "";
+
+  resetGardenTalkEndFlags();
+
+  chifuyuWalkTestState.path = [];
+  chifuyuWalkTestState.isMoving = false;
+
+  chinatsuWalkTestState.path = [];
+  chinatsuWalkTestState.isMoving = false;
+
+  setChifuyuAnimationMode("idle", true);
+  setChinatsuAnimationMode("idle", true);
+
+  chifuyuAutoWalkState.wasMoving = false;
+  chinatsuAutoWalkState.wasMoving = false;
+
+  chifuyuAutoWalkState.nextMoveTime =
+    now + randomBetween(GARDEN_AFTER_CHAT_IDLE_MIN_MS, GARDEN_AFTER_CHAT_IDLE_MAX_MS);
+
+  chinatsuAutoWalkState.nextMoveTime =
+    now + randomBetween(GARDEN_AFTER_CHAT_IDLE_MIN_MS, GARDEN_AFTER_CHAT_IDLE_MAX_MS);
+
+  scheduleNextGardenChatCheck(now + 9000);
+}
+
+function canStartNaturalGardenChat() {
+  if (gardenChatState.mode !== "wander") return false;
+
+  if (chifuyuWalkTestState.isMoving) return false;
+  if (chinatsuWalkTestState.isMoving) return false;
+
+  const chifuyuPoint = {
+    x: chifuyuWalkTestState.x,
+    y: chifuyuWalkTestState.y,
+  };
+
+  const chinatsuPoint = {
+    x: chinatsuWalkTestState.x,
+    y: chinatsuWalkTestState.y,
+  };
+
+  const chifuyuArea = getGardenNaturalChatAreaForPoint(chifuyuPoint);
+  const chinatsuArea = getGardenNaturalChatAreaForPoint(chinatsuPoint);
+
+  // 兩人都必須在可聊天區
+  if (!chifuyuArea || !chinatsuArea) return false;
+
+  // 避免一個人在遠景、一個人在前景卻開始聊天
+  if (chifuyuArea.name !== chinatsuArea.name) return false;
+
+  if (
+  !isGardenChatDistanceValid(chifuyuPoint, chinatsuPoint, {
+    baseMinDistance:
+      chifuyuArea.baseMinDistance ?? GARDEN_NATURAL_CHAT_MIN_DISTANCE,
+
+    baseMaxDistance:
+      chifuyuArea.baseMaxDistance ?? GARDEN_NATURAL_CHAT_MAX_DISTANCE,
+
+    maxYDiff:
+      chifuyuArea.maxYDiff ?? GARDEN_NATURAL_CHAT_MAX_Y_DIFF,
+
+    distanceMultiplier:
+      chifuyuArea.distanceMultiplier ?? 1,
+  })
+) {
+  return false;
+}
+
+  return true;
+}
+
+function tryStartNaturalGardenChat(now = performance.now()) {
+  if (gardenChatState.mode !== "wander") return false;
+  if (now < gardenChatState.nextCheckTime) return false;
+
+  scheduleNextGardenChatCheck(now);
+
+  if (Math.random() > GARDEN_WANDER_CHAT_CHANCE) {
+    return false;
+  }
+
+  // 優先：走到附近聊天點再聊天
+  if (startGardenChatApproach(now)) {
+    return true;
+  }
+
+  // 保底：如果剛好已經站在合適位置，就原地自然聊天
+  if (canStartNaturalGardenChat()) {
+    return startGardenChat(now, null);
+  }
+
+  return false;
+}
+
+function updateGardenChatSystem(now = performance.now()) {
+  if (gardenChatState.mode === "approachChat") {
+    updateGardenChatApproach(now);
+    return;
+  }
+
+  if (gardenChatState.mode === "chat") {
+    if (gardenChatState.shouldEndOnNextFrame) {
+      endGardenChat(now);
+      return;
+    }
+
+    if (areBothGardenTalkAnimationsReadyToEnd()) {
+      gardenChatState.shouldEndOnNextFrame = true;
+      return;
+    }
+
+    return;
+  }
+
+  tryStartNaturalGardenChat(now);
+}
+
+function setupGardenInitialMode(now = performance.now()) {
+  clearGardenChatState();
+
+  const startAsChat = Math.random() < GARDEN_INITIAL_CHAT_CHANCE;
+
+  if (startAsChat) {
+    const started = startGardenChatAtRandomSpot(now);
+
+    if (started) {
+      return "chat";
+    }
+  }
+
+  return "wander";
+}
+
+
+
+
+
+
 function renderChinatsuWalkTest() {
   if (!chinatsuWalkTestWrap) return;
 
@@ -7672,23 +8526,6 @@ function renderChinatsuWalkTest() {
 
   chinatsuWalkTestWrap.style.zIndex = Math.round(chinatsuWalkTestState.y);
 }
-
-function updateChinatsuGardenCharacter(deltaMs, now) {
-  updateChinatsuWalkPosition(deltaMs);
-
-  updateChinatsuAutoWalk(now);
-
-  if (chinatsuWalkTestState.isMoving) {
-    setChinatsuAnimationMode("walk");
-  } else {
-    setChinatsuAnimationMode("idle");
-  }
-
-  updateChinatsuAnimationFrame(deltaMs);
-
-  renderChinatsuWalkTest();
-}
-
 
 
 /* =========================
@@ -7924,6 +8761,45 @@ function drawGardenClickDebugPoint(x, y, zone) {
   ctx.fillText(text, x + 18, y - 18);
 }
 
+function updateChifuyuWalkPosition(deltaMs) {
+  const state = chifuyuWalkTestState;
+
+  if (!state.path || state.path.length === 0) {
+    state.isMoving = false;
+    return;
+  }
+
+  state.isMoving = true;
+
+  const target = state.path[0];
+
+  const dx = target.x - state.x;
+  const dy = target.y - state.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  const step = state.moveSpeed * (deltaMs / 1000);
+
+  if (dist <= step || dist < 0.001) {
+    state.x = target.x;
+    state.y = target.y;
+    state.path.shift();
+
+    if (state.path.length === 0) {
+      state.isMoving = false;
+    }
+
+    return;
+  }
+
+  if (Math.abs(dx) > 2) {
+    state.direction = dx > 0 ? 1 : -1;
+  }
+
+  state.x += (dx / dist) * step;
+  state.y += (dy / dist) * step;
+}
+
+
 function renderChifuyuWalkTest() {
   if (!chifuyuWalkTestWrap) return;
 
@@ -7971,6 +8847,58 @@ function getGardenScaleByY(y) {
   return farScale + t * (nearScale - farScale);
 }
 
+const GARDEN_CHAT_DISTANCE_REF_Y = 1720;
+
+// 遠景不要縮得太誇張，最低保留約 52% 的前景聊天距離
+const GARDEN_CHAT_DISTANCE_SCALE_MIN = 0.52;
+const GARDEN_CHAT_DISTANCE_SCALE_MAX = 1.0;
+
+function getGardenChatDistanceScale(pointA, pointB) {
+  const avgY = (pointA.y + pointB.y) / 2;
+
+  const refScale = getGardenScaleByY(GARDEN_CHAT_DISTANCE_REF_Y);
+  const currentScale = getGardenScaleByY(avgY);
+
+  const ratio = currentScale / refScale;
+
+  return Math.max(
+    GARDEN_CHAT_DISTANCE_SCALE_MIN,
+    Math.min(GARDEN_CHAT_DISTANCE_SCALE_MAX, ratio)
+  );
+}
+
+function getGardenScaledChatDistanceRange(pointA, pointB, options = {}) {
+  const baseMinDistance = options.baseMinDistance ?? 320;
+  const baseMaxDistance = options.baseMaxDistance ?? 520;
+  const distanceMultiplier = options.distanceMultiplier ?? 1;
+
+  const scale =
+    getGardenChatDistanceScale(pointA, pointB) * distanceMultiplier;
+
+  return {
+    minDistance: baseMinDistance * scale,
+    maxDistance: baseMaxDistance * scale,
+    maxYDiff: options.maxYDiff ?? 100,
+  };
+}
+
+function isGardenChatDistanceValid(pointA, pointB, options = {}) {
+  const dx = pointB.x - pointA.x;
+  const dy = pointB.y - pointA.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  const range = getGardenScaledChatDistanceRange(pointA, pointB, options);
+
+  if (dist < range.minDistance) return false;
+  if (dist > range.maxDistance) return false;
+  if (Math.abs(dy) > range.maxYDiff) return false;
+
+  return true;
+}
+
+
+
+
 function chifuyuWalkMoveLoop(now) {
   if (!gardenScreen || gardenScreen.classList.contains("hidden")) {
     chifuyuWalkMoveFrame = null;
@@ -7978,30 +8906,57 @@ function chifuyuWalkMoveLoop(now) {
   }
 
   const rawDeltaMs = now - chifuyuWalkTestState.lastTime;
-chifuyuWalkTestState.lastTime = now;
+  chifuyuWalkTestState.lastTime = now;
 
-// 避免切頁、轉場、手機瞬間卡頓後，下一幀一次補太多造成角色跳動
-const deltaMs = Math.min(rawDeltaMs, 50);
+  // 避免切頁、轉場、手機瞬間卡頓後，下一幀一次補太多造成角色跳動
+  const deltaMs = Math.min(rawDeltaMs, 50);
 
+  // 先更新兩人的移動位置
   updateChifuyuWalkPosition(deltaMs);
+  updateChinatsuWalkPosition(deltaMs);
 
-// 自由散步：停下後等待一段時間，再自動找下一個可走位置
-updateChifuyuAutoWalk(now);
+  // 先判斷聊天事件。
+  // 這樣如果這一幀抽到合流聊天，就不會先被自動散步搶走。
+  updateGardenChatSystem(now);
 
-if (chifuyuWalkTestState.isMoving) {
-  setChifuyuAnimationMode("walk");
-} else {
-  setChifuyuAnimationMode("idle");
-}
+  // 聊天 / 合流聊天期間，不允許自由散步改路線
+  if (!isGardenChatBlockingWalk()) {
+    updateChifuyuAutoWalk(now);
+    updateChinatsuAutoWalk(now);
+  }
 
-updateChifuyuAnimationFrame(deltaMs);
+  // 千冬動畫
+  if (isGardenChatting()) {
+    setChifuyuAnimationMode("talk");
+  } else if (chifuyuWalkTestState.isMoving) {
+    setChifuyuAnimationMode("walk");
+  } else {
+    setChifuyuAnimationMode("idle");
+  }
 
-renderChifuyuWalkTest();
+  // 千夏動畫
+  if (isGardenChatting()) {
+    setChinatsuAnimationMode("talk");
+  } else if (chinatsuWalkTestState.isMoving) {
+    setChinatsuAnimationMode("walk");
+  } else {
+    setChinatsuAnimationMode("idle");
+  }
 
-updateChinatsuGardenCharacter(deltaMs, now);
+  // 推進動畫幀，這段不能拿掉
+  updateChifuyuAnimationFrame(deltaMs);
+  updateChinatsuAnimationFrame(deltaMs);
 
-chifuyuWalkMoveFrame = requestAnimationFrame(chifuyuWalkMoveLoop);
+  // 聊天動畫跑完後，這裡再判斷是否該收尾。
+  // 這樣可以保留「回到下一輪第 0 幀後再切回 idle」的效果。
+  if (isGardenChatting()) {
+    updateGardenChatSystem(now);
+  }
 
+  renderChifuyuWalkTest();
+  renderChinatsuWalkTest();
+
+  chifuyuWalkMoveFrame = requestAnimationFrame(chifuyuWalkMoveLoop);
 }
 
 let chifuyuWalkMoveFrame = null;
@@ -8014,6 +8969,10 @@ function startChifuyuWalkMoveTest() {
 }
 
 function stopChifuyuWalkMoveTest() {
+if (typeof clearGardenChatState === "function") {
+  clearGardenChatState();
+}
+
   if (chifuyuWalkMoveFrame) {
     cancelAnimationFrame(chifuyuWalkMoveFrame);
     chifuyuWalkMoveFrame = null;
@@ -8035,35 +8994,41 @@ function stopChifuyuWalkMoveTest() {
 }
 
 function initGardenScreen() {
-  chifuyuWalkTestState.lastTime = performance.now();
+  const now = performance.now();
 
-  // 每次進入庭院時，重新決定兩人的初始位置
-  randomizeGardenCharacterStartPositions();
+  chifuyuWalkTestState.lastTime = now;
 
-  // 防呆：如果千冬抽到 blocked，就移到安全起點
-  if (!isGardenWalkablePoint(chifuyuWalkTestState.x, chifuyuWalkTestState.y)) {
-    chifuyuWalkTestState.x = 600;
-    chifuyuWalkTestState.y = 1725;
-    chifuyuWalkTestState.path = [];
-    chifuyuWalkTestState.isMoving = false;
+  const initialMode = setupGardenInitialMode(now);
+
+  if (initialMode !== "chat") {
+    // 每次進入庭院時，重新決定兩人的初始位置
+    randomizeGardenCharacterStartPositions();
+
+    // 防呆：如果千冬抽到 blocked，就移到安全起點
+    if (!isGardenWalkablePoint(chifuyuWalkTestState.x, chifuyuWalkTestState.y)) {
+      chifuyuWalkTestState.x = 600;
+      chifuyuWalkTestState.y = 1725;
+      chifuyuWalkTestState.path = [];
+      chifuyuWalkTestState.isMoving = false;
+    }
+
+    // 防呆：如果千夏抽到 blocked，就移到安全起點附近
+    if (!isGardenWalkablePoint(chinatsuWalkTestState.x, chinatsuWalkTestState.y)) {
+      chinatsuWalkTestState.x = 430;
+      chinatsuWalkTestState.y = 1680;
+      chinatsuWalkTestState.path = [];
+      chinatsuWalkTestState.isMoving = false;
+    }
+
+    setChifuyuAnimationMode("idle", true);
+    setChinatsuAnimationMode("idle", true);
+
+    resetChifuyuAutoWalk();
+    resetChinatsuAutoWalk();
   }
-
-  // 防呆：如果千夏抽到 blocked，就移到安全起點附近
-  if (!isGardenWalkablePoint(chinatsuWalkTestState.x, chinatsuWalkTestState.y)) {
-    chinatsuWalkTestState.x = 430;
-    chinatsuWalkTestState.y = 1680;
-    chinatsuWalkTestState.path = [];
-    chinatsuWalkTestState.isMoving = false;
-  }
-
-  setChifuyuAnimationMode("idle", true);
-  setChinatsuAnimationMode("idle", true);
 
   renderChifuyuWalkTest();
   renderChinatsuWalkTest();
-
-  resetChifuyuAutoWalk();
-  resetChinatsuAutoWalk();
 
   drawGardenWalkDebug();
 

@@ -5,367 +5,367 @@
  * TexturePacker desktop offers PNG compression and responsive CSS output.
  * Try TexturePacker desktop: https://www.codeandweb.com/texturepacker
  */
-.img {
+.chifuyu-talk-sheet {
     background-image: url(spritesheet.png);
     background-repeat: no-repeat;
     display: block;
 }
 
-.img-chinatsu-talk_00000 {
+.img-chifuyu-talk_00000 {
     width: 650px;
     height: 650px;
     background-position: -2px -2px;
 }
 
-.img-chinatsu-talk_00001 {
+.img-chifuyu-talk_00001 {
     width: 650px;
     height: 650px;
     background-position: -656px -2px;
 }
 
-.img-chinatsu-talk_00002 {
+.img-chifuyu-talk_00002 {
     width: 650px;
     height: 650px;
     background-position: -1310px -2px;
 }
 
-.img-chinatsu-talk_00003 {
+.img-chifuyu-talk_00003 {
     width: 650px;
     height: 650px;
     background-position: -1964px -2px;
 }
 
-.img-chinatsu-talk_00004 {
+.img-chifuyu-talk_00004 {
     width: 650px;
     height: 650px;
     background-position: -2618px -2px;
 }
 
-.img-chinatsu-talk_00005 {
+.img-chifuyu-talk_00005 {
     width: 650px;
     height: 650px;
     background-position: -3272px -2px;
 }
 
-.img-chinatsu-talk_00006 {
+.img-chifuyu-talk_00006 {
     width: 650px;
     height: 650px;
     background-position: -3926px -2px;
 }
 
-.img-chinatsu-talk_00007 {
+.img-chifuyu-talk_00007 {
     width: 650px;
     height: 650px;
     background-position: -2px -656px;
 }
 
-.img-chinatsu-talk_00008 {
+.img-chifuyu-talk_00008 {
     width: 650px;
     height: 650px;
     background-position: -656px -656px;
 }
 
-.img-chinatsu-talk_00009 {
+.img-chifuyu-talk_00009 {
     width: 650px;
     height: 650px;
     background-position: -1310px -656px;
 }
 
-.img-chinatsu-talk_00010 {
+.img-chifuyu-talk_00010 {
     width: 650px;
     height: 650px;
     background-position: -1964px -656px;
 }
 
-.img-chinatsu-talk_00011 {
+.img-chifuyu-talk_00011 {
     width: 650px;
     height: 650px;
     background-position: -2618px -656px;
 }
 
-.img-chinatsu-talk_00012 {
+.img-chifuyu-talk_00012 {
     width: 650px;
     height: 650px;
     background-position: -3272px -656px;
 }
 
-.img-chinatsu-talk_00013 {
+.img-chifuyu-talk_00013 {
     width: 650px;
     height: 650px;
     background-position: -3926px -656px;
 }
 
-.img-chinatsu-talk_00014 {
+.img-chifuyu-talk_00014 {
     width: 650px;
     height: 650px;
     background-position: -2px -1310px;
 }
 
-.img-chinatsu-talk_00015 {
+.img-chifuyu-talk_00015 {
     width: 650px;
     height: 650px;
     background-position: -656px -1310px;
 }
 
-.img-chinatsu-talk_00016 {
+.img-chifuyu-talk_00016 {
     width: 650px;
     height: 650px;
     background-position: -1310px -1310px;
 }
 
-.img-chinatsu-talk_00017 {
+.img-chifuyu-talk_00017 {
     width: 650px;
     height: 650px;
     background-position: -1964px -1310px;
 }
 
-.img-chinatsu-talk_00018 {
+.img-chifuyu-talk_00018 {
     width: 650px;
     height: 650px;
     background-position: -2618px -1310px;
 }
 
-.img-chinatsu-talk_00019 {
+.img-chifuyu-talk_00019 {
     width: 650px;
     height: 650px;
     background-position: -3272px -1310px;
 }
 
-.img-chinatsu-talk_00020 {
+.img-chifuyu-talk_00020 {
     width: 650px;
     height: 650px;
     background-position: -3926px -1310px;
 }
 
-.img-chinatsu-talk_00021 {
+.img-chifuyu-talk_00021 {
     width: 650px;
     height: 650px;
     background-position: -2px -1964px;
 }
 
-.img-chinatsu-talk_00022 {
+.img-chifuyu-talk_00022 {
     width: 650px;
     height: 650px;
     background-position: -656px -1964px;
 }
 
-.img-chinatsu-talk_00023 {
+.img-chifuyu-talk_00023 {
     width: 650px;
     height: 650px;
     background-position: -1310px -1964px;
 }
 
-.img-chinatsu-talk_00024 {
+.img-chifuyu-talk_00024 {
     width: 650px;
     height: 650px;
     background-position: -1964px -1964px;
 }
 
-.img-chinatsu-talk_00025 {
+.img-chifuyu-talk_00025 {
     width: 650px;
     height: 650px;
     background-position: -2618px -1964px;
 }
 
-.img-chinatsu-talk_00026 {
+.img-chifuyu-talk_00026 {
     width: 650px;
     height: 650px;
     background-position: -3272px -1964px;
 }
 
-.img-chinatsu-talk_00027 {
+.img-chifuyu-talk_00027 {
     width: 650px;
     height: 650px;
     background-position: -3926px -1964px;
 }
 
-.img-chinatsu-talk_00028 {
+.img-chifuyu-talk_00028 {
     width: 650px;
     height: 650px;
     background-position: -2px -2618px;
 }
 
-.img-chinatsu-talk_00029 {
+.img-chifuyu-talk_00029 {
     width: 650px;
     height: 650px;
     background-position: -656px -2618px;
 }
 
-.img-chinatsu-talk_00030 {
+.img-chifuyu-talk_00030 {
     width: 650px;
     height: 650px;
     background-position: -1310px -2618px;
 }
 
-.img-chinatsu-talk_00031 {
+.img-chifuyu-talk_00031 {
     width: 650px;
     height: 650px;
     background-position: -1964px -2618px;
 }
 
-.img-chinatsu-talk_00032 {
+.img-chifuyu-talk_00032 {
     width: 650px;
     height: 650px;
     background-position: -2618px -2618px;
 }
 
-.img-chinatsu-talk_00033 {
+.img-chifuyu-talk_00033 {
     width: 650px;
     height: 650px;
     background-position: -3272px -2618px;
 }
 
-.img-chinatsu-talk_00034 {
+.img-chifuyu-talk_00034 {
     width: 650px;
     height: 650px;
     background-position: -3926px -2618px;
 }
 
-.img-chinatsu-talk_00035 {
+.img-chifuyu-talk_00035 {
     width: 650px;
     height: 650px;
     background-position: -2px -3272px;
 }
 
-.img-chinatsu-talk_00036 {
+.img-chifuyu-talk_00036 {
     width: 650px;
     height: 650px;
     background-position: -656px -3272px;
 }
 
-.img-chinatsu-talk_00037 {
+.img-chifuyu-talk_00037 {
     width: 650px;
     height: 650px;
     background-position: -1310px -3272px;
 }
 
-.img-chinatsu-talk_00038 {
+.img-chifuyu-talk_00038 {
     width: 650px;
     height: 650px;
     background-position: -1964px -3272px;
 }
 
-.img-chinatsu-talk_00039 {
+.img-chifuyu-talk_00039 {
     width: 650px;
     height: 650px;
     background-position: -2618px -3272px;
 }
 
-.img-chinatsu-talk_00040 {
+.img-chifuyu-talk_00040 {
     width: 650px;
     height: 650px;
     background-position: -3272px -3272px;
 }
 
-.img-chinatsu-talk_00041 {
+.img-chifuyu-talk_00041 {
     width: 650px;
     height: 650px;
     background-position: -3926px -3272px;
 }
 
-.img-chinatsu-talk_00042 {
+.img-chifuyu-talk_00042 {
     width: 650px;
     height: 650px;
     background-position: -2px -3926px;
 }
 
-.img-chinatsu-talk_00043 {
+.img-chifuyu-talk_00043 {
     width: 650px;
     height: 650px;
     background-position: -656px -3926px;
 }
 
-.img-chinatsu-talk_00044 {
+.img-chifuyu-talk_00044 {
     width: 650px;
     height: 650px;
     background-position: -1310px -3926px;
 }
 
-.img-chinatsu-talk_00045 {
+.img-chifuyu-talk_00045 {
     width: 650px;
     height: 650px;
     background-position: -1964px -3926px;
 }
 
-.img-chinatsu-talk_00046 {
+.img-chifuyu-talk_00046 {
     width: 650px;
     height: 650px;
     background-position: -2618px -3926px;
 }
 
-.img-chinatsu-talk_00047 {
+.img-chifuyu-talk_00047 {
     width: 650px;
     height: 650px;
     background-position: -3272px -3926px;
 }
 
-.img-chinatsu-talk_00048 {
+.img-chifuyu-talk_00048 {
     width: 650px;
     height: 650px;
     background-position: -3926px -3926px;
 }
 
-.img-chinatsu-talk_00049 {
+.img-chifuyu-talk_00049 {
     width: 650px;
     height: 650px;
     background-position: -4580px -2px;
 }
 
-.img-chinatsu-talk_00050 {
+.img-chifuyu-talk_00050 {
     width: 650px;
     height: 650px;
     background-position: -4580px -656px;
 }
 
-.img-chinatsu-talk_00051 {
+.img-chifuyu-talk_00051 {
     width: 650px;
     height: 650px;
     background-position: -4580px -1310px;
 }
 
-.img-chinatsu-talk_00052 {
+.img-chifuyu-talk_00052 {
     width: 650px;
     height: 650px;
     background-position: -4580px -1964px;
 }
 
-.img-chinatsu-talk_00053 {
+.img-chifuyu-talk_00053 {
     width: 650px;
     height: 650px;
     background-position: -4580px -2618px;
 }
 
-.img-chinatsu-talk_00054 {
+.img-chifuyu-talk_00054 {
     width: 650px;
     height: 650px;
     background-position: -4580px -3272px;
 }
 
-.img-chinatsu-talk_00055 {
+.img-chifuyu-talk_00055 {
     width: 650px;
     height: 650px;
     background-position: -4580px -3926px;
 }
 
-.img-chinatsu-talk_00056 {
+.img-chifuyu-talk_00056 {
     width: 650px;
     height: 650px;
     background-position: -2px -4580px;
 }
 
-.img-chinatsu-talk_00057 {
+.img-chifuyu-talk_00057 {
     width: 650px;
     height: 650px;
     background-position: -656px -4580px;
 }
 
-.img-chinatsu-talk_00058 {
+.img-chifuyu-talk_00058 {
     width: 650px;
     height: 650px;
     background-position: -1310px -4580px;
 }
 
-.img-chinatsu-talk_00059 {
+.img-chifuyu-talk_00059 {
     width: 650px;
     height: 650px;
     background-position: -1964px -4580px;

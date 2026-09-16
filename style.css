@@ -2664,19 +2664,16 @@ body.autumn-mode.night-mode .menu-background.night {
 
 
 .chifuyu-walk-sheet,
-.chifuyu-idle-sheet {
+.chifuyu-idle-sheet,
+.chifuyu-talk-sheet,
+.chinatsu-walk-sheet,
+.chinatsu-idle-sheet,
+.chinatsu-talk-sheet {
   width: 650px;
   height: 650px;
   background-repeat: no-repeat;
   display: block;
-}
-
-.chifuyu-walk-sheet,
-.chifuyu-idle-sheet {
-  width: 650px;
-  height: 650px;
-  background-repeat: no-repeat;
-  display: block;
+  background-position: -2px -2px;
 }
 
 .chifuyu-walk-sheet {
@@ -2685,6 +2682,22 @@ body.autumn-mode.night-mode .menu-background.night {
 
 .chifuyu-idle-sheet {
   background-image: url("images/garden/chifuyu/chifuyu-idle-sheet.png?v=5");
+}
+
+.chifuyu-talk-sheet {
+  background-image: url("images/garden/chifuyu/chifuyu-talk-sheet.png?v=1");
+}
+
+.chinatsu-walk-sheet {
+  background-image: url("images/garden/chinatsu/chinatsu-walk-sheet.png?v=1");
+}
+
+.chinatsu-idle-sheet {
+  background-image: url("images/garden/chinatsu/chinatsu-idle-sheet.png?v=1");
+}
+
+.chinatsu-talk-sheet {
+  background-image: url("images/garden/chinatsu/chinatsu-talk-sheet.png?v=1");
 }
 
 
@@ -2778,6 +2791,9 @@ body.autumn-mode.night-mode .menu-background.night {
   top: 0;
   z-index: 2;
 }
+
+
+
 
 
 
