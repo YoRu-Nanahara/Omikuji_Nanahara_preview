@@ -5928,13 +5928,16 @@ function clearSakuraCanvas() {
 }
 
 function pauseSakuraForGarden() {
-  // 現在庭院也要保留粒子，所以不再暫停櫻花
   sakuraPausedByGarden = false;
   document.body.classList.add("garden-active");
 
   const canvas = document.getElementById("sakura");
   if (canvas) {
     canvas.style.display = "";
+  }
+
+  if (typeof resetPetals === "function") {
+    resetPetals();
   }
 }
 
@@ -5946,6 +5949,10 @@ function resumeSakuraFromGarden() {
 
   sakuraPausedByGarden = false;
   document.body.classList.remove("garden-active");
+
+  if (typeof resetPetals === "function") {
+    resetPetals();
+  }
 }
 
 let sakuraWindPower = 1;
@@ -5987,36 +5994,96 @@ function updateShrineSeasonMode() {
   document.body.classList.toggle("autumn-mode", season === "autumn");
 }
 
-const shrinePetalSeason = getShrinePetalSeason();
-const sakuraImages = SHRINE_PETAL_IMAGES[getShrinePetalSeason()];
+const loadedPetalsBySeason = {
+  spring: [],
+  autumn: [],
+};
 
-const loadedPetals = [];
 let petals = [];
 const PETAL_COUNT = 16; // 可調
 
+function isGardenScreenActive() {
+  return gardenScreen && !gardenScreen.classList.contains("hidden");
+}
+
+function getActivePetalSeason() {
+  // 庭院固定使用櫻花
+  // 注意：進庭院時 pauseSakuraForGarden() 會先加 garden-active，
+  // 這時 gardenScreen 可能還沒解除 hidden，所以不要用 hidden 判斷。
+  if (document.body.classList.contains("garden-active")) {
+    return "spring";
+  }
+
+  // 其他畫面維持原本季節系統
+  return getShrinePetalSeason();
+}
+
+function getLoadedPetalsForCurrentScene() {
+  const season = getActivePetalSeason();
+  const list = loadedPetalsBySeason[season];
+
+  if (list && list.length > 0) {
+    return list;
+  }
+
+  // 保險 fallback
+  return loadedPetalsBySeason.spring.length > 0
+    ? loadedPetalsBySeason.spring
+    : loadedPetalsBySeason.autumn;
+}
+
 function initSakuraPetals() {
-  let sakuraLoadedCount = 0;
-  sakuraImages.forEach(src => {
-    const img = new Image();
-    img.src = src;
-    img.onload = () => {
-      sakuraLoadedCount++;
-      if (sakuraLoadedCount === sakuraImages.length) startPetals();
-    };
-    loadedPetals.push(img);
+  const seasons = Object.keys(SHRINE_PETAL_IMAGES);
+  let totalImages = 0;
+  let loadedCount = 0;
+
+  seasons.forEach((season) => {
+    totalImages += SHRINE_PETAL_IMAGES[season].length;
+  });
+
+  seasons.forEach((season) => {
+    SHRINE_PETAL_IMAGES[season].forEach((src) => {
+      const img = new Image();
+      img.src = src;
+
+      img.onload = () => {
+        loadedCount++;
+
+        if (loadedCount === totalImages) {
+          startPetals();
+        }
+      };
+
+      img.onerror = () => {
+        loadedCount++;
+        console.warn("[Petal] failed to load:", src);
+
+        if (loadedCount === totalImages) {
+          startPetals();
+        }
+      };
+
+      loadedPetalsBySeason[season].push(img);
+    });
   });
 }
 
 function startPetals() {
+  petals = [];
+
   for (let i = 0; i < PETAL_COUNT; i++) {
     petals.push(createPetal(true));
   }
+
   requestAnimationFrame(updatePetals);
 }
 
 function createPetal(randomY = false) {
+  const season = getActivePetalSeason();
+  const loadedPetals = getLoadedPetalsForCurrentScene();
+
   const size =
-    shrinePetalSeason === "autumn"
+    season === "autumn"
       ? 44 + Math.random() * 54
       : 20 + Math.random() * 40;
 
@@ -6029,8 +6096,16 @@ function createPetal(randomY = false) {
     speedX: -1.2 - Math.random() * 0.8,
     rotation: Math.random() * 360,
     rotationSpeed: -1 + Math.random() * 2,
-    baseAlpha: 0.8 + Math.random() * 0.2
+    baseAlpha: 0.8 + Math.random() * 0.2,
   };
+}
+
+function resetPetals() {
+  petals = [];
+
+  for (let i = 0; i < PETAL_COUNT; i++) {
+    petals.push(createPetal(true));
+  }
 }
 
 function setSakuraWindMode(mode) {
