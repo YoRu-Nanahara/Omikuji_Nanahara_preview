@@ -698,8 +698,11 @@ const GARDEN_IMAGE_ASSETS = [
   "images/garden/courtyard/courtyard-fg-lantern-left.png",
   "images/garden/courtyard/courtyard-fg-building-corner.png",
   "images/garden/courtyard/courtyard-fg-sakura-top.png",
+  "images/garden/courtyard/courtyard-fg-sakura-shadow-01.png",
+  "images/garden/courtyard/courtyard-fg-sakura-shadow-02.png",
   "images/garden/courtyard/courtyard-fg-building-occluder.png", // 建築遮擋圖層
   "images/garden/courtyard/courtyard-fg-far-area.png", // 遠景場景圖層
+  
 CHIFUYU_IDLE_SHEET_SRC,
 CHIFUYU_WALK_SHEET_SRC,
 

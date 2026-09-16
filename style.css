@@ -2786,6 +2786,167 @@ body.autumn-mode.night-mode .menu-background.night {
    Garden Screen
 ========================= */
 
+
+/* 原本前景櫻花：跟著一起呼吸 */
+.garden-sakura-top-base-full {
+  animation: gardenSakuraTopBase 8s ease-in-out infinite;
+  will-change: opacity;
+}
+
+/* 兩張 880x880 櫻花影子 */
+.garden-sakura-shadow-loop {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 880px;
+  height: 880px;
+  z-index: 925;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.garden-sakura-shadow-frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 880px;
+  height: 880px;
+  object-fit: contain;
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity;
+}
+
+/* 兼容兩種命名：不管 HTML 用哪個 class 都會有效 */
+.garden-sakura-shadow-a,
+.garden-sakura-top-shadow-a {
+  animation: gardenSakuraShadowA 8s ease-in-out infinite;
+}
+
+.garden-sakura-shadow-b,
+.garden-sakura-top-shadow-b {
+  animation: gardenSakuraShadowB 8s ease-in-out infinite;
+}
+
+@keyframes gardenSakuraTopBase {
+  /* 櫻花前景 */
+  0% {
+    opacity: 1;
+  }
+
+  10% {
+    opacity: 0.95;
+  }
+
+  /* 花影 A 最明顯時，櫻花前景壓低 */
+  25% {
+    opacity: 0.16;
+  }
+
+  38% {
+    opacity: 0.72;
+  }
+
+  /* 回到櫻花前景 */
+  50% {
+    opacity: 1;
+  }
+
+  60% {
+    opacity: 0.92;
+  }
+
+  /* 花影 B 最明顯時，櫻花前景再次壓低 */
+  75% {
+    opacity: 0.14;
+  }
+
+  88% {
+    opacity: 0.76;
+  }
+
+  /* 回到櫻花前景，銜接下一輪 */
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes gardenSakuraShadowA {
+  0% {
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.18;
+  }
+
+  /* 花影 A 完整出現 */
+  25% {
+    opacity: 1;
+  }
+
+  36% {
+    opacity: 0.42;
+  }
+
+  48% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes gardenSakuraShadowB {
+  0% {
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 0;
+  }
+
+  60% {
+    opacity: 0.18;
+  }
+
+  /* 花影 B 完整出現 */
+  75% {
+    opacity: 1;
+  }
+
+  86% {
+    opacity: 0.42;
+  }
+
+  98% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.garden-sakura-top-base-full {
+  animation: gardenSakuraTopBase 11s ease-in-out infinite;
+}
+
+.garden-sakura-shadow-a,
+.garden-sakura-top-shadow-a {
+  animation: gardenSakuraShadowA 11s ease-in-out infinite;
+}
+
+.garden-sakura-shadow-b,
+.garden-sakura-top-shadow-b {
+  animation: gardenSakuraShadowB 11s ease-in-out infinite;
+}
+
+
+
+
+
 #gardenScene {
   contain: layout paint;
 }
