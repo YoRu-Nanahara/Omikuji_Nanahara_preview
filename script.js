@@ -356,33 +356,7 @@ function goToScreen(
   if (!fromScreen || !toScreen || !leftDoor || !rightDoor) return;
 
   // 轉場中不接受新的畫面切換
-  if (btnGarden) {
-  btnGarden.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (shrineScreenTransitionBusy) return;
-
-    if (typeof goToScreen === "function" && menuScreen && gardenScreen) {
-      goToScreen(
-        menuScreen,
-        gardenScreen,
-        600,
-
-        async () => {
-          pauseSakuraForGarden();
-          await preloadGardenAssets();
-        },
-
-        () => {
-          if (typeof initGardenScreen === "function") {
-            initGardenScreen();
-          }
-        }
-      );
-    }
-  });
-}
+  if (shrineScreenTransitionBusy) return;
 
   lockShrineTransitionInput();
 
@@ -4292,19 +4266,23 @@ if (btnGarden) {
     e.preventDefault();
     e.stopPropagation();
 
+    if (shrineScreenTransitionBusy) return;
+
+    // 點進庭院時，立刻切換音訊
+    // 這樣手機比較不會因為 autoplay 限制擋掉新 BGM
+    enterGardenAudioMode();
+
     if (typeof goToScreen === "function" && menuScreen && gardenScreen) {
       goToScreen(
         menuScreen,
         gardenScreen,
         600,
 
-        // 拉門關上後先預載
         async () => {
-  pauseSakuraForGarden();
-  await preloadGardenAssets();
-},
+          pauseSakuraForGarden();
+          await preloadGardenAssets();
+        },
 
-        // gardenScreen 顯示後再初始化庭園
         () => {
           if (typeof initGardenScreen === "function") {
             initGardenScreen();
@@ -4314,10 +4292,6 @@ if (btnGarden) {
     } else {
       menuScreen.classList.add("hidden");
       gardenScreen.classList.remove("hidden");
-
-      if (typeof scaleGameRoot === "function") {
-        scaleGameRoot();
-      }
 
       if (typeof initGardenScreen === "function") {
         initGardenScreen();
@@ -4366,34 +4340,39 @@ function backToMenuFrom(screenEl) {
     exitOmamoriFocusMode();
   }
 
-  if (screenEl === gardenScreen) {
-    if (typeof stopChifuyuWalkMoveTest === "function") {
-      stopChifuyuWalkMoveTest();
-    }
-
-    if (typeof goToScreen === "function") {
-      goToScreen(
-        screenEl,
-        menuScreen,
-        600,
-        null,
-        () => {
-          if (typeof resumeSakuraFromGarden === "function") {
-            resumeSakuraFromGarden();
-          }
-        }
-      );
-    } else {
-      screenEl.classList.add("hidden");
-      menuScreen.classList.remove("hidden");
-
-      if (typeof resumeSakuraFromGarden === "function") {
-        resumeSakuraFromGarden();
-      }
-    }
-
-    return;
+if (screenEl === gardenScreen) {
+  if (typeof stopChifuyuWalkMoveTest === "function") {
+    stopChifuyuWalkMoveTest();
   }
+
+  if (typeof goToScreen === "function") {
+    goToScreen(
+      screenEl,
+      menuScreen,
+      600,
+      null,
+      () => {
+        if (typeof resumeSakuraFromGarden === "function") {
+          resumeSakuraFromGarden();
+        }
+
+        // 回到主選單後，停止庭院 BGM，恢復主介面 BGM
+        exitGardenAudioMode();
+      }
+    );
+  } else {
+    screenEl.classList.add("hidden");
+    menuScreen.classList.remove("hidden");
+
+    if (typeof resumeSakuraFromGarden === "function") {
+      resumeSakuraFromGarden();
+    }
+
+    exitGardenAudioMode();
+  }
+
+  return;
+}
 
   if (typeof goToScreen === "function") {
     goToScreen(screenEl, menuScreen, 600);
@@ -5814,11 +5793,14 @@ function playBGMWithFadeIn() {
   if (!bgm) return;
 
   // 如果正在小遊戲音訊模式，不准神社 BGM 自動復活
-  if (typeof windGameAudioMode !== "undefined" && windGameAudioMode) {
-    bgm.pause();
-    bgm.currentTime = 0;
-    return;
-  }
+  if (
+  (typeof windGameAudioMode !== "undefined" && windGameAudioMode) ||
+  (typeof gardenAudioMode !== "undefined" && gardenAudioMode)
+) {
+  bgm.pause();
+  bgm.currentTime = 0;
+  return;
+}
 
   bgm.volume = 0;
 
@@ -5831,12 +5813,15 @@ function playBGMWithFadeIn() {
 
   let volume = 0;
   const fade = setInterval(() => {
-    if (typeof windGameAudioMode !== "undefined" && windGameAudioMode) {
-      clearInterval(fade);
-      bgm.pause();
-      bgm.currentTime = 0;
-      return;
-    }
+   if (
+  (typeof windGameAudioMode !== "undefined" && windGameAudioMode) ||
+  (typeof gardenAudioMode !== "undefined" && gardenAudioMode)
+) {
+  clearInterval(fade);
+  bgm.pause();
+  bgm.currentTime = 0;
+  return;
+}
 
     volume += 0.04;
 
@@ -5940,14 +5925,13 @@ function clearSakuraCanvas() {
 }
 
 function pauseSakuraForGarden() {
-  sakuraPausedByGarden = true;
+  // 現在庭院也要保留粒子，所以不再暫停櫻花
+  sakuraPausedByGarden = false;
   document.body.classList.add("garden-active");
-
-  clearSakuraCanvas();
 
   const canvas = document.getElementById("sakura");
   if (canvas) {
-    canvas.style.display = "none";
+    canvas.style.display = "";
   }
 }
 
@@ -6005,7 +5989,7 @@ const sakuraImages = SHRINE_PETAL_IMAGES[getShrinePetalSeason()];
 
 const loadedPetals = [];
 let petals = [];
-const PETAL_COUNT = 25; // 可調
+const PETAL_COUNT = 16; // 可調
 
 function initSakuraPetals() {
   let sakuraLoadedCount = 0;
@@ -6408,6 +6392,150 @@ function getGardenMoveZoneAt(x, y) {
 
   return "blocked";
 }
+
+
+
+// =========================
+// Garden BGM
+// =========================
+
+const GARDEN_BGM_SRC =
+  "audio/Chasing%20Tommorrow%20Music%20Box.wav";
+
+const gardenBgm = new Audio(GARDEN_BGM_SRC);
+gardenBgm.loop = true;
+gardenBgm.preload = "auto";
+gardenBgm.volume = 0;
+
+const GARDEN_BGM_VOLUME = 0.55;
+const GARDEN_BGM_FADE_MS = 900;
+
+let gardenAudioMode = false;
+let gardenBgmFadeTimer = null;
+let gardenBgmStarted = false;
+
+function getShrineBgmAudio() {
+  return shrineBgm || bgm || document.getElementById("bgm");
+}
+
+function clampAudioVolume(value) {
+  const n = Number(value);
+
+  if (!Number.isFinite(n)) return 0;
+
+  return Math.max(0, Math.min(1, n));
+}
+
+
+
+function fadeGardenBgmTo(targetVolume, duration = GARDEN_BGM_FADE_MS, onDone = null) {
+  if (!gardenBgm) return;
+
+  if (gardenBgmFadeTimer) {
+    cancelAnimationFrame(gardenBgmFadeTimer);
+    gardenBgmFadeTimer = null;
+  }
+
+  targetVolume = clampAudioVolume(targetVolume);
+
+  const startVolume = clampAudioVolume(gardenBgm.volume);
+  const startTime = performance.now();
+
+  function step(now) {
+    const t = Math.min(1, Math.max(0, (now - startTime) / duration));
+
+    const nextVolume =
+      startVolume + (targetVolume - startVolume) * t;
+
+    gardenBgm.volume = clampAudioVolume(nextVolume);
+
+    if (t < 1) {
+      gardenBgmFadeTimer = requestAnimationFrame(step);
+      return;
+    }
+
+    gardenBgm.volume = clampAudioVolume(targetVolume);
+    gardenBgmFadeTimer = null;
+
+    if (typeof onDone === "function") {
+      onDone();
+    }
+  }
+
+  gardenBgmFadeTimer = requestAnimationFrame(step);
+}
+
+function enterGardenAudioMode() {
+  gardenAudioMode = true;
+
+  const mainBgm = getShrineBgmAudio();
+
+  // 停掉主介面 BGM
+  if (typeof stopAudio === "function") {
+    stopAudio(mainBgm);
+  } else if (mainBgm) {
+    mainBgm.pause();
+    mainBgm.currentTime = 0;
+  }
+
+  // 從頭播放庭院 BGM
+  gardenBgm.pause();
+  gardenBgm.currentTime = 0;
+  gardenBgm.volume = 0;
+  gardenBgm.loop = true;
+
+  gardenBgmStarted = true;
+
+  if (typeof playAudioSafe === "function") {
+    playAudioSafe(gardenBgm);
+  } else {
+    gardenBgm.play().catch((err) => {
+      console.warn("[Garden BGM] play failed:", err);
+    });
+  }
+
+  fadeGardenBgmTo(GARDEN_BGM_VOLUME, GARDEN_BGM_FADE_MS);
+
+  // 保險：避免主介面淡入流程稍後又把 BGM 撈回來
+  setTimeout(() => {
+    if (!gardenAudioMode) return;
+
+    const bgmEl = getShrineBgmAudio();
+    if (bgmEl) {
+      bgmEl.pause();
+      bgmEl.currentTime = 0;
+    }
+  }, 300);
+}
+
+function exitGardenAudioMode() {
+  gardenAudioMode = false;
+
+  if (gardenBgmStarted) {
+    fadeGardenBgmTo(0, GARDEN_BGM_FADE_MS, () => {
+      gardenBgm.pause();
+      gardenBgm.currentTime = 0;
+      gardenBgmStarted = false;
+    });
+  }
+
+  const mainBgm = getShrineBgmAudio();
+
+  if (mainBgm) {
+    mainBgm.volume = SHRINE_BGM_VOLUME;
+
+    if (typeof playAudioSafe === "function") {
+      playAudioSafe(mainBgm);
+    } else {
+      mainBgm.play().catch(() => {});
+    }
+  }
+}
+
+
+
+
+
 
 /* =========================
    Garden Path Finding
