@@ -9157,16 +9157,10 @@ function resetChinatsuAutoWalk() {
    進庭院 / 散步中偶爾聊天
 ========================= */
 
-const GARDEN_INITIAL_CHAT_CHANCE =
-  GARDEN_IPAD_SAFE_MODE
-    ? 0
-    : 0.5;
+const GARDEN_INITIAL_CHAT_CHANCE = 0.5;
 
 // 散步中自然聊天：不要太頻繁
-const GARDEN_WANDER_CHAT_CHANCE =
-  GARDEN_IPAD_SAFE_MODE
-    ? 0
-    : 0.18;
+const GARDEN_WANDER_CHAT_CHANCE = 0.18;
 const GARDEN_CHAT_CHECK_MIN_MS = 5000;
 const GARDEN_CHAT_CHECK_MAX_MS = 9000;
 
