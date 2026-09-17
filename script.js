@@ -1113,14 +1113,18 @@ async function preloadGardenAssets(
     */
     if (!gardenSceneAssetsLoaded) {
       await preloadGardenAssetsInBatches(
-        GARDEN_SCENE_ASSETS,
-        1,
-        {
-          decode: true,
-          loadTimeoutMs: 10000,
-          decodeTimeoutMs: 1800,
-        }
-      );
+  GARDEN_SCENE_ASSETS,
+  1,
+  {
+    /*
+      iPadOS：
+      只確保網路素材有取得，
+      不主動要求 WebKit 一口氣解碼所有 Garden 場景。
+    */
+    decode: false,
+    loadTimeoutMs: 10000,
+  }
+);
 
       gardenSceneAssetsLoaded = true;
     }
@@ -1359,6 +1363,15 @@ async function runGardenBackgroundPreloadQueue(
 function startGardenBackgroundPreloadIdle(
   delay = 3200
 ) {
+
+    /*
+    iPadOS 不做 Menu 背景預載。
+    避免進 Garden 前 WebContent 已經累積一批圖片記憶體。
+  */
+  if (GARDEN_IPAD_SAFE_MODE) {
+    return;
+  }
+
   if (gardenAssetsLoaded) return;
 
   if (
@@ -5001,56 +5014,18 @@ const gardenInitialMode =
 
 
   if (GARDEN_IPAD_SAFE_MODE) {
+  /*
+    iPadOS：
+    不在背景提前碰其他角色 spritesheet。
 
-    /*
-      iPad：
-      不做 GPU warmup。
+    真正切換動畫時，
+    再讓 CSS 載入當下需要的那一張。
 
-      只趁目前動畫正在播放時，
-      一組一組把之後可能需要的檔案
-      下載進 HTTP cache。
-    */
-    if (actualInitialMode === "chat") {
-
-      /*
-        現在正在 Talk，
-        下一個一定先變 Idle。
-      */
-      queueGardenCharacterModeDownload(
-        "idle",
-        1000
-      );
-
-      /*
-        再晚一點才準備 Walk。
-      */
-      queueGardenCharacterModeDownload(
-        "walk",
-        4200
-      );
-
-    } else {
-
-      /*
-        現在正在 Idle，
-        下一個最可能是 Walk。
-      */
-      queueGardenCharacterModeDownload(
-        "walk",
-        1000
-      );
-
-      /*
-        Talk 再更晚處理。
-      */
-      queueGardenCharacterModeDownload(
-        "talk",
-        4200
-      );
-    }
-
-    return;
-  }
+    這可能讓第一次切動畫稍微閃一下，
+    但目前優先目標是不要讓整個 WebContent crash。
+  */
+  return;
+}
 
 
   /*
@@ -6705,10 +6680,36 @@ function clearSakuraCanvas() {
 }
 
 function pauseSakuraForGarden() {
-  sakuraPausedByGarden = false;
   document.body.classList.add("garden-active");
 
-  const canvas = document.getElementById("sakura");
+  const canvas =
+    document.getElementById("sakura");
+
+  /*
+    iPadOS：
+    Garden 期間完全停止主櫻花 Canvas。
+
+    先把 WebKit 的持續 canvas / GPU 負擔拿掉。
+  */
+  if (GARDEN_IPAD_SAFE_MODE) {
+    sakuraPausedByGarden = true;
+
+    if (typeof clearSakuraCanvas === "function") {
+      clearSakuraCanvas();
+    }
+
+    if (canvas) {
+      canvas.style.display = "none";
+    }
+
+    return;
+  }
+
+  /*
+    其他裝置維持原本 Garden 櫻花效果。
+  */
+  sakuraPausedByGarden = false;
+
   if (canvas) {
     canvas.style.display = "";
   }
@@ -8009,7 +8010,14 @@ const CHIFUYU_IDLE_FRAME_POSITIONS = CHIFUYU_FRAME_POSITIONS.slice(0, 31);
 
 // 暫時關閉 Garden 手機效能模式
 // 手機與桌機使用相同的角色動畫速度
-const GARDEN_MOBILE_PERF_MODE = false;
+/*
+  手機仍維持不限速測試。
+
+  只有 iPadOS 使用較保守的 spritesheet 換格速度，
+  降低 WebKit / GPU 每秒更新大型 texture 的壓力。
+*/
+const GARDEN_MOBILE_PERF_MODE =
+  GARDEN_IPAD_SAFE_MODE;
 
 const CHIFUYU_WALK_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 58 : 42;
 const CHIFUYU_IDLE_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 110 : 80;
@@ -8941,10 +8949,16 @@ function resetChinatsuAutoWalk() {
    進庭院 / 散步中偶爾聊天
 ========================= */
 
-const GARDEN_INITIAL_CHAT_CHANCE = 0.5;
+const GARDEN_INITIAL_CHAT_CHANCE =
+  GARDEN_IPAD_SAFE_MODE
+    ? 0
+    : 0.5;
 
 // 散步中自然聊天：不要太頻繁
-const GARDEN_WANDER_CHAT_CHANCE = 0.18;
+const GARDEN_WANDER_CHAT_CHANCE =
+  GARDEN_IPAD_SAFE_MODE
+    ? 0
+    : 0.18;
 const GARDEN_CHAT_CHECK_MIN_MS = 5000;
 const GARDEN_CHAT_CHECK_MAX_MS = 9000;
 
