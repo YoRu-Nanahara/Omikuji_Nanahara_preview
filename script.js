@@ -322,7 +322,7 @@ function hideLoadingScreen() {
   不 decode，
   不下載角色 spritesheet。
 */
-startGardenBackgroundPreloadIdle(3200);
+// startGardenBackgroundPreloadIdle(3200);
 }
 
 
