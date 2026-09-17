@@ -5335,28 +5335,71 @@ const gardenInitialMode =
     不 decode，
     不 warmup。
   */
+if (actualInitialMode === "chat") {
 
-  if (actualInitialMode === "chat") {
+  /*
+    聊天期間先把 Idle 壓縮檔放進 cache。
+  */
+  queueGardenCompressedModeCache(
+    "idle",
+    600
+  );
 
-    // 聊完後最有可能先回 Idle
-    queueGardenCompressedModeCache(
-      "idle",
-      1200
+  /*
+    初次進場就是聊天時，
+    趁 Talk 還在播放，
+    先把之後一定會使用的 Walk
+    做完整 cache + warmup。
+
+    這樣聊天結束後開始散步時，
+    不會出現「有位移但仍停在 Idle」。
+  */
+  setTimeout(async () => {
+    if (
+      !gardenScreen ||
+      gardenScreen.classList.contains(
+        "hidden"
+      )
+    ) {
+      return;
+    }
+
+    await precacheGardenCharacterModeCompressed(
+      "walk"
     );
 
-  } else {
+    if (
+      !gardenScreen ||
+      gardenScreen.classList.contains(
+        "hidden"
+      )
+    ) {
+      return;
+    }
 
-    // Wander 之後最可能先走路
-    queueGardenCompressedModeCache(
+    await requestGardenAnimationWarmup(
+      "chifuyu",
       "walk",
-      1200
+      CHIFUYU_ANIMS.walk
     );
 
-    // Talk 再晚一點
-    queueGardenCompressedModeCache(
-      "talk",
-      5500
+    if (
+      !gardenScreen ||
+      gardenScreen.classList.contains(
+        "hidden"
+      )
+    ) {
+      return;
+    }
+
+    await requestGardenAnimationWarmup(
+      "chinatsu",
+      "walk",
+      CHINATSU_ANIMS.walk
     );
+  }, 800);
+
+} else {
   }
 
   return;
