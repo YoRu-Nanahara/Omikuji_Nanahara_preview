@@ -7638,6 +7638,66 @@ const gardenAnimationWarmupState = {
   chinatsuTalk: false,
 };
 
+/*
+  warmup 元素暫時保留。
+
+  第一次真正使用某張 spritesheet 後，
+  再延後兩幀移除，避免首次切換時閃爍。
+*/
+const gardenAnimationWarmupHolders =
+  new Map();
+
+
+function releaseGardenAnimationWarmup(key) {
+  const holder =
+    gardenAnimationWarmupHolders.get(key);
+
+  if (!holder) return;
+
+  /*
+    不能在切換 class 的同一幀就移除。
+
+    讓真正角色至少成功 paint 兩幀，
+    再把預熱用 DOM 清掉。
+  */
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const current =
+        gardenAnimationWarmupHolders.get(key);
+
+      if (current !== holder) return;
+
+      holder.remove();
+
+      gardenAnimationWarmupHolders.delete(
+        key
+      );
+    });
+  });
+}
+
+
+function getGardenAnimationWarmupKey(
+  character,
+  mode
+) {
+  if (character === "chifuyu") {
+    if (mode === "walk") return "chifuyuWalk";
+    if (mode === "talk") return "chifuyuTalk";
+
+    return "chifuyuIdle";
+  }
+
+  if (character === "chinatsu") {
+    if (mode === "walk") return "chinatsuWalk";
+    if (mode === "talk") return "chinatsuTalk";
+
+    return "chinatsuIdle";
+  }
+
+  return "";
+}
+
 let gardenCriticalAnimationWarmupPromise =
   null;
 
@@ -7695,8 +7755,8 @@ async function warmupGardenAnimationSheet(
   holder.style.overflow = "hidden";
 
   /*
-    不使用完全 opacity:0。
-    讓瀏覽器真的做一次 paint / texture 準備。
+    不用 opacity:0，
+    保證瀏覽器真的進行一次 paint。
   */
   holder.style.opacity = "0.001";
 
@@ -7707,16 +7767,15 @@ async function warmupGardenAnimationSheet(
     );
 
   holder.appendChild(frame);
-
   document.body.appendChild(holder);
 
   /*
-    一次只 warmup 一張。
+    強制 layout。
   */
   void frame.offsetWidth;
 
   /*
-    給瀏覽器兩幀時間處理。
+    給瀏覽器兩幀準備 texture。
   */
   await new Promise((resolve) => {
     requestAnimationFrame(() => {
@@ -7725,9 +7784,16 @@ async function warmupGardenAnimationSheet(
   });
 
   /*
-    不再永久留六個大型隱藏 DOM。
+    重要：
+    這裡先不要 holder.remove()。
+
+    讓它一直活到真正角色第一次使用
+    這張 spritesheet 為止。
   */
-  holder.remove();
+  gardenAnimationWarmupHolders.set(
+    key,
+    holder
+  );
 
   gardenAnimationWarmupState[key] =
     true;
@@ -7746,8 +7812,10 @@ async function warmupGardenAnimationSheet(
 async function warmupGardenCriticalAnimationSheets() {
   const alreadyDone =
     gardenAnimationWarmupState.chifuyuIdle &&
+    gardenAnimationWarmupState.chifuyuWalk &&
     gardenAnimationWarmupState.chifuyuTalk &&
     gardenAnimationWarmupState.chinatsuIdle &&
+    gardenAnimationWarmupState.chinatsuWalk &&
     gardenAnimationWarmupState.chinatsuTalk;
 
   if (alreadyDone) return;
@@ -7761,8 +7829,9 @@ async function warmupGardenCriticalAnimationSheets() {
 
   gardenCriticalAnimationWarmupPromise =
     (async () => {
+
       /*
-        talk 優先。
+        Talk
       */
       await warmupGardenAnimationSheet(
         "chifuyuTalk",
@@ -7776,6 +7845,9 @@ async function warmupGardenCriticalAnimationSheets() {
         CHINATSU_TALK_SHEET_SRC
       );
 
+      /*
+        Idle
+      */
       await warmupGardenAnimationSheet(
         "chifuyuIdle",
         CHIFUYU_IDLE_SHEET_CLASS,
@@ -7786,6 +7858,24 @@ async function warmupGardenCriticalAnimationSheets() {
         "chinatsuIdle",
         CHINATSU_IDLE_SHEET_CLASS,
         CHINATSU_IDLE_SHEET_SRC
+      );
+
+      /*
+        Walk
+
+        圖片此時早已 decode 完成，
+        這裡只是提前讓瀏覽器 paint 一次。
+      */
+      await warmupGardenAnimationSheet(
+        "chifuyuWalk",
+        CHIFUYU_WALK_SHEET_CLASS,
+        CHIFUYU_WALK_SHEET_SRC
+      );
+
+      await warmupGardenAnimationSheet(
+        "chinatsuWalk",
+        CHINATSU_WALK_SHEET_CLASS,
+        CHINATSU_WALK_SHEET_SRC
       );
     })();
 
@@ -7943,8 +8033,24 @@ chifuyuWalkTestState.animLoopCount = 0;
   CHIFUYU_TALK_SHEET_CLASS
 );
 
-  chifuyuWalkTest.classList.add(anim.sheetClass);
-  chifuyuWalkTest.style.backgroundPosition = anim.positions[0];
+  chifuyuWalkTest.classList.add(
+  anim.sheetClass
+);
+
+chifuyuWalkTest.style.backgroundPosition =
+  anim.positions[0];
+
+/*
+  真正角色已經開始使用這張 sheet。
+
+  預熱元素再撐兩幀後就可以釋放。
+*/
+releaseGardenAnimationWarmup(
+  getGardenAnimationWarmupKey(
+    "chifuyu",
+    mode
+  )
+);
 }
 
 
@@ -8132,8 +8238,23 @@ chinatsuWalkTestState.animLoopCount = 0;
   CHINATSU_TALK_SHEET_CLASS
 );
 
-  chinatsuWalkTest.classList.add(anim.sheetClass);
-  chinatsuWalkTest.style.backgroundPosition = anim.positions[0];
+  chinatsuWalkTest.classList.add(
+  anim.sheetClass
+);
+
+chinatsuWalkTest.style.backgroundPosition =
+  anim.positions[0];
+
+/*
+  真正角色已經開始使用這張 sheet，
+  兩幀後釋放預熱元素。
+*/
+releaseGardenAnimationWarmup(
+  getGardenAnimationWarmupKey(
+    "chinatsu",
+    mode
+  )
+);
 }
 
 function updateChinatsuAnimationFrame(deltaMs) {
