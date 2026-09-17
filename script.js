@@ -168,22 +168,81 @@ const assets = [
 
 let preloadLoadedCount = 0;
 
-assets.forEach(src => {
+/*
+  首屏 preload 診斷資料。
+  只記錄時間，不改變原本載入流程。
+*/
+const preloadDebugResults = [];
+
+const preloadBatchStart =
+  performance.now();
+
+assets.forEach((src) => {
   const img = new Image();
 
-  let done = false;
+  const startTime =
+    performance.now();
 
-  const finish = () => {
+  let done = false;
+  let timeoutId = null;
+
+  const finish = (status) => {
     if (done) return;
+
     done = true;
+
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+
+    const elapsed =
+      Math.round(
+        performance.now() -
+          startTime
+      );
+
+    preloadDebugResults.push({
+      src,
+      status,
+      ms: elapsed,
+    });
+
+    /*
+      每張圖片完成時立即印出。
+
+      loaded  = 正常載入
+      error   = 圖片載入失敗
+      timeout = 超過 8 秒保險時間
+    */
+    console.log(
+      `[Preload] ${status} ${elapsed}ms ${src}`
+    );
+
+    /*
+      超過 1.5 秒另外標示，
+      手機測試時比較容易找。
+    */
+    if (elapsed >= 1500) {
+      console.warn(
+        `[Preload][SLOW] ${elapsed}ms ${src}`
+      );
+    }
+
     updateLoadingProgress();
   };
 
-  img.onload = finish;
-  img.onerror = finish;
+  img.onload = () => {
+    finish("loaded");
+  };
 
-  // ✅ 保險：避免某張圖片因網路、快取或瀏覽器問題讓 loading 永遠卡住
-  setTimeout(finish, 8000);
+  img.onerror = () => {
+    finish("error");
+  };
+
+  timeoutId = setTimeout(() => {
+    finish("timeout");
+  }, 8000);
 
   img.src = src;
 });
@@ -192,10 +251,45 @@ assets.forEach(src => {
 /* ===== Loading 預載系統 ===== */
 function updateLoadingProgress() {
   preloadLoadedCount++;
-  const percent = Math.floor((preloadLoadedCount / assets.length) * 100);
-  loadingText.textContent = `Loading... ${percent}%`;
 
-  if (preloadLoadedCount === assets.length) {
+  const percent =
+    Math.floor(
+      (
+        preloadLoadedCount /
+        assets.length
+      ) * 100
+    );
+
+  loadingText.textContent =
+    `Loading... ${percent}%`;
+
+  if (
+    preloadLoadedCount ===
+    assets.length
+  ) {
+    const totalElapsed =
+      Math.round(
+        performance.now() -
+          preloadBatchStart
+      );
+
+    /*
+      最慢的排最上面。
+    */
+    const sortedResults = [
+      ...preloadDebugResults,
+    ].sort(
+      (a, b) => b.ms - a.ms
+    );
+
+    console.log(
+      `[Preload] ALL DONE ${totalElapsed}ms`
+    );
+
+    console.table(
+      sortedResults
+    );
+
     setTimeout(() => {
       hideLoadingScreen();
     }, 1000);
@@ -1102,9 +1196,7 @@ const GARDEN_IPAD_SAFE_MODE = (() => {
   才能進入 preload / warmup / 顯示流程。
 */
 const GARDEN_ACTIVE_CHARACTER_ASSETS_BY_MODE =
-  GARDEN_IPAD_SAFE_MODE
-    ? GARDEN_IPAD_CHARACTER_ASSETS_BY_MODE
-    : GARDEN_CHARACTER_ASSETS_BY_MODE;
+  GARDEN_IPAD_CHARACTER_ASSETS_BY_MODE;
 
 
 const GARDEN_ACTIVE_CHARACTER_ASSETS = [
@@ -6683,14 +6775,67 @@ if (window.visualViewport) {
 }
 
 window.addEventListener("load", () => {
+  const loadNow =
+    performance.now();
+
+  console.log(
+    `[Boot] window.load ${Math.round(loadNow)}ms`
+  );
+
   initAudio();
   bindAudioUnlock();
 
   scaleGameRoot();
-  // ⚠️ 這裡不要直接 playBGMWithFadeIn()，讓 unlockAudioOnce 來觸發
+
+  console.log(
+    `[Boot] scaleGameRoot after window.load ${Math.round(performance.now())}ms`
+  );
+
   checkIfDrawnToday();
+
+  /*
+    列出這次頁面真正下載過的所有資源，
+    最慢的排在最上面。
+  */
+  const resources =
+    performance
+      .getEntriesByType("resource")
+      .map((entry) => ({
+        name: entry.name
+          .replace(location.origin, ""),
+        type: entry.initiatorType,
+        start: Math.round(
+          entry.startTime
+        ),
+        duration: Math.round(
+          entry.duration
+        ),
+        size:
+          entry.transferSize || 0,
+      }))
+      .sort(
+        (a, b) =>
+          b.duration - a.duration
+      );
+
+  console.log(
+    "[Boot] slowest resources"
+  );
+
+  console.table(
+    resources.slice(0, 30)
+  );
 });
 
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
+    console.log(
+      `[Boot] DOMContentLoaded ${Math.round(performance.now())}ms`
+    );
+  },
+  { once: true }
+);
 
 
 
