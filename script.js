@@ -794,10 +794,20 @@ async function precacheGardenCharacterModeCompressed(
     return;
   }
 
-  const list =
-    GARDEN_CHARACTER_ASSETS_BY_MODE[
-      safeMode
-    ];
+  let list =
+  GARDEN_CHARACTER_ASSETS_BY_MODE[
+    safeMode
+  ];
+
+if (
+  GARDEN_IPAD_SAFE_MODE &&
+  safeMode === "talk"
+) {
+  list = [
+    CHIFUYU_TALK_SHEET_IPAD_SRC,
+    CHINATSU_TALK_SHEET_IPAD_SRC,
+  ];
+}
 
   if (!list) return;
 
@@ -881,6 +891,25 @@ const CHINATSU_IDLE_SHEET_SRC =
 
 const CHINATSU_TALK_SHEET_SRC =
   "images/garden/chinatsu/chinatsu-talk-sheet.png?v=1";
+
+  /*
+  iPadOS 專用低解析度 Talk sheet。
+  原圖 50% 寬高，但畫面上的邏輯尺寸仍維持原本大小。
+*/
+const CHIFUYU_TALK_SHEET_IPAD_SRC =
+  "images/garden/chifuyu/chifuyu-talk-sheet-ipad.png?v=1";
+
+const CHINATSU_TALK_SHEET_IPAD_SRC =
+  "images/garden/chinatsu/chinatsu-talk-sheet-ipad.png?v=1";
+
+/*
+  原 spritesheet 的邏輯尺寸。
+
+  8 格 × 654px = 5232px。
+  iPad 半解析度圖片會被 CSS 放大回這個邏輯尺寸，
+  因此原本所有 background-position 都不用改。
+*/
+const GARDEN_TALK_LOGICAL_SHEET_SIZE = 5232;
 
 
 let gardenAssetsLoaded = false;
@@ -1176,10 +1205,23 @@ async function preloadGardenCharacterModeDownloadOnly(
     return;
   }
 
-  const list =
-    GARDEN_CHARACTER_ASSETS_BY_MODE[
-      safeMode
-    ];
+  let list =
+  GARDEN_CHARACTER_ASSETS_BY_MODE[
+    safeMode
+  ];
+
+/*
+  iPadOS 的 Talk 絕對不要碰原尺寸 5232px sheet。
+*/
+if (
+  GARDEN_IPAD_SAFE_MODE &&
+  safeMode === "talk"
+) {
+  list = [
+    CHIFUYU_TALK_SHEET_IPAD_SRC,
+    CHINATSU_TALK_SHEET_IPAD_SRC,
+  ];
+}
 
   if (!list) return;
 
@@ -8690,9 +8732,45 @@ chifuyuWalkTestState.animLoopCount = 0;
   CHIFUYU_TALK_SHEET_CLASS
 );
 
-  chifuyuWalkTest.classList.add(
+ chifuyuWalkTest.classList.add(
   anim.sheetClass
 );
+
+
+/*
+  iPad Talk：
+  class 邏輯照舊，
+  但實際 background-image 覆蓋成 50% 小圖。
+
+  background-size 再放回原本 5232×5232 的
+  CSS 邏輯尺寸。
+
+  因此原本 -2、-656、-1310...
+  所有 frame position 全部不用改。
+*/
+if (
+  GARDEN_IPAD_SAFE_MODE &&
+  mode === "talk"
+) {
+  chifuyuWalkTest.style.backgroundImage =
+    `url("${CHIFUYU_TALK_SHEET_IPAD_SRC}")`;
+
+  chifuyuWalkTest.style.backgroundSize =
+    `${GARDEN_TALK_LOGICAL_SHEET_SIZE}px ` +
+    `${GARDEN_TALK_LOGICAL_SHEET_SIZE}px`;
+
+  chifuyuWalkTest.style.backgroundRepeat =
+    "no-repeat";
+} else {
+  /*
+    一離開 Talk 就一定要清掉 inline override，
+    讓 Walk / Idle 恢復使用原本 CSS class 的圖片。
+  */
+  chifuyuWalkTest.style.backgroundImage = "";
+  chifuyuWalkTest.style.backgroundSize = "";
+  chifuyuWalkTest.style.backgroundRepeat = "";
+}
+
 
 chifuyuWalkTest.style.backgroundPosition =
   anim.positions[0];
@@ -8895,13 +8973,33 @@ chinatsuWalkTestState.animLoopCount = 0;
   CHINATSU_TALK_SHEET_CLASS
 );
 
-  chinatsuWalkTest.classList.add(
+ chinatsuWalkTest.classList.add(
   anim.sheetClass
 );
 
+
+if (
+  GARDEN_IPAD_SAFE_MODE &&
+  mode === "talk"
+) {
+  chinatsuWalkTest.style.backgroundImage =
+    `url("${CHINATSU_TALK_SHEET_IPAD_SRC}")`;
+
+  chinatsuWalkTest.style.backgroundSize =
+    `${GARDEN_TALK_LOGICAL_SHEET_SIZE}px ` +
+    `${GARDEN_TALK_LOGICAL_SHEET_SIZE}px`;
+
+  chinatsuWalkTest.style.backgroundRepeat =
+    "no-repeat";
+} else {
+  chinatsuWalkTest.style.backgroundImage = "";
+  chinatsuWalkTest.style.backgroundSize = "";
+  chinatsuWalkTest.style.backgroundRepeat = "";
+}
+
+
 chinatsuWalkTest.style.backgroundPosition =
   anim.positions[0];
-
 /*
   真正角色已經開始使用這張 sheet，
   兩幀後釋放預熱元素。
@@ -9920,15 +10018,8 @@ gardenChatState.ipadFallbackUntil = 0;
         GARDEN_IPAD_CHAT_FALLBACK_MAX_MS
       );
 
-    setChifuyuAnimationMode(
-      "idle",
-      true
-    );
-
-    setChinatsuAnimationMode(
-      "idle",
-      true
-    );
+    setChifuyuAnimationMode("talk", true);
+setChinatsuAnimationMode("talk", true);
 
     renderChifuyuWalkTest();
     renderChinatsuWalkTest();
