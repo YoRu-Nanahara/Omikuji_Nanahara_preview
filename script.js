@@ -9252,11 +9252,13 @@ function createGardenSpriteSwapCover(
 }
 
 
+ 
 function runGardenBufferedSpriteSwap(
   character,
   sprite,
   wrap,
-  applySwitch
+  applySwitch,
+  options = {}
 ) {
   if (
     !sprite ||
@@ -9328,7 +9330,9 @@ function runGardenBufferedSpriteSwap(
 
     先讓 cover 真正經過一次瀏覽器 paint。
   */
-  runAfterGardenFrames(2, () => {
+  runAfterGardenFrames(
+  beforeFrames,
+  () => {
 
     /*
       cover 已經在玩家眼前。
@@ -9344,7 +9348,9 @@ function runGardenBufferedSpriteSwap(
       期間玩家看到的還是舊 cover，
       因此不會看到中間的空白幀。
     */
-    runAfterGardenFrames(3, () => {
+    runAfterGardenFrames(
+  afterFrames,
+  () => {
       cover.remove();
 
       swapState.busy = false;
@@ -9381,6 +9387,14 @@ function setChifuyuAnimationMode(
   const anim =
     CHIFUYU_ANIMS[mode] ||
     CHIFUYU_ANIMS.idle;
+
+  const previousMode =
+    chifuyuWalkTestState.animMode;
+
+  const isTalkToIdle =
+    previousMode === "talk" &&
+    mode === "idle";
+
 
   const chifuyuHasAppliedSprite =
   !!chifuyuWalkTest.style.backgroundImage &&
@@ -9486,7 +9500,13 @@ if (
       releaseGardenAnimationWarmup(
         warmupKey
       );
-    }
+        },
+    isTalkToIdle
+      ? {
+          beforeFrames: 1,
+          afterFrames: 1,
+        }
+      : undefined
   );
 }
 
@@ -9658,6 +9678,13 @@ function setChinatsuAnimationMode(
     CHINATSU_ANIMS[mode] ||
     CHINATSU_ANIMS.idle;
 
+      const previousMode =
+    chinatsuWalkTestState.animMode;
+
+  const isTalkToIdle =
+    previousMode === "talk" &&
+    mode === "idle";
+
   const chinatsuHasAppliedSprite =
   !!chinatsuWalkTest.style.backgroundImage &&
   chinatsuWalkTest.style.backgroundImage !==
@@ -9751,7 +9778,13 @@ if (
       releaseGardenAnimationWarmup(
         warmupKey
       );
-    }
+      },
+    isTalkToIdle
+      ? {
+          beforeFrames: 1,
+          afterFrames: 1,
+        }
+      : undefined
   );
 }
 
