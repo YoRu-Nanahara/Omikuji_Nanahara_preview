@@ -9608,10 +9608,11 @@ function setChifuyuAnimationMode(
       afterFrames: 6,
     };
   } else if (isTalkToIdle) {
-    swapOptions = {
-      beforeFrames: 1,
-      afterFrames: 4,
-    };
+  swapOptions = {
+    beforeFrames: 1,
+    afterFrames: 1,
+  };
+
   } else if (isIdleToWalk) {
     swapOptions = {
       beforeFrames: 1,
