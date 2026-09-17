@@ -9425,6 +9425,14 @@ function setChifuyuAnimationMode(
     previousMode === "talk" &&
     mode === "idle";
 
+    const isIdleToWalk =
+  previousMode === "idle" &&
+  mode === "walk";
+
+const useFastSwap =
+  isTalkToIdle ||
+  isIdleToWalk;
+
 
   const chifuyuHasAppliedSprite =
   !!chifuyuWalkTest.style.backgroundImage &&
@@ -9530,14 +9538,14 @@ if (
       releaseGardenAnimationWarmup(
         warmupKey
       );
-        },
-    isTalkToIdle
-      ? {
-          beforeFrames: 1,
-          afterFrames: 1,
-        }
-      : undefined
-  );
+       },
+useFastSwap
+  ? {
+      beforeFrames: 1,
+      afterFrames: 1,
+    }
+  : undefined
+);
 }
 
 
@@ -9709,11 +9717,19 @@ function setChinatsuAnimationMode(
     CHINATSU_ANIMS.idle;
 
       const previousMode =
-    chinatsuWalkTestState.animMode;
+  chinatsuWalkTestState.animMode;
 
-  const isTalkToIdle =
-    previousMode === "talk" &&
-    mode === "idle";
+const isTalkToIdle =
+  previousMode === "talk" &&
+  mode === "idle";
+
+const isIdleToWalk =
+  previousMode === "idle" &&
+  mode === "walk";
+
+const useFastSwap =
+  isTalkToIdle ||
+  isIdleToWalk;
 
   const chinatsuHasAppliedSprite =
   !!chinatsuWalkTest.style.backgroundImage &&
@@ -9809,13 +9825,13 @@ if (
         warmupKey
       );
       },
-    isTalkToIdle
-      ? {
-          beforeFrames: 1,
-          afterFrames: 1,
-        }
-      : undefined
-  );
+useFastSwap
+  ? {
+      beforeFrames: 1,
+      afterFrames: 1,
+    }
+  : undefined
+);
 }
 
 function updateChinatsuAnimationFrame(deltaMs) {
