@@ -747,21 +747,69 @@ const GARDEN_IMAGE_ASSETS = [
   ...GARDEN_CHARACTER_ASSETS,
 ];
 
-function preloadGardenImage(src) {
+function preloadGardenImage(
+  src,
+  options = {}
+) {
+  const {
+    decode = true,
+    loadTimeoutMs = 10000,
+    decodeTimeoutMs = 1800,
+  } = options;
+
   return new Promise((resolve) => {
     const img = new Image();
 
-    img.onload = async () => {
-      if (img.decode) {
-        try {
-          await img.decode();
-        } catch {}
+    let finished = false;
+    let loadTimer = null;
+
+    const finish = (ok, reason = "") => {
+      if (finished) return;
+
+      finished = true;
+
+      if (loadTimer) {
+        clearTimeout(loadTimer);
+        loadTimer = null;
       }
 
       resolve({
         src,
-        ok: true,
+        ok,
+        reason,
       });
+    };
+
+    img.onload = async () => {
+      /*
+        大型角色 spritesheet 可以選擇：
+        只確認下載完成，不強制 decode 原始大圖。
+      */
+      if (!decode || !img.decode) {
+        finish(true, "loaded");
+        return;
+      }
+
+      /*
+        Safari / WebKit 保險：
+        decode() 最多只等一小段時間。
+
+        就算 decode 沒正常 resolve，
+        也不能讓整個拉門永久卡住。
+      */
+      try {
+        await Promise.race([
+          img.decode().catch(() => {}),
+          new Promise((resolveDecode) => {
+            setTimeout(
+              resolveDecode,
+              decodeTimeoutMs
+            );
+          }),
+        ]);
+      } catch {}
+
+      finish(true, "loaded-decoded");
     };
 
     img.onerror = () => {
@@ -770,11 +818,22 @@ function preloadGardenImage(src) {
         src
       );
 
-      resolve({
-        src,
-        ok: false,
-      });
+      finish(false, "error");
     };
+
+    /*
+      網路 / Safari 圖片事件保險。
+      即使某張圖片永遠沒有送出 load/error，
+      Garden 也不會被它永久鎖住。
+    */
+    loadTimer = setTimeout(() => {
+      console.warn(
+        "[Garden] preload image timeout:",
+        src
+      );
+
+      finish(false, "timeout");
+    }, loadTimeoutMs);
 
     img.src = src;
   });
@@ -813,9 +872,22 @@ function preloadGardenImageDownloadOnly(src) {
 
 function waitGardenPreloadFrame() {
   return new Promise((resolve) => {
-    requestAnimationFrame(() => {
+    let finished = false;
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
       resolve();
-    });
+    };
+
+    requestAnimationFrame(finish);
+
+    /*
+      Safari 保險：
+      就算 rAF 因特殊狀況沒有回來，
+      preload 流程仍然會繼續。
+    */
+    setTimeout(finish, 120);
   });
 }
 
@@ -831,7 +903,8 @@ function waitGardenPreloadFrame() {
 */
 async function preloadGardenAssetsInBatches(
   list,
-  batchSize = 1
+  batchSize = 1,
+  options = {}
 ) {
   for (
     let i = 0;
@@ -843,11 +916,13 @@ async function preloadGardenAssetsInBatches(
 
     await Promise.all(
       batch.map((src) =>
-        preloadGardenImage(src)
+        preloadGardenImage(
+          src,
+          options
+        )
       )
     );
 
-    // 每一小批之間讓出一幀
     await waitGardenPreloadFrame();
   }
 }
@@ -866,19 +941,37 @@ async function preloadGardenAssets() {
       場景圖片比較普通，
       一次處理兩張。
     */
-    await preloadGardenAssetsInBatches(
-      GARDEN_SCENE_ASSETS,
-      2
-    );
-
     /*
-      角色 spritesheet 比較大，
-      一次只 decode 一張。
-    */
-    await preloadGardenAssetsInBatches(
-      GARDEN_CHARACTER_ASSETS,
-      1
-    );
+  一般場景圖片可以正常 decode，
+  但 decode 最多只等 1.8 秒。
+*/
+await preloadGardenAssetsInBatches(
+  GARDEN_SCENE_ASSETS,
+  2,
+  {
+    decode: true,
+    loadTimeoutMs: 10000,
+    decodeTimeoutMs: 1800,
+  }
+);
+
+/*
+  角色 spritesheet 很大。
+
+  不再使用 img.decode() 強制把整張原尺寸圖片
+  一次解碼進記憶體。
+
+  只確認檔案已載入，
+  真正的顯示準備交給下面的 warmup。
+*/
+await preloadGardenAssetsInBatches(
+  GARDEN_CHARACTER_ASSETS,
+  1,
+  {
+    decode: false,
+    loadTimeoutMs: 12000,
+  }
+);
 
     /*
       入場前只 warmup：
@@ -4626,9 +4719,39 @@ pauseGardenBackgroundPreload();
         600,
 
         async () => {
-          pauseSakuraForGarden();
-          await preloadGardenAssets();
-        },
+  pauseSakuraForGarden();
+
+  let timeoutId = null;
+
+  try {
+    await Promise.race([
+      preloadGardenAssets(),
+
+      new Promise((resolve) => {
+        timeoutId = setTimeout(() => {
+          console.warn(
+            "[Garden] preload safety timeout — opening Garden anyway."
+          );
+
+          resolve();
+        }, 15000);
+      }),
+    ]);
+  } catch (err) {
+    /*
+      即使 Safari 某個 preload / warmup 發生例外，
+      也不能讓拉門永久鎖住。
+    */
+    console.error(
+      "[Garden] preload failed:",
+      err
+    );
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+},
 
         () => {
   if (
@@ -7778,10 +7901,29 @@ async function warmupGardenAnimationSheet(
     給瀏覽器兩幀準備 texture。
   */
   await new Promise((resolve) => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(resolve);
-    });
+  let finished = false;
+
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    resolve();
+  };
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(finish);
   });
+
+  /*
+    iPad Safari / WebKit 保險。
+
+    正常狀況仍然等兩個真正的 paint frame；
+    只有 rAF 異常時才走 timeout。
+  */
+  setTimeout(
+    finish,
+    350
+  );
+});
 
   /*
     重要：
