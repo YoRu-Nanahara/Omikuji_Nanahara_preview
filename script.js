@@ -9621,11 +9621,10 @@ function setChifuyuAnimationMode(
 
 
   } else if (isIdleToWalk) {
-    swapOptions = {
-      beforeFrames: 1,
-      afterFrames: 1,
-    };
-  }
+  swapOptions = {
+    skipCover: true,
+  };
+}
 
   const chifuyuHasAppliedSprite =
     !!chifuyuWalkTest.style.backgroundImage &&
@@ -9921,11 +9920,10 @@ function setChinatsuAnimationMode(
 
 
   } else if (isIdleToWalk) {
-    swapOptions = {
-      beforeFrames: 1,
-      afterFrames: 1,
-    };
-  }
+  swapOptions = {
+    skipCover: true,
+  };
+}
 
   const chinatsuHasAppliedSprite =
     !!chinatsuWalkTest.style.backgroundImage &&
