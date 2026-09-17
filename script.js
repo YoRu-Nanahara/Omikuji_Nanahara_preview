@@ -1052,11 +1052,37 @@ const GARDEN_IPAD_SAFE_MODE = (() => {
   const touchPoints =
     navigator.maxTouchPoints || 0;
 
+  const screenWidth =
+    window.screen?.width || 0;
+
+  const screenHeight =
+    window.screen?.height || 0;
+
+  const shortSide =
+    Math.min(
+      screenWidth,
+      screenHeight
+    );
+
+  /*
+    1. 傳統 iPad UA
+       → 直接判定為 iPad
+
+    2. 新版 iPadOS 可能偽裝成 Mac
+       → 必須同時符合：
+         MacIntel
+         多點觸控
+         螢幕短邊至少 600 CSS px
+
+    這樣手機即使回報成 MacIntel，
+    也不會被誤判成 iPad。
+  */
   return (
     /iPad/i.test(ua) ||
     (
       platform === "MacIntel" &&
-      touchPoints > 1
+      touchPoints > 1 &&
+      shortSide >= 600
     )
   );
 })();
