@@ -9260,6 +9260,12 @@ function runGardenBufferedSpriteSwap(
   applySwitch,
   options = {}
 ) {
+  const beforeFrames =
+    options.beforeFrames ?? 2;
+
+  const afterFrames =
+    options.afterFrames ?? 3;
+
   if (
     !sprite ||
     !wrap ||
