@@ -5344,12 +5344,6 @@ const gardenInitialMode =
       1200
     );
 
-    // Walk 更晚再準備
-    queueGardenCompressedModeCache(
-      "walk",
-      5000
-    );
-
   } else {
 
     // Wander 之後最可能先走路
