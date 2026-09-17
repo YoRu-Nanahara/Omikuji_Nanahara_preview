@@ -10871,7 +10871,7 @@ function startGardenChat(
       GARDEN_CHAT_LOOP_MAX
     );
 
-  s/*
+  /*
   Talk 不在這裡立即切換。
 
   先同時要求兩張 Talk sheet warmup。
