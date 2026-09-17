@@ -697,6 +697,173 @@ function exitWindGamePerformanceMode() {
    Garden Preload
 ========================= */
 
+
+const gardenCompressedModeCached = {
+  idle: false,
+  walk: false,
+  talk: false,
+};
+
+const gardenCompressedModePromises =
+  new Map();
+
+
+async function fetchGardenImageToHttpCache(
+  src,
+  timeoutMs = 12000
+) {
+  const controller =
+    new AbortController();
+
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    const response = await fetch(
+      src,
+      {
+        cache: "force-cache",
+        signal: controller.signal,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP ${response.status}`
+      );
+    }
+
+    /*
+      讀完整個 PNG。
+
+      注意：
+      這裡得到的仍然是 PNG 壓縮資料，
+      不是數千 × 數千的 RGBA 解碼圖片。
+
+      不建立 Image，
+      不呼叫 decode()，
+      不建立 GPU texture。
+    */
+    await response.blob();
+
+    return true;
+
+  } catch (err) {
+    console.warn(
+      "[Garden] compressed cache failed:",
+      src,
+      err
+    );
+
+    return false;
+
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+
+async function precacheGardenCharacterModeCompressed(
+  mode
+) {
+  const safeMode =
+    mode === "talk"
+      ? "talk"
+      : mode === "walk"
+        ? "walk"
+        : "idle";
+
+  if (
+    gardenCompressedModeCached[
+      safeMode
+    ]
+  ) {
+    return;
+  }
+
+  if (
+    gardenCompressedModePromises.has(
+      safeMode
+    )
+  ) {
+    await gardenCompressedModePromises.get(
+      safeMode
+    );
+
+    return;
+  }
+
+  const list =
+    GARDEN_CHARACTER_ASSETS_BY_MODE[
+      safeMode
+    ];
+
+  if (!list) return;
+
+  const promise = (async () => {
+
+    /*
+      一次只下載一個角色，
+      不讓千冬＋千夏同時搶資源。
+    */
+    for (const src of list) {
+      await fetchGardenImageToHttpCache(
+        src
+      );
+
+      /*
+        每一張之間讓 Safari 休息。
+    */
+      await new Promise((resolve) => {
+        setTimeout(resolve, 250);
+      });
+    }
+
+    gardenCompressedModeCached[
+      safeMode
+    ] = true;
+  })();
+
+  gardenCompressedModePromises.set(
+    safeMode,
+    promise
+  );
+
+  try {
+    await promise;
+  } finally {
+    gardenCompressedModePromises.delete(
+      safeMode
+    );
+  }
+}
+
+
+function queueGardenCompressedModeCache(
+  mode,
+  delay = 0
+) {
+  if (!GARDEN_IPAD_SAFE_MODE) {
+    return;
+  }
+
+  setTimeout(() => {
+    if (
+      !gardenScreen ||
+      gardenScreen.classList.contains(
+        "hidden"
+      )
+    ) {
+      return;
+    }
+
+    precacheGardenCharacterModeCompressed(
+      mode
+    );
+  }, delay);
+}
+
 const CHIFUYU_WALK_SHEET_SRC =
   "images/garden/chifuyu/chifuyu-walk-sheet.png?v=5";
 
@@ -8263,8 +8430,49 @@ async function warmupGardenAnimationSheet(
 async function warmupGardenCriticalAnimationSheets() {
 
   if (GARDEN_IPAD_SAFE_MODE) {
-    return;
+
+  /*
+    只把壓縮 PNG 放進 HTTP cache。
+
+    不使用 Image()
+    不 decode()
+    不 warmup()
+    不建立隱藏 DOM
+  */
+
+  if (actualInitialMode === "chat") {
+
+    // Talk 已經正在使用。
+    // 先偷偷下載下一個一定會用到的 Idle。
+    queueGardenCompressedModeCache(
+      "idle",
+      900
+    );
+
+    // Walk 再晚很多處理。
+    queueGardenCompressedModeCache(
+      "walk",
+      6500
+    );
+
+  } else {
+
+    // Idle 已經正在使用。
+    // 下一個最需要的是 Walk。
+    queueGardenCompressedModeCache(
+      "walk",
+      900
+    );
+
+    // Talk 更晚再下載。
+    queueGardenCompressedModeCache(
+      "talk",
+      6500
+    );
   }
+
+  return;
+}
 
   const alreadyDone =
     gardenAnimationWarmupState.chifuyuIdle &&
