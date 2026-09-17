@@ -747,6 +747,60 @@ const GARDEN_IMAGE_ASSETS = [
   ...GARDEN_CHARACTER_ASSETS,
 ];
 
+const GARDEN_CHARACTER_ASSETS_BY_MODE = {
+  idle: [
+    CHIFUYU_IDLE_SHEET_SRC,
+    CHINATSU_IDLE_SHEET_SRC,
+  ],
+
+  walk: [
+    CHIFUYU_WALK_SHEET_SRC,
+    CHINATSU_WALK_SHEET_SRC,
+  ],
+
+  talk: [
+    CHIFUYU_TALK_SHEET_SRC,
+    CHINATSU_TALK_SHEET_SRC,
+  ],
+};
+
+
+/*
+  iPadOS Safe Mode
+
+  新版 iPadOS 有時會把自己報成 MacIntel，
+  所以除了 iPad UA，也檢查：
+  MacIntel + 多點觸控。
+*/
+const GARDEN_IPAD_SAFE_MODE = (() => {
+  const ua = navigator.userAgent || "";
+  const platform = navigator.platform || "";
+  const touchPoints =
+    navigator.maxTouchPoints || 0;
+
+  return (
+    /iPad/i.test(ua) ||
+    (
+      platform === "MacIntel" &&
+      touchPoints > 1
+    )
+  );
+})();
+
+
+let gardenSceneAssetsLoaded = false;
+
+const gardenCharacterModeLoaded = {
+  idle: false,
+  walk: false,
+  talk: false,
+};
+
+const gardenCharacterModePromises =
+  new Map();
+
+let gardenPendingInitialMode = null;
+
 function preloadGardenImage(
   src,
   options = {}
@@ -927,8 +981,184 @@ async function preloadGardenAssetsInBatches(
   }
 }
 
+async function preloadGardenCharacterModeDownloadOnly(
+  mode
+) {
+  const safeMode =
+    mode === "talk"
+      ? "talk"
+      : mode === "walk"
+        ? "walk"
+        : "idle";
 
-async function preloadGardenAssets() {
+  if (
+    gardenCharacterModeLoaded[safeMode]
+  ) {
+    return;
+  }
+
+  if (
+    gardenCharacterModePromises.has(
+      safeMode
+    )
+  ) {
+    await gardenCharacterModePromises.get(
+      safeMode
+    );
+
+    return;
+  }
+
+  const list =
+    GARDEN_CHARACTER_ASSETS_BY_MODE[
+      safeMode
+    ];
+
+  if (!list) return;
+
+  const promise = (async () => {
+    /*
+      一次只處理一個角色。
+
+      注意：
+      這裡使用我們上一輪改好的
+      decode:false。
+
+      所以只是確保檔案進 cache，
+      不強制 Safari 解整張 spritesheet。
+    */
+    for (const src of list) {
+      await preloadGardenImage(
+        src,
+        {
+          decode: false,
+          loadTimeoutMs: 12000,
+        }
+      );
+
+      await waitGardenPreloadFrame();
+    }
+
+    gardenCharacterModeLoaded[
+      safeMode
+    ] = true;
+  })();
+
+  gardenCharacterModePromises.set(
+    safeMode,
+    promise
+  );
+
+  try {
+    await promise;
+  } finally {
+    gardenCharacterModePromises.delete(
+      safeMode
+    );
+  }
+}
+
+
+function queueGardenCharacterModeDownload(
+  mode,
+  delay = 0
+) {
+  if (!GARDEN_IPAD_SAFE_MODE) {
+    return;
+  }
+
+  setTimeout(() => {
+    /*
+      已經離開 Garden 就不要繼續。
+    */
+    if (
+      !gardenScreen ||
+      gardenScreen.classList.contains(
+        "hidden"
+      )
+    ) {
+      return;
+    }
+
+    preloadGardenCharacterModeDownloadOnly(
+      mode
+    ).catch((err) => {
+      console.warn(
+        "[Garden] deferred character preload failed:",
+        mode,
+        err
+      );
+    });
+  }, delay);
+}
+
+
+
+
+async function preloadGardenAssets(
+  initialMode = null
+) {
+
+  /*
+    =========================
+    iPad / iPadOS 安全模式
+    =========================
+
+    不再一次碰六張角色 sheet。
+  */
+  if (GARDEN_IPAD_SAFE_MODE) {
+
+    /*
+      場景只需要第一次準備。
+    */
+    if (!gardenSceneAssetsLoaded) {
+      await preloadGardenAssetsInBatches(
+        GARDEN_SCENE_ASSETS,
+        1,
+        {
+          decode: true,
+          loadTimeoutMs: 10000,
+          decodeTimeoutMs: 1800,
+        }
+      );
+
+      gardenSceneAssetsLoaded = true;
+    }
+
+    /*
+      只準備「這次一進場就會用到」的動畫。
+
+      chat
+      → Talk 兩張
+
+      wander
+      → Idle 兩張
+    */
+    const firstMode =
+      initialMode === "chat"
+        ? "talk"
+        : "idle";
+
+    await preloadGardenCharacterModeDownloadOnly(
+      firstMode
+    );
+
+    /*
+      對舊的 Garden preload 系統來說，
+      場景已經可以進入。
+    */
+    gardenAssetsLoaded = true;
+
+    return;
+  }
+
+
+  /*
+    =========================
+    手機 / 桌機原本模式
+    =========================
+  */
+
   if (gardenAssetsLoaded) return;
 
   if (gardenAssetsPromise) {
@@ -937,47 +1167,39 @@ async function preloadGardenAssets() {
   }
 
   gardenAssetsPromise = (async () => {
+
+    await preloadGardenAssetsInBatches(
+      GARDEN_SCENE_ASSETS,
+      2,
+      {
+        decode: true,
+        loadTimeoutMs: 10000,
+        decodeTimeoutMs: 1800,
+      }
+    );
+
+    gardenSceneAssetsLoaded = true;
+
     /*
-      場景圖片比較普通，
-      一次處理兩張。
+      六張 sheet 可以下載，
+      但不強制 img.decode()。
     */
-    /*
-  一般場景圖片可以正常 decode，
-  但 decode 最多只等 1.8 秒。
-*/
-await preloadGardenAssetsInBatches(
-  GARDEN_SCENE_ASSETS,
-  2,
-  {
-    decode: true,
-    loadTimeoutMs: 10000,
-    decodeTimeoutMs: 1800,
-  }
-);
+    await preloadGardenAssetsInBatches(
+      GARDEN_CHARACTER_ASSETS,
+      1,
+      {
+        decode: false,
+        loadTimeoutMs: 12000,
+      }
+    );
 
-/*
-  角色 spritesheet 很大。
-
-  不再使用 img.decode() 強制把整張原尺寸圖片
-  一次解碼進記憶體。
-
-  只確認檔案已載入，
-  真正的顯示準備交給下面的 warmup。
-*/
-await preloadGardenAssetsInBatches(
-  GARDEN_CHARACTER_ASSETS,
-  1,
-  {
-    decode: false,
-    loadTimeoutMs: 12000,
-  }
-);
+    gardenCharacterModeLoaded.idle = true;
+    gardenCharacterModeLoaded.walk = true;
+    gardenCharacterModeLoaded.talk = true;
 
     /*
-      入場前只 warmup：
-      idle + talk
-
-      walk 留到真正進 Garden 後再低優先處理。
+      非 iPad 維持目前已經證實
+      能解決首次動畫閃爍的 warmup。
     */
     if (
       typeof warmupGardenCriticalAnimationSheets ===
@@ -989,7 +1211,11 @@ await preloadGardenAssetsInBatches(
     gardenAssetsLoaded = true;
   })();
 
-  await gardenAssetsPromise;
+  try {
+    await gardenAssetsPromise;
+  } finally {
+    gardenAssetsPromise = null;
+  }
 }
 
 
@@ -4708,6 +4934,12 @@ if (btnGarden) {
 */
 pauseGardenBackgroundPreload();
 
+
+const gardenInitialMode =
+  GARDEN_IPAD_SAFE_MODE
+    ? planGardenInitialMode()
+    : null;
+
 // 點進庭院時，立刻切換音訊
     // 這樣手機比較不會因為 autoplay 限制擋掉新 BGM
     enterGardenAudioMode();
@@ -4725,7 +4957,9 @@ pauseGardenBackgroundPreload();
 
   try {
     await Promise.race([
-      preloadGardenAssets(),
+      preloadGardenAssets(
+  gardenInitialMode
+),
 
       new Promise((resolve) => {
         timeoutId = setTimeout(() => {
@@ -4754,16 +4988,73 @@ pauseGardenBackgroundPreload();
 },
 
         () => {
+  let actualInitialMode = "wander";
+
   if (
     typeof initGardenScreen ===
     "function"
   ) {
-    initGardenScreen();
+    actualInitialMode =
+      initGardenScreen() ||
+      "wander";
   }
 
+
+  if (GARDEN_IPAD_SAFE_MODE) {
+
+    /*
+      iPad：
+      不做 GPU warmup。
+
+      只趁目前動畫正在播放時，
+      一組一組把之後可能需要的檔案
+      下載進 HTTP cache。
+    */
+    if (actualInitialMode === "chat") {
+
+      /*
+        現在正在 Talk，
+        下一個一定先變 Idle。
+      */
+      queueGardenCharacterModeDownload(
+        "idle",
+        1000
+      );
+
+      /*
+        再晚一點才準備 Walk。
+      */
+      queueGardenCharacterModeDownload(
+        "walk",
+        4200
+      );
+
+    } else {
+
+      /*
+        現在正在 Idle，
+        下一個最可能是 Walk。
+      */
+      queueGardenCharacterModeDownload(
+        "walk",
+        1000
+      );
+
+      /*
+        Talk 再更晚處理。
+      */
+      queueGardenCharacterModeDownload(
+        "talk",
+        4200
+      );
+    }
+
+    return;
+  }
+
+
   /*
-    Garden 已經開門後，
-    才利用 idle 時間準備 walk sheet。
+    非 iPad 維持原本 warmup。
   */
   if (
     typeof startGardenDeferredAnimationWarmup ===
@@ -7863,6 +8154,16 @@ async function warmupGardenAnimationSheet(
   ) {
     return;
   }
+  /*
+    iPadOS 不建立大型 spritesheet
+    的 offscreen warmup DOM。
+
+    這是降低 WebContent 記憶體峰值的核心。
+  */
+  if (GARDEN_IPAD_SAFE_MODE) {
+    return;
+  }
+
 
   const holder =
     document.createElement("div");
@@ -7952,6 +8253,11 @@ async function warmupGardenAnimationSheet(
   或先站著 idle。
 */
 async function warmupGardenCriticalAnimationSheets() {
+
+  if (GARDEN_IPAD_SAFE_MODE) {
+    return;
+  }
+
   const alreadyDone =
     gardenAnimationWarmupState.chifuyuIdle &&
     gardenAnimationWarmupState.chifuyuWalk &&
@@ -8097,6 +8403,11 @@ async function warmupGardenDeferredWalkSheets() {
 
 
 function startGardenDeferredAnimationWarmup() {
+
+    if (GARDEN_IPAD_SAFE_MODE) {
+    return;
+  }
+
   const run = () => {
     if (
       !gardenScreen ||
@@ -9508,13 +9819,63 @@ function updateGardenChatSystem(now = performance.now()) {
   tryStartNaturalGardenChat(now);
 }
 
-function setupGardenInitialMode(now = performance.now()) {
+
+function planGardenInitialMode() {
+  /*
+    非 iPad 不需要提前決定。
+  */
+  if (!GARDEN_IPAD_SAFE_MODE) {
+    return null;
+  }
+
+  if (gardenPendingInitialMode) {
+    return gardenPendingInitialMode;
+  }
+
+  gardenPendingInitialMode =
+    Math.random() <
+    GARDEN_INITIAL_CHAT_CHANCE
+      ? "chat"
+      : "wander";
+
+  return gardenPendingInitialMode;
+}
+
+
+
+
+function setupGardenInitialMode(
+  now = performance.now()
+) {
   clearGardenChatState();
 
-  const startAsChat = Math.random() < GARDEN_INITIAL_CHAT_CHANCE;
+  let startAsChat;
+
+  /*
+    iPad：
+    使用進門前已經決定好的模式。
+
+    這樣 preload 才能準確知道
+    到底只需要 Talk 還是 Idle。
+  */
+  if (
+    GARDEN_IPAD_SAFE_MODE &&
+    gardenPendingInitialMode
+  ) {
+    startAsChat =
+      gardenPendingInitialMode ===
+      "chat";
+
+    gardenPendingInitialMode = null;
+  } else {
+    startAsChat =
+      Math.random() <
+      GARDEN_INITIAL_CHAT_CHANCE;
+  }
 
   if (startAsChat) {
-    const started = startGardenChatAtRandomSpot(now);
+    const started =
+      startGardenChatAtRandomSpot(now);
 
     if (started) {
       return "chat";
@@ -10080,6 +10441,8 @@ function initGardenScreen() {
   drawGardenWalkDebug();
 
   startChifuyuWalkMoveTest();
+
+return initialMode;
 }
 
 // 自由移動模式：不再讓玩家點擊控制千冬
