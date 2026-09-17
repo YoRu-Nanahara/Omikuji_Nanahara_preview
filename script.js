@@ -9456,6 +9456,9 @@ function runGardenBufferedSpriteSwap(
   const afterFrames =
     options.afterFrames ?? 3;
 
+  const skipCover =
+    options.skipCover === true;
+
   if (
     !sprite ||
     !wrap ||
@@ -9464,6 +9467,11 @@ function runGardenBufferedSpriteSwap(
     applySwitch?.();
     return;
   }
+
+  if (skipCover) {
+  applySwitch();
+  return;
+}
 
 
 
@@ -9606,11 +9614,11 @@ function setChifuyuAnimationMode(
       beforeFrames: 2,
       afterFrames: 6,
     };
-  } else if (isTalkToIdle) {
+ } else if (isTalkToIdle) {
   swapOptions = {
-    beforeFrames: 1,
-    afterFrames: 1,
+    skipCover: true,
   };
+
 
   } else if (isIdleToWalk) {
     swapOptions = {
@@ -9908,9 +9916,9 @@ function setChinatsuAnimationMode(
     };
   } else if (isTalkToIdle) {
   swapOptions = {
-    beforeFrames: 1,
-    afterFrames: 1,
+    skipCover: true,
   };
+
 
   } else if (isIdleToWalk) {
     swapOptions = {
