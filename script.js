@@ -11367,18 +11367,6 @@ function updateChifuyuWalkPosition(deltaMs) {
 
   state.isMoving = true;
 
-  /*
-    已經有移動路線，
-    但 Walk 畫面還沒真正切換完成時，
-    先不要推進座標。
-
-    下一段主 loop 仍會看到
-    isMoving === true，
-    因此會繼續要求切換成 Walk。
-  */
-  if (state.animMode !== "walk") {
-    return;
-  }
 
   const target = state.path[0];
 
