@@ -2677,27 +2677,27 @@ body.autumn-mode.night-mode .menu-background.night {
 }
 
 .chifuyu-walk-sheet {
-  background-image: url("images/garden/chifuyu/chifuyu-walk-sheet.png?v=5");
+  background-image: url("images/garden/chifuyu/chifuyu-walk-sheet.png?v=6");
 }
 
 .chifuyu-idle-sheet {
-  background-image: url("images/garden/chifuyu/chifuyu-idle-sheet.png?v=5");
+  background-image: url("images/garden/chifuyu/chifuyu-idle-sheet.png?v=6");
 }
 
 .chifuyu-talk-sheet {
-  background-image: url("images/garden/chifuyu/chifuyu-talk-sheet.png?v=1");
+  background-image: url("images/garden/chifuyu/chifuyu-talk-sheet.png?v=2");
 }
 
 .chinatsu-walk-sheet {
-  background-image: url("images/garden/chinatsu/chinatsu-walk-sheet.png?v=1");
+  background-image: url("images/garden/chinatsu/chinatsu-walk-sheet.png?v=2");
 }
 
 .chinatsu-idle-sheet {
-  background-image: url("images/garden/chinatsu/chinatsu-idle-sheet.png?v=1");
+  background-image: url("images/garden/chinatsu/chinatsu-idle-sheet.png?v=2");
 }
 
 .chinatsu-talk-sheet {
-  background-image: url("images/garden/chinatsu/chinatsu-talk-sheet.png?v=1");
+  background-image: url("images/garden/chinatsu/chinatsu-talk-sheet.png?v=2");
 }
 
 
@@ -2739,13 +2739,6 @@ body.autumn-mode.night-mode .menu-background.night {
   display: block;
 }
 
-.chinatsu-walk-sheet {
-  background-image: url("images/garden/chinatsu/chinatsu-walk-sheet.png?v=1");
-}
-
-.chinatsu-idle-sheet {
-  background-image: url("images/garden/chinatsu/chinatsu-idle-sheet.png?v=1");
-}
 
 #gardenScreen #chinatsuWalkTestWrap {
   position: absolute;

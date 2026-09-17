@@ -874,53 +874,70 @@ function queueGardenCompressedModeCache(
   }, delay);
 }
 
-const CHIFUYU_WALK_SHEET_SRC =
-  "images/garden/chifuyu/chifuyu-walk-sheet.png?v=5";
+/*
+  Garden 角色統一使用 50% spritesheet。
 
+  雖然檔名目前還保留 -ipad，
+  但現在所有桌機 / 手機 / 平板都會使用這一套。
+*/
 const CHIFUYU_IDLE_SHEET_SRC =
-  "images/garden/chifuyu/chifuyu-idle-sheet.png?v=5";
+  "images/garden/chifuyu/chifuyu-idle-sheet.png?v=6";
+
+const CHIFUYU_WALK_SHEET_SRC =
+  "images/garden/chifuyu/chifuyu-walk-sheet.png?v=6";
 
 const CHIFUYU_TALK_SHEET_SRC =
-  "images/garden/chifuyu/chifuyu-talk-sheet.png?v=1";
+  "images/garden/chifuyu/chifuyu-talk-sheet.png?v=2";
 
-const CHINATSU_WALK_SHEET_SRC =
-  "images/garden/chinatsu/chinatsu-walk-sheet.png?v=1";
 
 const CHINATSU_IDLE_SHEET_SRC =
-  "images/garden/chinatsu/chinatsu-idle-sheet.png?v=1";
+  "images/garden/chinatsu/chinatsu-idle-sheet.png?v=2";
+
+const CHINATSU_WALK_SHEET_SRC =
+  "images/garden/chinatsu/chinatsu-walk-sheet.png?v=2";
 
 const CHINATSU_TALK_SHEET_SRC =
-  "images/garden/chinatsu/chinatsu-talk-sheet.png?v=1";
+  "images/garden/chinatsu/chinatsu-talk-sheet.png?v=2";
 
-  /*
-  iPadOS 專用低解析度 Talk sheet。
-  原圖 50% 寬高，但畫面上的邏輯尺寸仍維持原本大小。
+
+/*
+  50% spritesheet 的 CSS logical size。
+
+  實際 PNG 已縮小成 50%，
+  但 background-size 放大回原本座標系，
+  所以既有 frame position 不必修改。
 */
-const CHIFUYU_IDLE_SHEET_IPAD_SRC =
-  "images/garden/chifuyu/chifuyu-idle-sheet-ipad.png?v=1";
-
-const CHIFUYU_WALK_SHEET_IPAD_SRC =
-  "images/garden/chifuyu/chifuyu-walk-sheet-ipad.png?v=1";
-
-const CHIFUYU_TALK_SHEET_IPAD_SRC =
-  "images/garden/chifuyu/chifuyu-talk-sheet-ipad.png?v=1";
-
-
-const CHINATSU_IDLE_SHEET_IPAD_SRC =
-  "images/garden/chinatsu/chinatsu-idle-sheet-ipad.png?v=1";
-
-const CHINATSU_WALK_SHEET_IPAD_SRC =
-  "images/garden/chinatsu/chinatsu-walk-sheet-ipad.png?v=1";
-
-const CHINATSU_TALK_SHEET_IPAD_SRC =
-  "images/garden/chinatsu/chinatsu-talk-sheet-ipad.png?v=1";
-
-
 const GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE = 3924;
 const GARDEN_TALK_LOGICAL_SHEET_SIZE = 5232;
 
 
-function getGardenIpadAnimationAsset(
+/*
+  舊 iPad 變數暫時保留成 alias，
+  避免前面已寫好的 iPad preload 邏輯還有引用時報錯。
+
+  實際上它們現在和全裝置主素材完全相同。
+*/
+const CHIFUYU_IDLE_SHEET_IPAD_SRC =
+  CHIFUYU_IDLE_SHEET_SRC;
+
+const CHIFUYU_WALK_SHEET_IPAD_SRC =
+  CHIFUYU_WALK_SHEET_SRC;
+
+const CHIFUYU_TALK_SHEET_IPAD_SRC =
+  CHIFUYU_TALK_SHEET_SRC;
+
+const CHINATSU_IDLE_SHEET_IPAD_SRC =
+  CHINATSU_IDLE_SHEET_SRC;
+
+const CHINATSU_WALK_SHEET_IPAD_SRC =
+  CHINATSU_WALK_SHEET_SRC;
+
+const CHINATSU_TALK_SHEET_IPAD_SRC =
+  CHINATSU_TALK_SHEET_SRC;
+
+
+
+function getGardenAnimationAsset(
   character,
   mode
 ) {
@@ -930,8 +947,8 @@ function getGardenIpadAnimationAsset(
   if (mode === "talk") {
     return {
       src: isChifuyu
-        ? CHIFUYU_TALK_SHEET_IPAD_SRC
-        : CHINATSU_TALK_SHEET_IPAD_SRC,
+        ? CHIFUYU_TALK_SHEET_SRC
+        : CHINATSU_TALK_SHEET_SRC,
 
       logicalSize:
         GARDEN_TALK_LOGICAL_SHEET_SIZE,
@@ -941,8 +958,8 @@ function getGardenIpadAnimationAsset(
   if (mode === "walk") {
     return {
       src: isChifuyu
-        ? CHIFUYU_WALK_SHEET_IPAD_SRC
-        : CHINATSU_WALK_SHEET_IPAD_SRC,
+        ? CHIFUYU_WALK_SHEET_SRC
+        : CHINATSU_WALK_SHEET_SRC,
 
       logicalSize:
         GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
@@ -951,8 +968,8 @@ function getGardenIpadAnimationAsset(
 
   return {
     src: isChifuyu
-      ? CHIFUYU_IDLE_SHEET_IPAD_SRC
-      : CHINATSU_IDLE_SHEET_IPAD_SRC,
+      ? CHIFUYU_IDLE_SHEET_SRC
+      : CHINATSU_IDLE_SHEET_SRC,
 
     logicalSize:
       GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
@@ -1409,21 +1426,18 @@ async function preloadGardenAssets(
         ? "talk"
         : "idle";
 
-   /*
-  初始模式先照原本流程確保下載。
+/*
+  iPadOS：
+  只把初始模式需要的角色 PNG
+  放進 HTTP cache。
+
+  不建立 Image，
+  不主動 decode，
+  不建立六張 animation texture。
 */
-await preloadGardenCharacterModeDownloadOnly(
+await precacheGardenCharacterModeCompressed(
   firstMode
 );
-
-/*
-  六張現在全部都是 50% iPad 版，
-  可以逐張真正 decode。
-
-  這會讓第一次 Idle / Walk / Talk
-  都不需要現場等待。
-*/
-await preloadAllGardenIpadAnimations();
 
 gardenAssetsLoaded = true;
 
@@ -5288,16 +5302,48 @@ const gardenInitialMode =
 
 
   if (GARDEN_IPAD_SAFE_MODE) {
+
   /*
     iPadOS：
-    不在背景提前碰其他角色 spritesheet。
+    Garden 已經真正顯示後，
+    再慢慢把「其他模式的壓縮 PNG」
+    放進 HTTP cache。
 
-    真正切換動畫時，
-    再讓 CSS 載入當下需要的那一張。
-
-    這可能讓第一次切動畫稍微閃一下，
-    但目前優先目標是不要讓整個 WebContent crash。
+    注意：
+    這裡不建立 Image，
+    不 decode，
+    不 warmup。
   */
+
+  if (actualInitialMode === "chat") {
+
+    // 聊完後最有可能先回 Idle
+    queueGardenCompressedModeCache(
+      "idle",
+      1200
+    );
+
+    // Walk 更晚再準備
+    queueGardenCompressedModeCache(
+      "walk",
+      5000
+    );
+
+  } else {
+
+    // Wander 之後最可能先走路
+    queueGardenCompressedModeCache(
+      "walk",
+      1200
+    );
+
+    // Talk 再晚一點
+    queueGardenCompressedModeCache(
+      "talk",
+      5500
+    );
+  }
+
   return;
 }
 
@@ -8631,38 +8677,14 @@ async function warmupGardenAnimationSheet(
 */
 async function warmupGardenCriticalAnimationSheets() {
 
-  if (GARDEN_IPAD_SAFE_MODE) {
-
   /*
-    只把壓縮 PNG 放進 HTTP cache。
-
-    不使用 Image()
-    不 decode()
-    不 warmup()
-    不建立隱藏 DOM
+    iPadOS 不使用 offscreen spritesheet warmup。
+    iPad 的 compressed cache 已經由
+    Garden 進場流程另外管理。
   */
-
-  if (actualInitialMode === "chat") {
-  queueGardenCompressedModeCache(
-    "idle",
-    900
-  );
-
-  queueGardenCompressedModeCache(
-    "walk",
-    6500
-  );
-} else {
-  queueGardenCompressedModeCache(
-    "walk",
-    900
-  );
-
-  // Talk 暫時不要預載
-}
-
-  return;
-}
+  if (GARDEN_IPAD_SAFE_MODE) {
+    return;
+  }
 
   const alreadyDone =
     gardenAnimationWarmupState.chifuyuIdle &&
@@ -8673,6 +8695,8 @@ async function warmupGardenCriticalAnimationSheets() {
     gardenAnimationWarmupState.chinatsuTalk;
 
   if (alreadyDone) return;
+
+  // 後面原本內容照舊
 
   if (
     gardenCriticalAnimationWarmupPromise
@@ -8855,9 +8879,6 @@ const chifuyuWalkTestState = {
 
   frameIndex: 0,
   frameTimer: 0,
-
-  frameIndex: 0,
-  frameTimer: 0,
   animLoopCount: 0,
 
   moveSpeed: 150,
@@ -8868,84 +8889,76 @@ const chifuyuWalkTestState = {
   lastTime: performance.now(),
 };
 
-function setChifuyuAnimationMode(mode, force = false) {
+function setChifuyuAnimationMode(
+  mode,
+  force = false
+) {
   if (!chifuyuWalkTest) return;
 
-  const anim = CHIFUYU_ANIMS[mode] || CHIFUYU_ANIMS.idle;
+  const anim =
+    CHIFUYU_ANIMS[mode] ||
+    CHIFUYU_ANIMS.idle;
 
   if (
     !force &&
     chifuyuWalkTestState.animMode === mode &&
-    chifuyuWalkTest.classList.contains(anim.sheetClass)
+    chifuyuWalkTest.classList.contains(
+      anim.sheetClass
+    )
   ) {
     return;
   }
 
   chifuyuWalkTestState.animMode = mode;
-chifuyuWalkTestState.frameIndex = 0;
-chifuyuWalkTestState.frameTimer = 0;
-chifuyuWalkTestState.animLoopCount = 0;
+  chifuyuWalkTestState.frameIndex = 0;
+  chifuyuWalkTestState.frameTimer = 0;
+  chifuyuWalkTestState.animLoopCount = 0;
 
   chifuyuWalkTest.classList.remove(
-  CHIFUYU_WALK_SHEET_CLASS,
-  CHIFUYU_IDLE_SHEET_CLASS,
-  CHIFUYU_TALK_SHEET_CLASS
-);
+    CHIFUYU_WALK_SHEET_CLASS,
+    CHIFUYU_IDLE_SHEET_CLASS,
+    CHIFUYU_TALK_SHEET_CLASS
+  );
 
- chifuyuWalkTest.classList.add(
-  anim.sheetClass
-);
+  chifuyuWalkTest.classList.add(
+    anim.sheetClass
+  );
 
 
-/*
-  iPad Talk：
-  class 邏輯照舊，
-  但實際 background-image 覆蓋成 50% 小圖。
+  /*
+    所有裝置統一使用 50% spritesheet。
 
-  background-size 再放回原本 5232×5232 的
-  CSS 邏輯尺寸。
+    圖片本身縮成 50%，
+    background-size 再恢復成原本邏輯尺寸。
 
-  因此原本 -2、-656、-1310...
-  所有 frame position 全部不用改。
-*/
-if (GARDEN_IPAD_SAFE_MODE) {
-  const ipadAsset =
-    getGardenIpadAnimationAsset(
+    因此 background-position 座標完全不變。
+  */
+  const asset =
+    getGardenAnimationAsset(
       "chifuyu",
       mode
     );
 
   chifuyuWalkTest.style.backgroundImage =
-    `url("${ipadAsset.src}")`;
+    `url("${asset.src}")`;
 
   chifuyuWalkTest.style.backgroundSize =
-    `${ipadAsset.logicalSize}px ` +
-    `${ipadAsset.logicalSize}px`;
+    `${asset.logicalSize}px ` +
+    `${asset.logicalSize}px`;
 
   chifuyuWalkTest.style.backgroundRepeat =
     "no-repeat";
 
-} else {
-  chifuyuWalkTest.style.backgroundImage = "";
-  chifuyuWalkTest.style.backgroundSize = "";
-  chifuyuWalkTest.style.backgroundRepeat = "";
-}
+  chifuyuWalkTest.style.backgroundPosition =
+    anim.positions[0];
 
 
-chifuyuWalkTest.style.backgroundPosition =
-  anim.positions[0];
-
-/*
-  真正角色已經開始使用這張 sheet。
-
-  預熱元素再撐兩幀後就可以釋放。
-*/
-releaseGardenAnimationWarmup(
-  getGardenAnimationWarmupKey(
-    "chifuyu",
-    mode
-  )
-);
+  releaseGardenAnimationWarmup(
+    getGardenAnimationWarmupKey(
+      "chifuyu",
+      mode
+    )
+  );
 }
 
 
@@ -9067,9 +9080,6 @@ const chinatsuWalkTestState = {
 
   frameIndex: 0,
   frameTimer: 0,
-
-  frameIndex: 0,
-  frameTimer: 0,
   animLoopCount: 0,
 
   moveSpeed: 145,
@@ -9109,71 +9119,75 @@ function moveChinatsuToDepthLayer(layerName) {
   chinatsuWalkTestState.currentDepthLayer = layerName;
 }
 
-function setChinatsuAnimationMode(mode, force = false) {
+function setChinatsuAnimationMode(
+  mode,
+  force = false
+) {
   if (!chinatsuWalkTest) return;
 
-  const anim = CHINATSU_ANIMS[mode] || CHINATSU_ANIMS.idle;
+  const anim =
+    CHINATSU_ANIMS[mode] ||
+    CHINATSU_ANIMS.idle;
 
   if (
     !force &&
     chinatsuWalkTestState.animMode === mode &&
-    chinatsuWalkTest.classList.contains(anim.sheetClass)
+    chinatsuWalkTest.classList.contains(
+      anim.sheetClass
+    )
   ) {
     return;
   }
 
   chinatsuWalkTestState.animMode = mode;
-chinatsuWalkTestState.frameIndex = 0;
-chinatsuWalkTestState.frameTimer = 0;
-chinatsuWalkTestState.animLoopCount = 0;
+  chinatsuWalkTestState.frameIndex = 0;
+  chinatsuWalkTestState.frameTimer = 0;
+  chinatsuWalkTestState.animLoopCount = 0;
 
   chinatsuWalkTest.classList.remove(
-  CHINATSU_WALK_SHEET_CLASS,
-  CHINATSU_IDLE_SHEET_CLASS,
-  CHINATSU_TALK_SHEET_CLASS
-);
+    CHINATSU_WALK_SHEET_CLASS,
+    CHINATSU_IDLE_SHEET_CLASS,
+    CHINATSU_TALK_SHEET_CLASS
+  );
 
- chinatsuWalkTest.classList.add(
-  anim.sheetClass
-);
+  chinatsuWalkTest.classList.add(
+    anim.sheetClass
+  );
 
 
-if (GARDEN_IPAD_SAFE_MODE) {
-  const ipadAsset =
-    getGardenIpadAnimationAsset(
-      "chifuyu",
+  /*
+    千夏自己的低解析度 spritesheet。
+
+    注意：
+    這裡一定是 "chinatsu"，
+    而且一定修改 chinatsuWalkTest。
+  */
+  const asset =
+    getGardenAnimationAsset(
+      "chinatsu",
       mode
     );
 
-  chifuyuWalkTest.style.backgroundImage =
-    `url("${ipadAsset.src}")`;
+  chinatsuWalkTest.style.backgroundImage =
+    `url("${asset.src}")`;
 
-  chifuyuWalkTest.style.backgroundSize =
-    `${ipadAsset.logicalSize}px ` +
-    `${ipadAsset.logicalSize}px`;
+  chinatsuWalkTest.style.backgroundSize =
+    `${asset.logicalSize}px ` +
+    `${asset.logicalSize}px`;
 
-  chifuyuWalkTest.style.backgroundRepeat =
+  chinatsuWalkTest.style.backgroundRepeat =
     "no-repeat";
 
-} else {
-  chifuyuWalkTest.style.backgroundImage = "";
-  chifuyuWalkTest.style.backgroundSize = "";
-  chifuyuWalkTest.style.backgroundRepeat = "";
-}
+  chinatsuWalkTest.style.backgroundPosition =
+    anim.positions[0];
 
 
-chinatsuWalkTest.style.backgroundPosition =
-  anim.positions[0];
-/*
-  真正角色已經開始使用這張 sheet，
-  兩幀後釋放預熱元素。
-*/
-releaseGardenAnimationWarmup(
-  getGardenAnimationWarmupKey(
-    "chinatsu",
-    mode
-  )
-);
+  releaseGardenAnimationWarmup(
+    getGardenAnimationWarmupKey(
+      "chinatsu",
+      mode
+    )
+  );
 }
 
 function updateChinatsuAnimationFrame(deltaMs) {
