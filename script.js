@@ -7021,33 +7021,18 @@ function clearSakuraCanvas() {
 }
 
 function pauseSakuraForGarden() {
-  document.body.classList.add("garden-active");
+  document.body.classList.add(
+    "garden-active"
+  );
 
   const canvas =
     document.getElementById("sakura");
 
   /*
-    iPadOS：
-    Garden 期間完全停止主櫻花 Canvas。
+    Garden 全裝置恢復櫻花粒子。
 
-    先把 WebKit 的持續 canvas / GPU 負擔拿掉。
-  */
-  if (GARDEN_IPAD_SAFE_MODE) {
-    sakuraPausedByGarden = true;
-
-    if (typeof clearSakuraCanvas === "function") {
-      clearSakuraCanvas();
-    }
-
-    if (canvas) {
-      canvas.style.display = "none";
-    }
-
-    return;
-  }
-
-  /*
-    其他裝置維持原本 Garden 櫻花效果。
+    garden-active 仍然會讓庭院
+    固定使用 spring 櫻花素材。
   */
   sakuraPausedByGarden = false;
 
@@ -7055,7 +7040,9 @@ function pauseSakuraForGarden() {
     canvas.style.display = "";
   }
 
-  if (typeof resetPetals === "function") {
+  if (
+    typeof resetPetals === "function"
+  ) {
     resetPetals();
   }
 }
