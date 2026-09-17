@@ -896,20 +896,68 @@ const CHINATSU_TALK_SHEET_SRC =
   iPadOS 專用低解析度 Talk sheet。
   原圖 50% 寬高，但畫面上的邏輯尺寸仍維持原本大小。
 */
+const CHIFUYU_IDLE_SHEET_IPAD_SRC =
+  "images/garden/chifuyu/chifuyu-idle-sheet-ipad.png?v=1";
+
+const CHIFUYU_WALK_SHEET_IPAD_SRC =
+  "images/garden/chifuyu/chifuyu-walk-sheet-ipad.png?v=1";
+
 const CHIFUYU_TALK_SHEET_IPAD_SRC =
   "images/garden/chifuyu/chifuyu-talk-sheet-ipad.png?v=1";
+
+
+const CHINATSU_IDLE_SHEET_IPAD_SRC =
+  "images/garden/chinatsu/chinatsu-idle-sheet-ipad.png?v=1";
+
+const CHINATSU_WALK_SHEET_IPAD_SRC =
+  "images/garden/chinatsu/chinatsu-walk-sheet-ipad.png?v=1";
 
 const CHINATSU_TALK_SHEET_IPAD_SRC =
   "images/garden/chinatsu/chinatsu-talk-sheet-ipad.png?v=1";
 
-/*
-  原 spritesheet 的邏輯尺寸。
 
-  8 格 × 654px = 5232px。
-  iPad 半解析度圖片會被 CSS 放大回這個邏輯尺寸，
-  因此原本所有 background-position 都不用改。
-*/
+const GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE = 3924;
 const GARDEN_TALK_LOGICAL_SHEET_SIZE = 5232;
+
+
+function getGardenIpadAnimationAsset(
+  character,
+  mode
+) {
+  const isChifuyu =
+    character === "chifuyu";
+
+  if (mode === "talk") {
+    return {
+      src: isChifuyu
+        ? CHIFUYU_TALK_SHEET_IPAD_SRC
+        : CHINATSU_TALK_SHEET_IPAD_SRC,
+
+      logicalSize:
+        GARDEN_TALK_LOGICAL_SHEET_SIZE,
+    };
+  }
+
+  if (mode === "walk") {
+    return {
+      src: isChifuyu
+        ? CHIFUYU_WALK_SHEET_IPAD_SRC
+        : CHINATSU_WALK_SHEET_IPAD_SRC,
+
+      logicalSize:
+        GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+    };
+  }
+
+  return {
+    src: isChifuyu
+      ? CHIFUYU_IDLE_SHEET_IPAD_SRC
+      : CHINATSU_IDLE_SHEET_IPAD_SRC,
+
+    logicalSize:
+      GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+  };
+}
 
 
 let gardenAssetsLoaded = false;
@@ -957,6 +1005,24 @@ const GARDEN_CHARACTER_ASSETS_BY_MODE = {
   talk: [
     CHIFUYU_TALK_SHEET_SRC,
     CHINATSU_TALK_SHEET_SRC,
+  ],
+};
+
+
+const GARDEN_IPAD_CHARACTER_ASSETS_BY_MODE = {
+  idle: [
+    CHIFUYU_IDLE_SHEET_IPAD_SRC,
+    CHINATSU_IDLE_SHEET_IPAD_SRC,
+  ],
+
+  walk: [
+    CHIFUYU_WALK_SHEET_IPAD_SRC,
+    CHINATSU_WALK_SHEET_IPAD_SRC,
+  ],
+
+  talk: [
+    CHIFUYU_TALK_SHEET_IPAD_SRC,
+    CHINATSU_TALK_SHEET_IPAD_SRC,
   ],
 };
 
@@ -1205,23 +1271,14 @@ async function preloadGardenCharacterModeDownloadOnly(
     return;
   }
 
-  let list =
-  GARDEN_CHARACTER_ASSETS_BY_MODE[
-    safeMode
-  ];
-
-/*
-  iPadOS 的 Talk 絕對不要碰原尺寸 5232px sheet。
-*/
-if (
-  GARDEN_IPAD_SAFE_MODE &&
-  safeMode === "talk"
-) {
-  list = [
-    CHIFUYU_TALK_SHEET_IPAD_SRC,
-    CHINATSU_TALK_SHEET_IPAD_SRC,
-  ];
-}
+ const list =
+  GARDEN_IPAD_SAFE_MODE
+    ? GARDEN_IPAD_CHARACTER_ASSETS_BY_MODE[
+        safeMode
+      ]
+    : GARDEN_CHARACTER_ASSETS_BY_MODE[
+        safeMode
+      ];
 
   if (!list) return;
 
@@ -1352,17 +1409,25 @@ async function preloadGardenAssets(
         ? "talk"
         : "idle";
 
-    await preloadGardenCharacterModeDownloadOnly(
-      firstMode
-    );
+   /*
+  初始模式先照原本流程確保下載。
+*/
+await preloadGardenCharacterModeDownloadOnly(
+  firstMode
+);
 
-    /*
-      對舊的 Garden preload 系統來說，
-      場景已經可以進入。
-    */
-    gardenAssetsLoaded = true;
+/*
+  六張現在全部都是 50% iPad 版，
+  可以逐張真正 decode。
 
-    return;
+  這會讓第一次 Idle / Walk / Talk
+  都不需要現場等待。
+*/
+await preloadAllGardenIpadAnimations();
+
+gardenAssetsLoaded = true;
+
+return;
   }
 
 
@@ -7600,6 +7665,101 @@ function exitGardenAudioMode() {
 
 
 
+const gardenIpadDecodedImages =
+  new Map();
+
+
+async function preloadGardenIpadAnimationImage(
+  src
+) {
+  if (
+    gardenIpadDecodedImages.has(src)
+  ) {
+    return;
+  }
+
+  await new Promise((resolve) => {
+    const img = new Image();
+
+    let finished = false;
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+
+      gardenIpadDecodedImages.set(
+        src,
+        img
+      );
+
+      resolve();
+    };
+
+    img.onload = async () => {
+      /*
+        現在是 50% 小圖，
+        可以安全地真正 decode。
+
+        Safari 萬一 decode 卡住，
+        最多只等 2 秒。
+      */
+      if (img.decode) {
+        try {
+          await Promise.race([
+            img.decode().catch(() => {}),
+            new Promise((r) =>
+              setTimeout(r, 2000)
+            ),
+          ]);
+        } catch {}
+      }
+
+      finish();
+    };
+
+    img.onerror = () => {
+      console.warn(
+        "[Garden iPad] animation load failed:",
+        src
+      );
+
+      resolve();
+    };
+
+    img.src = src;
+  });
+}
+
+
+async function preloadAllGardenIpadAnimations() {
+  if (!GARDEN_IPAD_SAFE_MODE) return;
+
+  const order = [
+    CHIFUYU_IDLE_SHEET_IPAD_SRC,
+    CHINATSU_IDLE_SHEET_IPAD_SRC,
+
+    CHIFUYU_WALK_SHEET_IPAD_SRC,
+    CHINATSU_WALK_SHEET_IPAD_SRC,
+
+    CHIFUYU_TALK_SHEET_IPAD_SRC,
+    CHINATSU_TALK_SHEET_IPAD_SRC,
+  ];
+
+  /*
+    絕對不要 Promise.all 六張。
+
+    一張完成後再下一張，
+    避免 iPad 瞬間記憶體尖峰。
+  */
+  for (const src of order) {
+    await preloadGardenIpadAnimationImage(
+      src
+    );
+
+    await waitGardenPreloadFrame();
+  }
+}
+
 
 
 /* =========================
@@ -8748,24 +8908,24 @@ chifuyuWalkTestState.animLoopCount = 0;
   因此原本 -2、-656、-1310...
   所有 frame position 全部不用改。
 */
-if (
-  GARDEN_IPAD_SAFE_MODE &&
-  mode === "talk"
-) {
+if (GARDEN_IPAD_SAFE_MODE) {
+  const ipadAsset =
+    getGardenIpadAnimationAsset(
+      "chifuyu",
+      mode
+    );
+
   chifuyuWalkTest.style.backgroundImage =
-    `url("${CHIFUYU_TALK_SHEET_IPAD_SRC}")`;
+    `url("${ipadAsset.src}")`;
 
   chifuyuWalkTest.style.backgroundSize =
-    `${GARDEN_TALK_LOGICAL_SHEET_SIZE}px ` +
-    `${GARDEN_TALK_LOGICAL_SHEET_SIZE}px`;
+    `${ipadAsset.logicalSize}px ` +
+    `${ipadAsset.logicalSize}px`;
 
   chifuyuWalkTest.style.backgroundRepeat =
     "no-repeat";
+
 } else {
-  /*
-    一離開 Talk 就一定要清掉 inline override，
-    讓 Walk / Idle 恢復使用原本 CSS class 的圖片。
-  */
   chifuyuWalkTest.style.backgroundImage = "";
   chifuyuWalkTest.style.backgroundSize = "";
   chifuyuWalkTest.style.backgroundRepeat = "";
@@ -8978,23 +9138,27 @@ chinatsuWalkTestState.animLoopCount = 0;
 );
 
 
-if (
-  GARDEN_IPAD_SAFE_MODE &&
-  mode === "talk"
-) {
-  chinatsuWalkTest.style.backgroundImage =
-    `url("${CHINATSU_TALK_SHEET_IPAD_SRC}")`;
+if (GARDEN_IPAD_SAFE_MODE) {
+  const ipadAsset =
+    getGardenIpadAnimationAsset(
+      "chifuyu",
+      mode
+    );
 
-  chinatsuWalkTest.style.backgroundSize =
-    `${GARDEN_TALK_LOGICAL_SHEET_SIZE}px ` +
-    `${GARDEN_TALK_LOGICAL_SHEET_SIZE}px`;
+  chifuyuWalkTest.style.backgroundImage =
+    `url("${ipadAsset.src}")`;
 
-  chinatsuWalkTest.style.backgroundRepeat =
+  chifuyuWalkTest.style.backgroundSize =
+    `${ipadAsset.logicalSize}px ` +
+    `${ipadAsset.logicalSize}px`;
+
+  chifuyuWalkTest.style.backgroundRepeat =
     "no-repeat";
+
 } else {
-  chinatsuWalkTest.style.backgroundImage = "";
-  chinatsuWalkTest.style.backgroundSize = "";
-  chinatsuWalkTest.style.backgroundRepeat = "";
+  chifuyuWalkTest.style.backgroundImage = "";
+  chifuyuWalkTest.style.backgroundSize = "";
+  chifuyuWalkTest.style.backgroundRepeat = "";
 }
 
 
