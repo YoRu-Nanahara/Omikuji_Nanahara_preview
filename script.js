@@ -975,23 +975,22 @@ function queueGardenCompressedModeCache(
   但現在所有桌機 / 手機 / 平板都會使用這一套。
 */
 const CHIFUYU_IDLE_SHEET_SRC =
-  "images/garden/chifuyu/chifuyu-idle-sheet.png?v=6";
+  "images/garden/chifuyu/chifuyu-idle-sheet-ipad.png?v=1";
 
 const CHIFUYU_WALK_SHEET_SRC =
-  "images/garden/chifuyu/chifuyu-walk-sheet.png?v=6";
+  "images/garden/chifuyu/chifuyu-walk-sheet-ipad.png?v=1";
 
 const CHIFUYU_TALK_SHEET_SRC =
-  "images/garden/chifuyu/chifuyu-talk-sheet.png?v=2";
-
+  "images/garden/chifuyu/chifuyu-talk-sheet-ipad.png?v=1";
 
 const CHINATSU_IDLE_SHEET_SRC =
-  "images/garden/chinatsu/chinatsu-idle-sheet.png?v=2";
+  "images/garden/chinatsu/chinatsu-idle-sheet-ipad.png?v=1";
 
 const CHINATSU_WALK_SHEET_SRC =
-  "images/garden/chinatsu/chinatsu-walk-sheet.png?v=2";
+  "images/garden/chinatsu/chinatsu-walk-sheet-ipad.png?v=1";
 
 const CHINATSU_TALK_SHEET_SRC =
-  "images/garden/chinatsu/chinatsu-talk-sheet.png?v=2";
+  "images/garden/chinatsu/chinatsu-talk-sheet-ipad.png?v=1";
 
 
 
@@ -1015,22 +1014,22 @@ const GARDEN_TALK_LOGICAL_SHEET_SIZE = 5232;
   實際上它們現在和全裝置主素材完全相同。
 */
 const CHIFUYU_IDLE_SHEET_IPAD_SRC =
-  "images/garden/chifuyu/chifuyu-idle-sheet-ipad.png?v=1";
+  CHIFUYU_IDLE_SHEET_SRC;
 
 const CHIFUYU_WALK_SHEET_IPAD_SRC =
-  "images/garden/chifuyu/chifuyu-walk-sheet-ipad.png?v=1";
+  CHIFUYU_WALK_SHEET_SRC;
 
 const CHIFUYU_TALK_SHEET_IPAD_SRC =
-  "images/garden/chifuyu/chifuyu-talk-sheet-ipad.png?v=1";
+  CHIFUYU_TALK_SHEET_SRC;
 
 const CHINATSU_IDLE_SHEET_IPAD_SRC =
-  "images/garden/chinatsu/chinatsu-idle-sheet-ipad.png?v=1";
+  CHINATSU_IDLE_SHEET_SRC;
 
 const CHINATSU_WALK_SHEET_IPAD_SRC =
-  "images/garden/chinatsu/chinatsu-walk-sheet-ipad.png?v=1";
+  CHINATSU_WALK_SHEET_SRC;
 
 const CHINATSU_TALK_SHEET_IPAD_SRC =
-  "images/garden/chinatsu/chinatsu-talk-sheet-ipad.png?v=1";
+  CHINATSU_TALK_SHEET_SRC;
 
 
 
@@ -9908,10 +9907,11 @@ function setChinatsuAnimationMode(
       afterFrames: 6,
     };
   } else if (isTalkToIdle) {
-    swapOptions = {
-      beforeFrames: 1,
-      afterFrames: 4,
-    };
+  swapOptions = {
+    beforeFrames: 1,
+    afterFrames: 1,
+  };
+
   } else if (isIdleToWalk) {
     swapOptions = {
       beforeFrames: 1,
