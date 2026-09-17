@@ -8441,35 +8441,23 @@ async function warmupGardenCriticalAnimationSheets() {
   */
 
   if (actualInitialMode === "chat") {
+  queueGardenCompressedModeCache(
+    "idle",
+    900
+  );
 
-    // Talk 已經正在使用。
-    // 先偷偷下載下一個一定會用到的 Idle。
-    queueGardenCompressedModeCache(
-      "idle",
-      900
-    );
+  queueGardenCompressedModeCache(
+    "walk",
+    6500
+  );
+} else {
+  queueGardenCompressedModeCache(
+    "walk",
+    900
+  );
 
-    // Walk 再晚很多處理。
-    queueGardenCompressedModeCache(
-      "walk",
-      6500
-    );
-
-  } else {
-
-    // Idle 已經正在使用。
-    // 下一個最需要的是 Walk。
-    queueGardenCompressedModeCache(
-      "walk",
-      900
-    );
-
-    // Talk 更晚再下載。
-    queueGardenCompressedModeCache(
-      "talk",
-      6500
-    );
-  }
+  // Talk 暫時不要預載
+}
 
   return;
 }
@@ -9167,6 +9155,16 @@ const GARDEN_CHAT_CHECK_MAX_MS = 9000;
 const GARDEN_CHAT_LOOP_MIN = 2;
 const GARDEN_CHAT_LOOP_MAX = 4;
 
+/*
+  iPadOS 暫時不使用原尺寸 Talk spritesheet。
+
+  聊天行為照常進行，
+  但改用 Idle 動畫 + 計時結束，
+  避免載入兩張超大型 Talk sheet 導致 WebContent crash。
+*/
+const GARDEN_IPAD_CHAT_FALLBACK_MIN_MS = 8000;
+const GARDEN_IPAD_CHAT_FALLBACK_MAX_MS = 14000;
+
 const GARDEN_AFTER_CHAT_IDLE_MIN_MS = 600;
 const GARDEN_AFTER_CHAT_IDLE_MAX_MS = 1400;
 
@@ -9282,13 +9280,19 @@ const GARDEN_CHAT_SPOTS = [
 ];
 
 const gardenChatState = {
-  mode: "wander", // wander / approachChat / chat
+  mode: "wander",
 
   targetLoops: 0,
   shouldEndOnNextFrame: false,
 
   chifuyuTalkReadyToEnd: false,
   chinatsuTalkReadyToEnd: false,
+
+  /*
+    iPad 不播放真正 Talk 動畫時，
+    改由這個時間決定聊天結束。
+  */
+  ipadFallbackUntil: 0,
 
   approachSpot: null,
   approachStartedAt: 0,
@@ -9357,6 +9361,7 @@ function scheduleNextGardenChatCheck(now = performance.now()) {
 function clearGardenChatState() {
   gardenChatState.mode = "wander";
   gardenChatState.targetLoops = 0;
+  gardenChatState.ipadFallbackUntil = 0;
   gardenChatState.shouldEndOnNextFrame = false;
 
   gardenChatState.approachSpot = null;
@@ -9861,26 +9866,32 @@ function applyGardenChatSpot(spot) {
   return true;
 }
 
-function startGardenChat(now = performance.now(), spot = null) {
-  if (gardenChatState.mode === "chat") return false;
+function startGardenChat(
+  now = performance.now(),
+  spot = null
+) {
+  if (gardenChatState.mode === "chat") {
+    return false;
+  }
 
   if (spot) {
-    const applied = applyGardenChatSpot(spot);
+    const applied =
+      applyGardenChatSpot(spot);
+
     if (!applied) return false;
 
-    gardenChatState.currentSpotName = spot.name || "";
+    gardenChatState.currentSpotName =
+      spot.name || "";
   } else {
     faceGardenCharactersToEachOther();
-    gardenChatState.currentSpotName = "natural";
+
+    gardenChatState.currentSpotName =
+      "natural";
   }
 
   gardenChatState.mode = "chat";
-gardenChatState.targetLoops = randomIntBetween(
-  GARDEN_CHAT_LOOP_MIN,
-  GARDEN_CHAT_LOOP_MAX
-);
 
-resetGardenTalkEndFlags();
+  resetGardenTalkEndFlags();
 
   chifuyuWalkTestState.path = [];
   chifuyuWalkTestState.isMoving = false;
@@ -9888,10 +9899,68 @@ resetGardenTalkEndFlags();
   chinatsuWalkTestState.path = [];
   chinatsuWalkTestState.isMoving = false;
 
-  setChifuyuAnimationMode("talk", true);
-  setChinatsuAnimationMode("talk", true);
 
-  // 保險：從 talk 第 0 幀重新計算完整輪數
+  /*
+    =========================
+    iPadOS Safe Chat
+    =========================
+
+    不碰原尺寸 Talk spritesheet。
+
+    聊天邏輯、站位、面向全部保留，
+    視覺暫時使用 Idle 動畫。
+  */
+  if (GARDEN_IPAD_SAFE_MODE) {
+    gardenChatState.targetLoops = 0;
+gardenChatState.ipadFallbackUntil = 0;
+    gardenChatState.ipadFallbackUntil =
+      now +
+      randomBetween(
+        GARDEN_IPAD_CHAT_FALLBACK_MIN_MS,
+        GARDEN_IPAD_CHAT_FALLBACK_MAX_MS
+      );
+
+    setChifuyuAnimationMode(
+      "idle",
+      true
+    );
+
+    setChinatsuAnimationMode(
+      "idle",
+      true
+    );
+
+    renderChifuyuWalkTest();
+    renderChinatsuWalkTest();
+
+    return true;
+  }
+
+
+  /*
+    =========================
+    其他裝置
+    =========================
+  */
+
+  gardenChatState.ipadFallbackUntil = 0;
+
+  gardenChatState.targetLoops =
+    randomIntBetween(
+      GARDEN_CHAT_LOOP_MIN,
+      GARDEN_CHAT_LOOP_MAX
+    );
+
+  setChifuyuAnimationMode(
+    "talk",
+    true
+  );
+
+  setChinatsuAnimationMode(
+    "talk",
+    true
+  );
+
   chifuyuWalkTestState.animLoopCount = 0;
   chinatsuWalkTestState.animLoopCount = 0;
 
@@ -10012,20 +10081,56 @@ function tryStartNaturalGardenChat(now = performance.now()) {
   return false;
 }
 
-function updateGardenChatSystem(now = performance.now()) {
-  if (gardenChatState.mode === "approachChat") {
+function updateGardenChatSystem(
+  now = performance.now()
+) {
+  if (
+    gardenChatState.mode ===
+    "approachChat"
+  ) {
     updateGardenChatApproach(now);
     return;
   }
 
-  if (gardenChatState.mode === "chat") {
-    if (gardenChatState.shouldEndOnNextFrame) {
+  if (
+    gardenChatState.mode ===
+    "chat"
+  ) {
+
+    /*
+      iPad：
+      不等待 Talk loop，
+      因為根本沒有載入 Talk sheet。
+    */
+    if (GARDEN_IPAD_SAFE_MODE) {
+      if (
+        gardenChatState.ipadFallbackUntil > 0 &&
+        now >=
+          gardenChatState.ipadFallbackUntil
+      ) {
+        endGardenChat(now);
+      }
+
+      return;
+    }
+
+
+    /*
+      其他裝置維持原本邏輯。
+    */
+    if (
+      gardenChatState.shouldEndOnNextFrame
+    ) {
       endGardenChat(now);
       return;
     }
 
-    if (areBothGardenTalkAnimationsReadyToEnd()) {
-      gardenChatState.shouldEndOnNextFrame = true;
+    if (
+      areBothGardenTalkAnimationsReadyToEnd()
+    ) {
+      gardenChatState.shouldEndOnNextFrame =
+        true;
+
       return;
     }
 
