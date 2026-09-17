@@ -763,7 +763,6 @@ async function fetchGardenImageToHttpCache(
   }
 }
 
-
 async function precacheGardenCharacterModeCompressed(
   mode
 ) {
@@ -774,6 +773,10 @@ async function precacheGardenCharacterModeCompressed(
         ? "walk"
         : "idle";
 
+  /*
+    這個模式已經完整放進 HTTP cache，
+    就不要再下載一次。
+  */
   if (
     gardenCompressedModeCached[
       safeMode
@@ -782,6 +785,11 @@ async function precacheGardenCharacterModeCompressed(
     return;
   }
 
+  /*
+    如果同一個模式正在下載，
+    直接等原本那個 Promise，
+    不要再開第二組請求。
+  */
   if (
     gardenCompressedModePromises.has(
       safeMode
@@ -794,37 +802,29 @@ async function precacheGardenCharacterModeCompressed(
     return;
   }
 
-  let list =
-  GARDEN_CHARACTER_ASSETS_BY_MODE[
-    safeMode
-  ];
+  /*
+    只允許使用目前裝置選中的素材。
 
-if (
-  GARDEN_IPAD_SAFE_MODE &&
-  safeMode === "talk"
-) {
-  list = [
-    CHIFUYU_TALK_SHEET_IPAD_SRC,
-    CHINATSU_TALK_SHEET_IPAD_SRC,
-  ];
-}
+    iPad → 只會得到 -ipad 小圖
+    其他 → 只會得到原尺寸大圖
+  */
+  const list =
+    GARDEN_ACTIVE_CHARACTER_ASSETS_BY_MODE[
+      safeMode
+    ];
 
   if (!list) return;
 
   const promise = (async () => {
-
     /*
       一次只下載一個角色，
-      不讓千冬＋千夏同時搶資源。
+      避免兩張 spritesheet 同時搶資源。
     */
     for (const src of list) {
       await fetchGardenImageToHttpCache(
         src
       );
 
-      /*
-        每一張之間讓 Safari 休息。
-    */
       await new Promise((resolve) => {
         setTimeout(resolve, 250);
       });
@@ -900,6 +900,9 @@ const CHINATSU_TALK_SHEET_SRC =
   "images/garden/chinatsu/chinatsu-talk-sheet.png?v=2";
 
 
+
+
+  
 /*
   50% spritesheet 的 CSS logical size。
 
@@ -918,22 +921,22 @@ const GARDEN_TALK_LOGICAL_SHEET_SIZE = 5232;
   實際上它們現在和全裝置主素材完全相同。
 */
 const CHIFUYU_IDLE_SHEET_IPAD_SRC =
-  CHIFUYU_IDLE_SHEET_SRC;
+  "images/garden/chifuyu/chifuyu-idle-sheet-ipad.png?v=1";
 
 const CHIFUYU_WALK_SHEET_IPAD_SRC =
-  CHIFUYU_WALK_SHEET_SRC;
+  "images/garden/chifuyu/chifuyu-walk-sheet-ipad.png?v=1";
 
 const CHIFUYU_TALK_SHEET_IPAD_SRC =
-  CHIFUYU_TALK_SHEET_SRC;
+  "images/garden/chifuyu/chifuyu-talk-sheet-ipad.png?v=1";
 
 const CHINATSU_IDLE_SHEET_IPAD_SRC =
-  CHINATSU_IDLE_SHEET_SRC;
+  "images/garden/chinatsu/chinatsu-idle-sheet-ipad.png?v=1";
 
 const CHINATSU_WALK_SHEET_IPAD_SRC =
-  CHINATSU_WALK_SHEET_SRC;
+  "images/garden/chinatsu/chinatsu-walk-sheet-ipad.png?v=1";
 
 const CHINATSU_TALK_SHEET_IPAD_SRC =
-  CHINATSU_TALK_SHEET_SRC;
+  "images/garden/chinatsu/chinatsu-talk-sheet-ipad.png?v=1";
 
 
 
@@ -941,38 +944,30 @@ function getGardenAnimationAsset(
   character,
   mode
 ) {
-  const isChifuyu =
-    character === "chifuyu";
+  const safeMode =
+    mode === "talk"
+      ? "talk"
+      : mode === "walk"
+        ? "walk"
+        : "idle";
 
-  if (mode === "talk") {
-    return {
-      src: isChifuyu
-        ? CHIFUYU_TALK_SHEET_SRC
-        : CHINATSU_TALK_SHEET_SRC,
+  const list =
+    GARDEN_ACTIVE_CHARACTER_ASSETS_BY_MODE[
+      safeMode
+    ];
 
-      logicalSize:
-        GARDEN_TALK_LOGICAL_SHEET_SIZE,
-    };
-  }
-
-  if (mode === "walk") {
-    return {
-      src: isChifuyu
-        ? CHIFUYU_WALK_SHEET_SRC
-        : CHINATSU_WALK_SHEET_SRC,
-
-      logicalSize:
-        GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
-    };
-  }
+  const characterIndex =
+    character === "chifuyu"
+      ? 0
+      : 1;
 
   return {
-    src: isChifuyu
-      ? CHIFUYU_IDLE_SHEET_SRC
-      : CHINATSU_IDLE_SHEET_SRC,
+    src: list[characterIndex],
 
     logicalSize:
-      GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+      safeMode === "talk"
+        ? GARDEN_TALK_LOGICAL_SHEET_SIZE
+        : GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
   };
 }
 
@@ -1065,6 +1060,34 @@ const GARDEN_IPAD_SAFE_MODE = (() => {
     )
   );
 })();
+
+
+/*
+  Garden 角色素材只允許二選一。
+
+  iPad：
+  永遠只使用縮小版。
+
+  其他裝置：
+  永遠只使用原尺寸版。
+
+  建立另一套 URL 常數本身不會下載圖片；
+  只有 ACTIVE 清單裡的 URL
+  才能進入 preload / warmup / 顯示流程。
+*/
+const GARDEN_ACTIVE_CHARACTER_ASSETS_BY_MODE =
+  GARDEN_IPAD_SAFE_MODE
+    ? GARDEN_IPAD_CHARACTER_ASSETS_BY_MODE
+    : GARDEN_CHARACTER_ASSETS_BY_MODE;
+
+
+const GARDEN_ACTIVE_CHARACTER_ASSETS = [
+  ...GARDEN_ACTIVE_CHARACTER_ASSETS_BY_MODE.idle,
+  ...GARDEN_ACTIVE_CHARACTER_ASSETS_BY_MODE.walk,
+  ...GARDEN_ACTIVE_CHARACTER_ASSETS_BY_MODE.talk,
+];
+
+
 
 
 let gardenSceneAssetsLoaded = false;
@@ -1289,13 +1312,9 @@ async function preloadGardenCharacterModeDownloadOnly(
   }
 
  const list =
-  GARDEN_IPAD_SAFE_MODE
-    ? GARDEN_IPAD_CHARACTER_ASSETS_BY_MODE[
-        safeMode
-      ]
-    : GARDEN_CHARACTER_ASSETS_BY_MODE[
-        safeMode
-      ];
+  GARDEN_ACTIVE_CHARACTER_ASSETS_BY_MODE[
+    safeMode
+  ];
 
   if (!list) return;
 
@@ -1498,13 +1517,13 @@ return;
       但不強制 img.decode()。
     */
     await preloadGardenAssetsInBatches(
-      GARDEN_CHARACTER_ASSETS,
-      1,
-      {
-        decode: false,
-        loadTimeoutMs: 12000,
-      }
-    );
+  GARDEN_ACTIVE_CHARACTER_ASSETS,
+  1,
+  {
+    decode: false,
+    loadTimeoutMs: 12000,
+  }
+);
 
     gardenCharacterModeLoaded.idle = true;
     gardenCharacterModeLoaded.walk = true;
