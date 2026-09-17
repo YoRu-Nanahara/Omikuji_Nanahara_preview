@@ -8482,8 +8482,16 @@ const CHIFUYU_IDLE_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 110 : 80;
 
 const CHINATSU_WALK_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 64 : 48;
 const CHINATSU_IDLE_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 120 : 90;
-const CHIFUYU_TALK_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 66 : 48;
-const CHINATSU_TALK_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 72 : 52;
+const GARDEN_TALK_FRAME_MS =
+  GARDEN_MOBILE_PERF_MODE
+    ? 72
+    : 52;
+
+const CHIFUYU_TALK_FRAME_MS =
+  GARDEN_TALK_FRAME_MS;
+
+const CHINATSU_TALK_FRAME_MS =
+  GARDEN_TALK_FRAME_MS;
 
 
 const CHIFUYU_ANIMS = {
@@ -10279,11 +10287,12 @@ function isGardenChatting() {
 }
 
 function isGardenChatBlockingWalk() {
-  // chat：正在聊天，不准自動散步介入
-  // approachChat：正在走向聊天點，也不准自動散步改路線
   return (
     gardenChatState.mode === "chat" ||
-    gardenChatState.mode === "approachChat"
+    gardenChatState.mode ===
+      "chatPreparing" ||
+    gardenChatState.mode ===
+      "approachChat"
   );
 }
 
@@ -10823,7 +10832,8 @@ function startGardenChat(
       "natural";
   }
 
-  gardenChatState.mode = "chat";
+  gardenChatState.mode =
+  "chatPreparing";
 
   resetGardenTalkEndFlags();
 
@@ -10861,23 +10871,30 @@ function startGardenChat(
       GARDEN_CHAT_LOOP_MAX
     );
 
-  setChifuyuAnimationMode(
-    "talk",
-    true
-  );
+  s/*
+  Talk 不在這裡立即切換。
 
-  setChinatsuAnimationMode(
-    "talk",
-    true
-  );
+  先同時要求兩張 Talk sheet warmup。
+  等兩邊都真正準備好後，
+  updateGardenChatSystem()
+  再讓兩人同一幀開始 Talk。
+*/
+requestGardenAnimationWarmup(
+  "chifuyu",
+  "talk",
+  CHIFUYU_ANIMS.talk
+);
 
-  chifuyuWalkTestState.animLoopCount = 0;
-  chinatsuWalkTestState.animLoopCount = 0;
+requestGardenAnimationWarmup(
+  "chinatsu",
+  "talk",
+  CHINATSU_ANIMS.talk
+);
 
-  renderChifuyuWalkTest();
-  renderChinatsuWalkTest();
+renderChifuyuWalkTest();
+renderChinatsuWalkTest();
 
-  return true;
+return true;
 }
 
 function startGardenChatAtRandomSpot(now = performance.now()) {
@@ -11001,6 +11018,89 @@ function updateGardenChatSystem(
     updateGardenChatApproach(now);
     return;
   }
+
+
+/*
+  =========================
+  Chat Talk Pair Preparation
+  =========================
+
+  兩張 Talk sheet 都準備完成後，
+  才讓雙方同一個 animation frame
+  一起進入 Talk。
+*/
+if (
+  gardenChatState.mode ===
+  "chatPreparing"
+) {
+  const chifuyuReady =
+    gardenAnimationWarmupState
+      .chifuyuTalk;
+
+  const chinatsuReady =
+    gardenAnimationWarmupState
+      .chinatsuTalk;
+
+  if (
+    !chifuyuReady ||
+    !chinatsuReady
+  ) {
+    /*
+      warmup 還沒完成就繼續等。
+      兩人此時維持 Idle，
+      不會出現一個先講、一個還沒講。
+    */
+    return;
+  }
+
+  /*
+    確保上一個 buffered swap
+    已經完全收尾。
+  */
+  if (
+    gardenBufferedSpriteSwapState
+      .chifuyu.busy ||
+    gardenBufferedSpriteSwapState
+      .chinatsu.busy
+  ) {
+    return;
+  }
+
+  gardenChatState.mode = "chat";
+
+  resetGardenTalkEndFlags();
+
+  /*
+    同一幀發出 Talk 切換。
+  */
+  setChifuyuAnimationMode(
+    "talk",
+    true
+  );
+
+  setChinatsuAnimationMode(
+    "talk",
+    true
+  );
+
+  /*
+    兩人的 Talk 時鐘歸零。
+  */
+  chifuyuWalkTestState.frameIndex = 0;
+  chifuyuWalkTestState.frameTimer = 0;
+  chifuyuWalkTestState.animLoopCount = 0;
+
+  chinatsuWalkTestState.frameIndex = 0;
+  chinatsuWalkTestState.frameTimer = 0;
+  chinatsuWalkTestState.animLoopCount = 0;
+
+  renderChifuyuWalkTest();
+  renderChinatsuWalkTest();
+
+  return;
+}
+
+
 
   if (
     gardenChatState.mode ===
