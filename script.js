@@ -1208,14 +1208,19 @@ function preloadGardenImage(
       即使某張圖片永遠沒有送出 load/error，
       Garden 也不會被它永久鎖住。
     */
-    loadTimer = setTimeout(() => {
-      console.warn(
-        "[Garden] preload image timeout:",
-        src
-      );
+    if (
+  Number.isFinite(loadTimeoutMs) &&
+  loadTimeoutMs > 0
+) {
+  loadTimer = setTimeout(() => {
+    console.warn(
+      "[Garden] preload image timeout:",
+      src
+    );
 
-      finish(false, "timeout");
-    }, loadTimeoutMs);
+    finish(false, "timeout");
+  }, loadTimeoutMs);
+}
 
     img.src = src;
   });
@@ -1492,9 +1497,6 @@ async function preloadGardenAssets(
 
     所以兩套素材不會混用。
   */
-  await precacheGardenCharacterModeCompressed(
-    firstMode
-  );
 
 
   /*
@@ -8618,45 +8620,65 @@ function createGardenWarmupFrame(
 
 
 function preloadGardenAnimationImageStrict(
-  src,
-  timeoutMs = 8000
+  src
 ) {
   return new Promise((resolve) => {
     const img = new Image();
 
     let finished = false;
 
+    /*
+      這裡只做「載太久」警告，
+      不再因為 8 / 10 秒到了
+      就把尚未下載完成的圖片判成失敗。
+
+      拉門本身已經另有 15 秒 safety timeout，
+      所以這裡不需要再把真正的圖片下載中斷。
+    */
+    const slowTimer = setTimeout(() => {
+      console.warn(
+        "[Garden] animation image still loading:",
+        src
+      );
+    }, 12000);
+
     const finish = (ok) => {
       if (finished) return;
+
       finished = true;
 
-      clearTimeout(timeoutId);
+      clearTimeout(slowTimer);
 
       resolve(ok);
     };
 
-    const timeoutId = setTimeout(() => {
-      console.warn(
-        "[Garden] animation decode timeout:",
-        src
-      );
-
-      finish(false);
-    }, timeoutMs);
-
     img.onload = async () => {
-      try {
-        if (img.decode) {
-          await img.decode();
-        }
-      } catch {
-        /*
-          某些 Safari 即使 decode() reject，
-          圖片本身其實已經 load 完成。
+      /*
+        圖片檔案已經真的下載完成。
 
-          後面的 CSS warmup
-          還會再做第二層保險。
-        */
+        decode() 可以再稍微等，
+        但 Safari 偶爾可能長時間不 resolve，
+        所以 decode 本身仍保留短 timeout。
+
+        注意：
+        這個 timeout 不代表圖片失敗。
+        因為 img.onload 已經成功了。
+      */
+      if (img.decode) {
+        try {
+          await Promise.race([
+            img.decode().catch(() => {}),
+
+            new Promise((resolveDecode) => {
+              setTimeout(
+                resolveDecode,
+                GARDEN_IPAD_SAFE_MODE
+                  ? 4000
+                  : 2500
+              );
+            }),
+          ]);
+        } catch {}
       }
 
       finish(true);
@@ -8714,17 +8736,14 @@ async function warmupGardenAnimationSheet(
     避免圖片其實還沒 decode 完，
     卻已經被標記成 ready。
   */
-  const decoded =
-    await preloadGardenAnimationImageStrict(
-      src,
-      GARDEN_IPAD_SAFE_MODE
-        ? 10000
-        : 8000
-    );
+  const loaded =
+  await preloadGardenAnimationImageStrict(
+    src
+  );
 
-  if (!decoded) {
-    return false;
-  }
+if (!loaded) {
+  return false;
+}
 
   /*
     如果同一張以前有殘留 holder，
