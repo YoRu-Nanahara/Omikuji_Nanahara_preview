@@ -7593,9 +7593,9 @@ const CHIFUYU_FRAME_POSITIONS = [
 
 const CHIFUYU_IDLE_FRAME_POSITIONS = CHIFUYU_FRAME_POSITIONS.slice(0, 31);
 
-const GARDEN_MOBILE_PERF_MODE =
-  window.matchMedia("(pointer: coarse)").matches ||
-  window.matchMedia("(max-width: 768px)").matches;
+// 暫時關閉 Garden 手機效能模式
+// 手機與桌機使用相同的角色動畫速度
+const GARDEN_MOBILE_PERF_MODE = false;
 
 const CHIFUYU_WALK_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 58 : 42;
 const CHIFUYU_IDLE_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 110 : 80;
