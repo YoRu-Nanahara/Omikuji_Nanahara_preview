@@ -9352,7 +9352,7 @@ const chifuyuWalkTestState = {
 
   direction: 1,
 
-  animMode: "idle",
+  animMode: "",
 
   frameIndex: 0,
   frameTimer: 0,
@@ -9376,15 +9376,21 @@ function setChifuyuAnimationMode(
     CHIFUYU_ANIMS[mode] ||
     CHIFUYU_ANIMS.idle;
 
-  if (
-    !force &&
-    chifuyuWalkTestState.animMode === mode &&
-    chifuyuWalkTest.classList.contains(
-      anim.sheetClass
-    )
-  ) {
-    return;
-  }
+  const chifuyuHasAppliedSprite =
+  !!chifuyuWalkTest.style.backgroundImage &&
+  chifuyuWalkTest.style.backgroundImage !==
+    "none";
+
+if (
+  !force &&
+  chifuyuWalkTestState.animMode === mode &&
+  chifuyuWalkTest.classList.contains(
+    anim.sheetClass
+  ) &&
+  chifuyuHasAppliedSprite
+) {
+  return;
+}
 
   /*
     iPad 正在做雙層交換時，
@@ -9593,7 +9599,7 @@ const chinatsuWalkTestState = {
 
   direction: 1,
 
-  animMode: "idle",
+  animMode: "",
 
   frameIndex: 0,
   frameTimer: 0,
@@ -9646,15 +9652,21 @@ function setChinatsuAnimationMode(
     CHINATSU_ANIMS[mode] ||
     CHINATSU_ANIMS.idle;
 
-  if (
-    !force &&
-    chinatsuWalkTestState.animMode === mode &&
-    chinatsuWalkTest.classList.contains(
-      anim.sheetClass
-    )
-  ) {
-    return;
-  }
+  const chinatsuHasAppliedSprite =
+  !!chinatsuWalkTest.style.backgroundImage &&
+  chinatsuWalkTest.style.backgroundImage !==
+    "none";
+
+if (
+  !force &&
+  chinatsuWalkTestState.animMode === mode &&
+  chinatsuWalkTest.classList.contains(
+    anim.sheetClass
+  ) &&
+  chinatsuHasAppliedSprite
+) {
+  return;
+}
 
   if (
   gardenBufferedSpriteSwapState
@@ -10733,24 +10745,7 @@ function startGardenChat(
     聊天邏輯、站位、面向全部保留，
     視覺暫時使用 Idle 動畫。
   */
-  if (GARDEN_IPAD_SAFE_MODE) {
-    gardenChatState.targetLoops = 0;
-gardenChatState.ipadFallbackUntil = 0;
-    gardenChatState.ipadFallbackUntil =
-      now +
-      randomBetween(
-        GARDEN_IPAD_CHAT_FALLBACK_MIN_MS,
-        GARDEN_IPAD_CHAT_FALLBACK_MAX_MS
-      );
-
-    setChifuyuAnimationMode("talk", true);
-setChinatsuAnimationMode("talk", true);
-
-    renderChifuyuWalkTest();
-    renderChinatsuWalkTest();
-
-    return true;
-  }
+ 
 
 
   /*
@@ -10918,17 +10913,7 @@ function updateGardenChatSystem(
       不等待 Talk loop，
       因為根本沒有載入 Talk sheet。
     */
-    if (GARDEN_IPAD_SAFE_MODE) {
-      if (
-        gardenChatState.ipadFallbackUntil > 0 &&
-        now >=
-          gardenChatState.ipadFallbackUntil
-      ) {
-        endGardenChat(now);
-      }
-
-      return;
-    }
+  
 
 
     /*
