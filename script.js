@@ -8519,21 +8519,27 @@ function releaseGardenAnimationWarmup(key) {
 
       if (current !== holder) return;
 
+      /*
+        只移除畫面外的 warmup DOM。
+
+        IMPORTANT：
+        不再把 warmupState 改回 false。
+
+        一張 spritesheet 成功 warmup 過一次後，
+        這個 session 就視為已準備過。
+
+        後續動畫切換由 buffered cover
+        負責遮住 Safari / WebKit 換 background
+        時可能產生的空白幀。
+
+        因此不需要每一次 Idle / Walk / Talk
+        都重新 new Image + decode。
+      */
       holder.remove();
 
       gardenAnimationWarmupHolders.delete(
         key
       );
-
-      /*
-        iPadOS：
-        holder 已經不存在後，
-        就不能繼續把這張 sheet
-        當成仍然 warm。
-
-        下一次切回來時重新 targeted warmup。
-      */
-      
     });
   });
 }
