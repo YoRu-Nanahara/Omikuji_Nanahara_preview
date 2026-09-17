@@ -9443,45 +9443,59 @@ function setChifuyuAnimationMode(
   const previousMode =
     chifuyuWalkTestState.animMode;
 
+  const isEnteringTalk =
+    previousMode !== "talk" &&
+    mode === "talk";
+
   const isTalkToIdle =
     previousMode === "talk" &&
     mode === "idle";
 
-    const isIdleToWalk =
-  previousMode === "idle" &&
-  mode === "walk";
+  const isIdleToWalk =
+    previousMode === "idle" &&
+    mode === "walk";
 
-const useFastSwap =
-  isTalkToIdle ||
-  isIdleToWalk;
+  let swapOptions;
 
+  if (isEnteringTalk) {
+    swapOptions = {
+      beforeFrames: 2,
+      afterFrames: 6,
+    };
+  } else if (isTalkToIdle) {
+    swapOptions = {
+      beforeFrames: 1,
+      afterFrames: 4,
+    };
+  } else if (isIdleToWalk) {
+    swapOptions = {
+      beforeFrames: 1,
+      afterFrames: 1,
+    };
+  }
 
   const chifuyuHasAppliedSprite =
-  !!chifuyuWalkTest.style.backgroundImage &&
-  chifuyuWalkTest.style.backgroundImage !==
-    "none";
+    !!chifuyuWalkTest.style.backgroundImage &&
+    chifuyuWalkTest.style.backgroundImage !==
+      "none";
 
-if (
-  !force &&
-  chifuyuWalkTestState.animMode === mode &&
-  chifuyuWalkTest.classList.contains(
-    anim.sheetClass
-  ) &&
-  chifuyuHasAppliedSprite
-) {
-  return;
-}
+  if (
+    !force &&
+    chifuyuWalkTestState.animMode === mode &&
+    chifuyuWalkTest.classList.contains(
+      anim.sheetClass
+    ) &&
+    chifuyuHasAppliedSprite
+  ) {
+    return;
+  }
 
-  /*
-    iPad 正在做雙層交換時，
-    先讓這一次交換完成。
-  */
- if (
-  gardenBufferedSpriteSwapState
-    .chifuyu.busy
-) {
-  return;
-}
+  if (
+    gardenBufferedSpriteSwapState
+      .chifuyu.busy
+  ) {
+    return;
+  }
 
   const warmupKey =
     getGardenAnimationWarmupKey(
@@ -9489,10 +9503,6 @@ if (
       mode
     );
 
-  /*
-    目標 sheet 還沒準備好：
-    舊動畫繼續正常播放。
-  */
   if (
     !gardenAnimationWarmupState[
       warmupKey
@@ -9507,15 +9517,11 @@ if (
     return;
   }
 
-  /*
-    真正換圖改由 buffered swap 執行。
-  */
   runGardenBufferedSpriteSwap(
     "chifuyu",
     chifuyuWalkTest,
     chifuyuWalkTestWrap,
     () => {
-
       chifuyuWalkTestState.animMode =
         mode;
 
@@ -9560,14 +9566,9 @@ if (
       releaseGardenAnimationWarmup(
         warmupKey
       );
-       },
-useFastSwap
-  ? {
-      beforeFrames: 1,
-      afterFrames: 1,
-    }
-  : undefined
-);
+    },
+    swapOptions
+  );
 }
 
 
@@ -9738,43 +9739,62 @@ function setChinatsuAnimationMode(
     CHINATSU_ANIMS[mode] ||
     CHINATSU_ANIMS.idle;
 
-      const previousMode =
-  chinatsuWalkTestState.animMode;
+  const previousMode =
+    chinatsuWalkTestState.animMode;
 
-const isTalkToIdle =
-  previousMode === "talk" &&
-  mode === "idle";
+  const isEnteringTalk =
+    previousMode !== "talk" &&
+    mode === "talk";
 
-const isIdleToWalk =
-  previousMode === "idle" &&
-  mode === "walk";
+  const isTalkToIdle =
+    previousMode === "talk" &&
+    mode === "idle";
 
-const useFastSwap =
-  isTalkToIdle ||
-  isIdleToWalk;
+  const isIdleToWalk =
+    previousMode === "idle" &&
+    mode === "walk";
+
+  let swapOptions;
+
+  if (isEnteringTalk) {
+    swapOptions = {
+      beforeFrames: 2,
+      afterFrames: 6,
+    };
+  } else if (isTalkToIdle) {
+    swapOptions = {
+      beforeFrames: 1,
+      afterFrames: 4,
+    };
+  } else if (isIdleToWalk) {
+    swapOptions = {
+      beforeFrames: 1,
+      afterFrames: 1,
+    };
+  }
 
   const chinatsuHasAppliedSprite =
-  !!chinatsuWalkTest.style.backgroundImage &&
-  chinatsuWalkTest.style.backgroundImage !==
-    "none";
-
-if (
-  !force &&
-  chinatsuWalkTestState.animMode === mode &&
-  chinatsuWalkTest.classList.contains(
-    anim.sheetClass
-  ) &&
-  chinatsuHasAppliedSprite
-) {
-  return;
-}
+    !!chinatsuWalkTest.style.backgroundImage &&
+    chinatsuWalkTest.style.backgroundImage !==
+      "none";
 
   if (
-  gardenBufferedSpriteSwapState
-    .chinatsu.busy
-) {
-  return;
-}
+    !force &&
+    chinatsuWalkTestState.animMode === mode &&
+    chinatsuWalkTest.classList.contains(
+      anim.sheetClass
+    ) &&
+    chinatsuHasAppliedSprite
+  ) {
+    return;
+  }
+
+  if (
+    gardenBufferedSpriteSwapState
+      .chinatsu.busy
+  ) {
+    return;
+  }
 
   const warmupKey =
     getGardenAnimationWarmupKey(
@@ -9801,7 +9821,6 @@ if (
     chinatsuWalkTest,
     chinatsuWalkTestWrap,
     () => {
-
       chinatsuWalkTestState.animMode =
         mode;
 
@@ -9846,16 +9865,10 @@ if (
       releaseGardenAnimationWarmup(
         warmupKey
       );
-      },
-useFastSwap
-  ? {
-      beforeFrames: 1,
-      afterFrames: 1,
-    }
-  : undefined
-);
+    },
+    swapOptions
+  );
 }
-
 function updateChinatsuAnimationFrame(deltaMs) {
   if (!chinatsuWalkTest) return;
 
