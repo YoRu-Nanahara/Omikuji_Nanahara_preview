@@ -1439,6 +1439,27 @@ await precacheGardenCharacterModeCompressed(
   firstMode
 );
 
+/*
+  初始畫面是在拉門仍關著時準備，
+  所以可以安全地把「這次真的會用到」
+  的兩張角色 sheet 逐張 decode + paint。
+
+  不碰其他四張。
+*/
+await requestGardenAnimationWarmup(
+  "chifuyu",
+  firstMode,
+  CHIFUYU_ANIMS[firstMode] ||
+    CHIFUYU_ANIMS.idle
+);
+
+await requestGardenAnimationWarmup(
+  "chinatsu",
+  firstMode,
+  CHINATSU_ANIMS[firstMode] ||
+    CHINATSU_ANIMS.idle
+);
+
 gardenAssetsLoaded = true;
 
 return;
@@ -8491,12 +8512,6 @@ function releaseGardenAnimationWarmup(key) {
 
   if (!holder) return;
 
-  /*
-    不能在切換 class 的同一幀就移除。
-
-    讓真正角色至少成功 paint 兩幀，
-    再把預熱用 DOM 清掉。
-  */
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       const current =
@@ -8509,6 +8524,16 @@ function releaseGardenAnimationWarmup(key) {
       gardenAnimationWarmupHolders.delete(
         key
       );
+
+      /*
+        iPadOS：
+        holder 已經不存在後，
+        就不能繼續把這張 sheet
+        當成仍然 warm。
+
+        下一次切回來時重新 targeted warmup。
+      */
+      
     });
   });
 }
@@ -8567,27 +8592,140 @@ function createGardenWarmupFrame(
 }
 
 
+function preloadGardenAnimationImageStrict(
+  src,
+  timeoutMs = 8000
+) {
+  return new Promise((resolve) => {
+    const img = new Image();
+
+    let finished = false;
+
+    const finish = (ok) => {
+      if (finished) return;
+      finished = true;
+
+      clearTimeout(timeoutId);
+
+      resolve(ok);
+    };
+
+    const timeoutId = setTimeout(() => {
+      console.warn(
+        "[Garden] animation decode timeout:",
+        src
+      );
+
+      finish(false);
+    }, timeoutMs);
+
+    img.onload = async () => {
+      try {
+        if (img.decode) {
+          await img.decode();
+        }
+      } catch {
+        /*
+          某些 Safari 即使 decode() reject，
+          圖片本身其實已經 load 完成。
+
+          後面的 CSS warmup
+          還會再做第二層保險。
+        */
+      }
+
+      finish(true);
+    };
+
+    img.onerror = () => {
+      console.warn(
+        "[Garden] animation image failed:",
+        src
+      );
+
+      finish(false);
+    };
+
+    img.src = src;
+  });
+}
+
+
 async function warmupGardenAnimationSheet(
   key,
   sheetClass,
-  src
+  src,
+  options = {}
 ) {
   if (
     gardenAnimationWarmupState[key]
   ) {
-    return;
+    return true;
   }
+
+  const allowIpad =
+    options.allowIpad === true;
+
   /*
-    iPadOS 不建立大型 spritesheet
-    的 offscreen warmup DOM。
+    iPad 不做全量 warmup。
 
-    這是降低 WebContent 記憶體峰值的核心。
+    只有即將真正使用的 sheet，
+    才允許 targeted warmup。
   */
-  if (GARDEN_IPAD_SAFE_MODE) {
-    return;
+  if (
+    GARDEN_IPAD_SAFE_MODE &&
+    !allowIpad
+  ) {
+    return false;
   }
 
+  /*
+    先真正等待圖片 load + decode。
 
+    這裡不使用原本
+    preloadGardenImage() 的
+    decode timeout fallback。
+
+    避免圖片其實還沒 decode 完，
+    卻已經被標記成 ready。
+  */
+  const decoded =
+    await preloadGardenAnimationImageStrict(
+      src,
+      GARDEN_IPAD_SAFE_MODE
+        ? 10000
+        : 8000
+    );
+
+  if (!decoded) {
+    return false;
+  }
+
+  /*
+    如果同一張以前有殘留 holder，
+    先清掉。
+  */
+  const oldHolder =
+    gardenAnimationWarmupHolders.get(
+      key
+    );
+
+  if (oldHolder) {
+    oldHolder.remove();
+
+    gardenAnimationWarmupHolders.delete(
+      key
+    );
+  }
+
+  /*
+    建立畫面外的真正 CSS background。
+
+    目的：
+    不只 decode PNG，
+    還讓瀏覽器先建立這張 background
+    所需的 paint / texture。
+  */
   const holder =
     document.createElement("div");
 
@@ -8602,8 +8740,13 @@ async function warmupGardenAnimationSheet(
   holder.style.overflow = "hidden";
 
   /*
-    不用 opacity:0，
-    保證瀏覽器真的進行一次 paint。
+    不可使用：
+    display:none
+    visibility:hidden
+    opacity:0
+
+    否則 Safari / WebKit
+    有可能完全不 paint。
   */
   holder.style.opacity = "0.001";
 
@@ -8613,48 +8756,64 @@ async function warmupGardenAnimationSheet(
       src
     );
 
+  /*
+    實體 PNG 現在是縮小版本，
+    但 CSS 邏輯座標仍然使用原尺寸。
+  */
+  const logicalSize =
+    sheetClass.includes("talk")
+      ? GARDEN_TALK_LOGICAL_SHEET_SIZE
+      : GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE;
+
+  frame.style.backgroundSize =
+    `${logicalSize}px ${logicalSize}px`;
+
   holder.appendChild(frame);
+
   document.body.appendChild(holder);
 
   /*
-    強制 layout。
+    強制 style / layout 套用。
   */
   void frame.offsetWidth;
 
   /*
-    給瀏覽器兩幀準備 texture。
+    給瀏覽器數個真正的 frame，
+    確保 background 已經進入 paint 流程。
   */
   await new Promise((resolve) => {
-  let finished = false;
+    let finished = false;
 
-  const finish = () => {
-    if (finished) return;
-    finished = true;
-    resolve();
-  };
+    const finish = () => {
+      if (finished) return;
 
-  requestAnimationFrame(() => {
-    requestAnimationFrame(finish);
+      finished = true;
+
+      resolve();
+    };
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(finish);
+      });
+    });
+
+    /*
+      rAF 特殊情況的保險。
+    */
+    setTimeout(
+      finish,
+      500
+    );
   });
 
   /*
-    iPad Safari / WebKit 保險。
+    先保留 holder。
 
-    正常狀況仍然等兩個真正的 paint frame；
-    只有 rAF 異常時才走 timeout。
-  */
-  setTimeout(
-    finish,
-    350
-  );
-});
-
-  /*
-    重要：
-    這裡先不要 holder.remove()。
-
-    讓它一直活到真正角色第一次使用
-    這張 spritesheet 為止。
+    等真正角色開始使用這張 sheet，
+    setter 裡現有的
+    releaseGardenAnimationWarmup()
+    會再延後兩幀移除。
   */
   gardenAnimationWarmupHolders.set(
     key,
@@ -8663,18 +8822,125 @@ async function warmupGardenAnimationSheet(
 
   gardenAnimationWarmupState[key] =
     true;
+
+  return true;
 }
 
 
 /*
-  進 Garden 前一定先準備：
-
-  talk
-  idle
-
-  因為庭院一進去有可能直接聊天，
-  或先站著 idle。
+  同一張 sheet 如果正在準備，
+  不重複建立 decode / warmup 工作。
 */
+const gardenOnDemandWarmupPromises =
+  new Map();
+
+
+/*
+  iPad 一次只 warmup 一張角色 sheet。
+
+  例如：
+  千冬 Talk
+  ↓
+  完成
+  ↓
+  千夏 Talk
+
+  避免兩張大型 PNG
+  同時 decode 造成瞬間記憶體尖峰。
+*/
+let gardenIpadWarmupChain =
+  Promise.resolve();
+
+
+function requestGardenAnimationWarmup(
+  character,
+  mode,
+  anim
+) {
+  const key =
+    getGardenAnimationWarmupKey(
+      character,
+      mode
+    );
+
+  if (!key || !anim) {
+    return Promise.resolve(false);
+  }
+
+  /*
+    已經準備好就不用再做。
+  */
+  if (
+    gardenAnimationWarmupState[key]
+  ) {
+    return Promise.resolve(true);
+  }
+
+  /*
+    正在準備同一張的話，
+    直接沿用現有 Promise。
+  */
+  if (
+    gardenOnDemandWarmupPromises.has(
+      key
+    )
+  ) {
+    return gardenOnDemandWarmupPromises.get(
+      key
+    );
+  }
+
+  const asset =
+    getGardenAnimationAsset(
+      character,
+      mode
+    );
+
+  const run = () =>
+    warmupGardenAnimationSheet(
+      key,
+      anim.sheetClass,
+      asset.src,
+      {
+        allowIpad: true,
+      }
+    );
+
+  let promise;
+
+  /*
+    iPad：
+    所有 targeted warmup 排隊處理，
+    不同時 decode 多張 spritesheet。
+  */
+  if (GARDEN_IPAD_SAFE_MODE) {
+    promise =
+      gardenIpadWarmupChain.then(
+        run,
+        run
+      );
+
+    gardenIpadWarmupChain =
+      promise.catch(() => {});
+  } else {
+    promise = run();
+  }
+
+  gardenOnDemandWarmupPromises.set(
+    key,
+    promise
+  );
+
+  promise.finally(() => {
+    gardenOnDemandWarmupPromises.delete(
+      key
+    );
+  });
+
+  return promise;
+}
+
+
 async function warmupGardenCriticalAnimationSheets() {
 
   /*
@@ -8869,6 +9135,217 @@ function startGardenDeferredAnimationWarmup() {
 }
 
 
+const gardenBufferedSpriteSwapState = {
+  chifuyu: {
+    busy: false,
+  },
+
+  chinatsu: {
+    busy: false,
+  },
+};
+
+
+function runAfterGardenFrames(
+  frameCount,
+  callback
+) {
+  let remaining = Math.max(
+    1,
+    Math.floor(frameCount || 1)
+  );
+
+  function step() {
+    remaining -= 1;
+
+    if (remaining <= 0) {
+      callback();
+      return;
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
+}
+
+
+function createGardenSpriteSwapCover(
+  sprite,
+  wrap
+) {
+  if (!sprite || !wrap) return null;
+
+  const computed =
+    window.getComputedStyle(sprite);
+
+  const cover =
+    document.createElement("div");
+
+  cover.className =
+    "garden-sprite-swap-cover";
+
+  cover.style.position = "absolute";
+  cover.style.left = "0";
+  cover.style.top = "0";
+
+  cover.style.width = "650px";
+  cover.style.height = "650px";
+
+  /*
+    原角色 z-index = 2
+    陰影 z-index = 1
+
+    cover 暫時放到 3。
+  */
+  cover.style.zIndex = "3";
+
+  cover.style.pointerEvents = "none";
+
+  /*
+    完整複製目前角色正在顯示的那一格。
+  */
+  cover.style.backgroundImage =
+    sprite.style.backgroundImage ||
+    computed.backgroundImage;
+
+  cover.style.backgroundSize =
+    sprite.style.backgroundSize ||
+    computed.backgroundSize;
+
+  cover.style.backgroundRepeat =
+    sprite.style.backgroundRepeat ||
+    computed.backgroundRepeat;
+
+  cover.style.backgroundPosition =
+    sprite.style.backgroundPosition ||
+    computed.backgroundPosition;
+
+  cover.style.transform =
+    sprite.style.transform || "";
+
+  cover.style.transformOrigin =
+    sprite.style.transformOrigin ||
+    "center bottom";
+
+  cover.style.opacity = "1";
+
+  cover.style.contain = "paint";
+
+  cover.style.backfaceVisibility =
+    "hidden";
+
+  wrap.appendChild(cover);
+
+  /*
+    先建立這個 cover 的 layout。
+  */
+  void cover.offsetWidth;
+
+  return cover;
+}
+
+
+function runGardenBufferedSpriteSwap(
+  character,
+  sprite,
+  wrap,
+  applySwitch
+) {
+  if (
+    !sprite ||
+    !wrap ||
+    typeof applySwitch !== "function"
+  ) {
+    applySwitch?.();
+    return;
+  }
+
+
+
+  const swapState =
+    gardenBufferedSpriteSwapState[
+      character
+    ];
+
+  if (!swapState) {
+    applySwitch();
+    return;
+  }
+
+  /*
+    已經在換圖時，
+    主 loop 先不要再開第二次切換。
+  */
+  if (swapState.busy) {
+    return;
+  }
+
+  const computed =
+    window.getComputedStyle(sprite);
+
+  const currentBackground =
+    sprite.style.backgroundImage ||
+    computed.backgroundImage;
+
+  /*
+    第一次進場還沒有舊角色圖時，
+    不需要 cover。
+  */
+  if (
+    !currentBackground ||
+    currentBackground === "none"
+  ) {
+    applySwitch();
+    return;
+  }
+
+  swapState.busy = true;
+
+  /*
+    cover = 現在正在顯示的舊動畫畫面。
+  */
+  const cover =
+    createGardenSpriteSwapCover(
+      sprite,
+      wrap
+    );
+
+  if (!cover) {
+    swapState.busy = false;
+    applySwitch();
+    return;
+  }
+
+  /*
+    不能 append cover 後立刻換圖。
+
+    先讓 cover 真正經過一次瀏覽器 paint。
+  */
+  runAfterGardenFrames(2, () => {
+
+    /*
+      cover 已經在玩家眼前。
+
+      現在才換底下真正的 sprite。
+    */
+    applySwitch();
+
+    /*
+      新 background-image 換上後，
+      再讓 WebKit 有 3 幀時間完成 texture / paint。
+
+      期間玩家看到的還是舊 cover，
+      因此不會看到中間的空白幀。
+    */
+    runAfterGardenFrames(3, () => {
+      cover.remove();
+
+      swapState.busy = false;
+    });
+  });
+}
+
 const chifuyuWalkTestState = {
   x: 600,
   y: 1725,
@@ -8909,55 +9386,95 @@ function setChifuyuAnimationMode(
     return;
   }
 
-  chifuyuWalkTestState.animMode = mode;
-  chifuyuWalkTestState.frameIndex = 0;
-  chifuyuWalkTestState.frameTimer = 0;
-  chifuyuWalkTestState.animLoopCount = 0;
-
-  chifuyuWalkTest.classList.remove(
-    CHIFUYU_WALK_SHEET_CLASS,
-    CHIFUYU_IDLE_SHEET_CLASS,
-    CHIFUYU_TALK_SHEET_CLASS
-  );
-
-  chifuyuWalkTest.classList.add(
-    anim.sheetClass
-  );
-
-
   /*
-    所有裝置統一使用 50% spritesheet。
-
-    圖片本身縮成 50%，
-    background-size 再恢復成原本邏輯尺寸。
-
-    因此 background-position 座標完全不變。
+    iPad 正在做雙層交換時，
+    先讓這一次交換完成。
   */
-  const asset =
-    getGardenAnimationAsset(
+ if (
+  gardenBufferedSpriteSwapState
+    .chifuyu.busy
+) {
+  return;
+}
+
+  const warmupKey =
+    getGardenAnimationWarmupKey(
       "chifuyu",
       mode
     );
 
-  chifuyuWalkTest.style.backgroundImage =
-    `url("${asset.src}")`;
-
-  chifuyuWalkTest.style.backgroundSize =
-    `${asset.logicalSize}px ` +
-    `${asset.logicalSize}px`;
-
-  chifuyuWalkTest.style.backgroundRepeat =
-    "no-repeat";
-
-  chifuyuWalkTest.style.backgroundPosition =
-    anim.positions[0];
-
-
-  releaseGardenAnimationWarmup(
-    getGardenAnimationWarmupKey(
+  /*
+    目標 sheet 還沒準備好：
+    舊動畫繼續正常播放。
+  */
+  if (
+    !gardenAnimationWarmupState[
+      warmupKey
+    ]
+  ) {
+    requestGardenAnimationWarmup(
       "chifuyu",
-      mode
-    )
+      mode,
+      anim
+    );
+
+    return;
+  }
+
+  /*
+    真正換圖改由 buffered swap 執行。
+  */
+  runGardenBufferedSpriteSwap(
+    "chifuyu",
+    chifuyuWalkTest,
+    chifuyuWalkTestWrap,
+    () => {
+
+      chifuyuWalkTestState.animMode =
+        mode;
+
+      chifuyuWalkTestState.frameIndex =
+        0;
+
+      chifuyuWalkTestState.frameTimer =
+        0;
+
+      chifuyuWalkTestState.animLoopCount =
+        0;
+
+      chifuyuWalkTest.classList.remove(
+        CHIFUYU_WALK_SHEET_CLASS,
+        CHIFUYU_IDLE_SHEET_CLASS,
+        CHIFUYU_TALK_SHEET_CLASS
+      );
+
+      chifuyuWalkTest.classList.add(
+        anim.sheetClass
+      );
+
+      const asset =
+        getGardenAnimationAsset(
+          "chifuyu",
+          mode
+        );
+
+      chifuyuWalkTest.style.backgroundImage =
+        `url("${asset.src}")`;
+
+      chifuyuWalkTest.style.backgroundSize =
+        `${asset.logicalSize}px ` +
+        `${asset.logicalSize}px`;
+
+      chifuyuWalkTest.style.backgroundRepeat =
+        "no-repeat";
+
+      chifuyuWalkTest.style.backgroundPosition =
+        anim.positions[0];
+
+      releaseGardenAnimationWarmup(
+        warmupKey
+      );
+    }
   );
 }
 
@@ -9139,54 +9656,84 @@ function setChinatsuAnimationMode(
     return;
   }
 
-  chinatsuWalkTestState.animMode = mode;
-  chinatsuWalkTestState.frameIndex = 0;
-  chinatsuWalkTestState.frameTimer = 0;
-  chinatsuWalkTestState.animLoopCount = 0;
+  if (
+  gardenBufferedSpriteSwapState
+    .chinatsu.busy
+) {
+  return;
+}
 
-  chinatsuWalkTest.classList.remove(
-    CHINATSU_WALK_SHEET_CLASS,
-    CHINATSU_IDLE_SHEET_CLASS,
-    CHINATSU_TALK_SHEET_CLASS
-  );
-
-  chinatsuWalkTest.classList.add(
-    anim.sheetClass
-  );
-
-
-  /*
-    千夏自己的低解析度 spritesheet。
-
-    注意：
-    這裡一定是 "chinatsu"，
-    而且一定修改 chinatsuWalkTest。
-  */
-  const asset =
-    getGardenAnimationAsset(
+  const warmupKey =
+    getGardenAnimationWarmupKey(
       "chinatsu",
       mode
     );
 
-  chinatsuWalkTest.style.backgroundImage =
-    `url("${asset.src}")`;
-
-  chinatsuWalkTest.style.backgroundSize =
-    `${asset.logicalSize}px ` +
-    `${asset.logicalSize}px`;
-
-  chinatsuWalkTest.style.backgroundRepeat =
-    "no-repeat";
-
-  chinatsuWalkTest.style.backgroundPosition =
-    anim.positions[0];
-
-
-  releaseGardenAnimationWarmup(
-    getGardenAnimationWarmupKey(
+  if (
+    !gardenAnimationWarmupState[
+      warmupKey
+    ]
+  ) {
+    requestGardenAnimationWarmup(
       "chinatsu",
-      mode
-    )
+      mode,
+      anim
+    );
+
+    return;
+  }
+
+  runGardenBufferedSpriteSwap(
+    "chinatsu",
+    chinatsuWalkTest,
+    chinatsuWalkTestWrap,
+    () => {
+
+      chinatsuWalkTestState.animMode =
+        mode;
+
+      chinatsuWalkTestState.frameIndex =
+        0;
+
+      chinatsuWalkTestState.frameTimer =
+        0;
+
+      chinatsuWalkTestState.animLoopCount =
+        0;
+
+      chinatsuWalkTest.classList.remove(
+        CHINATSU_WALK_SHEET_CLASS,
+        CHINATSU_IDLE_SHEET_CLASS,
+        CHINATSU_TALK_SHEET_CLASS
+      );
+
+      chinatsuWalkTest.classList.add(
+        anim.sheetClass
+      );
+
+      const asset =
+        getGardenAnimationAsset(
+          "chinatsu",
+          mode
+        );
+
+      chinatsuWalkTest.style.backgroundImage =
+        `url("${asset.src}")`;
+
+      chinatsuWalkTest.style.backgroundSize =
+        `${asset.logicalSize}px ` +
+        `${asset.logicalSize}px`;
+
+      chinatsuWalkTest.style.backgroundRepeat =
+        "no-repeat";
+
+      chinatsuWalkTest.style.backgroundPosition =
+        anim.positions[0];
+
+      releaseGardenAnimationWarmup(
+        warmupKey
+      );
+    }
   );
 }
 

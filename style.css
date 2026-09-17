@@ -2676,29 +2676,7 @@ body.autumn-mode.night-mode .menu-background.night {
   background-position: -2px -2px;
 }
 
-.chifuyu-walk-sheet {
-  background-image: url("images/garden/chifuyu/chifuyu-walk-sheet.png?v=6");
-}
 
-.chifuyu-idle-sheet {
-  background-image: url("images/garden/chifuyu/chifuyu-idle-sheet.png?v=6");
-}
-
-.chifuyu-talk-sheet {
-  background-image: url("images/garden/chifuyu/chifuyu-talk-sheet.png?v=2");
-}
-
-.chinatsu-walk-sheet {
-  background-image: url("images/garden/chinatsu/chinatsu-walk-sheet.png?v=2");
-}
-
-.chinatsu-idle-sheet {
-  background-image: url("images/garden/chinatsu/chinatsu-idle-sheet.png?v=2");
-}
-
-.chinatsu-talk-sheet {
-  background-image: url("images/garden/chinatsu/chinatsu-talk-sheet.png?v=2");
-}
 
 
 #chifuyuWalkShadow {
