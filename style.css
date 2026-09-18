@@ -2944,7 +2944,7 @@ body.autumn-mode.night-mode .menu-background.night {
 
 #chifuyuWalkTest,
 #chinatsuWalkTest {
-  contain: paint;
+  contain: none;
 }
 
 #chifuyuWalkTestWrap,
