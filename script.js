@@ -8437,22 +8437,38 @@ function getChifuyuDepthLayerByPosition(x, y) {
   */
   const GARDEN_CORNER_FRONT_X_MIN = 560;
 const GARDEN_CORNER_FRONT_Y_OVER = 780;
+const GARDEN_CORNER_FRONT_Y_MAX = 1400;
 
+/*
+  最下方前景優先。
+
+  y > 1400 時已經離開右上建築轉角區域，
+  應該進 front layer。
+*/
+if (
+  zone === "ground" &&
+  y > GARDEN_CORNER_FRONT_Y_MAX
+) {
+  return "front";
+}
+
+/*
+  右上建築轉角。
+
+  只有：
+  x >= 560
+  且 780 < y <= 1400
+
+  才進 cornerFront。
+*/
 if (
   zone === "ground" &&
   x >= GARDEN_CORNER_FRONT_X_MIN &&
-  y > GARDEN_CORNER_FRONT_Y_OVER
+  y > GARDEN_CORNER_FRONT_Y_OVER &&
+  y <= GARDEN_CORNER_FRONT_Y_MAX
 ) {
   return "cornerFront";
 }
-
-  /*
-    前景：
-    y > 1400 時高於枯山水。
-  */
-  if (zone === "ground" && y > 1400) {
-    return "front";
-  }
 
   // y < 600 或其他一般區域：低於右上轉角
   return "normal";
@@ -10381,6 +10397,7 @@ function resetChinatsuAutoWalk() {
    進庭院 / 散步中偶爾聊天
 ========================= */
 
+
 const GARDEN_INITIAL_CHAT_CHANCE = 0.5;
 
 // 散步中自然聊天：不要太頻繁
@@ -11963,10 +11980,14 @@ function chifuyuWalkMoveLoop(now) {
     updateGardenChatSystem(now);
   }
 
-  renderChifuyuWalkTest();
-  renderChinatsuWalkTest();
+renderChifuyuWalkTest();
+renderChinatsuWalkTest();
 
-  chifuyuWalkMoveFrame = requestAnimationFrame(chifuyuWalkMoveLoop);
+
+chifuyuWalkMoveFrame =
+  requestAnimationFrame(
+    chifuyuWalkMoveLoop
+  );
 }
 
 let chifuyuWalkMoveFrame = null;
