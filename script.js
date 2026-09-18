@@ -8408,6 +8408,14 @@ const GARDEN_AUTO_TARGET_POINTS = [
 { name: "auto-upper-lower-right", x: 790, y: 985, zone: "ground" },
 { name: "auto-upper-lower-mid", x: 730, y: 1060, zone: "ground" },
 
+// 枯山水後方往主路銜接
+{
+  name: "auto-upper-lower-center",
+  x: 620,
+  y: 1080,
+  zone: "ground",
+},
+
   // 左側主路
   { name: "auto-left-upper", x: 100, y: 900, zone: "ground" },
   { name: "auto-left-main-a", x: 100, y: 1000, zone: "ground" },
@@ -10674,31 +10682,105 @@ function startChinatsuAutoWalkToCompanionTarget() {
     y: chinatsuWalkTestState.y,
   };
 
-  for (let i = 0; i < CHINATSU_AUTO_PICK_RETRY; i++) {
-    const target = pickRandomGardenWalkTarget();
-    if (!target) continue;
+  const candidates = [];
 
-    const dx = target.x - start.x;
-    const dy = target.y - start.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+  /*
+    先把現在真正能走的目的地全部找出來，
+    最後再從合格候選中隨機選。
 
-    // 避免姊姊小碎步抖動
-    if (dist < 110) continue;
+    這樣不會因為隨機重抽運氣不好，
+    明明有路卻一直 return false。
+  */
+  for (
+    const target of
+    GARDEN_AUTO_TARGET_POINTS
+  ) {
+    if (
+      !isGardenWalkablePoint(
+        target.x,
+        target.y
+      )
+    ) {
+      continue;
+    }
 
-if (dist > CHINATSU_AUTO_WALK_MAX_DISTANCE * 1.15) continue;
+    const dx =
+      target.x - start.x;
 
-const path = findGardenPath(start, target);
-if (!path || path.length === 0) continue;
+    const dy =
+      target.y - start.y;
 
-const pathDistance = getGardenPathDistance(start, path);
+    const dist =
+      Math.sqrt(
+        dx * dx +
+        dy * dy
+      );
 
-if (pathDistance > CHINATSU_AUTO_WALK_MAX_DISTANCE) continue;
+    // 避免原地小碎步
+    if (dist < 110) {
+      continue;
+    }
 
-setChinatsuMovePath(path);
-return true;
+    // 太遠先不尋路
+    if (
+      dist >
+      CHINATSU_AUTO_WALK_MAX_DISTANCE *
+        1.15
+    ) {
+      continue;
+    }
+
+    const path =
+      findGardenPath(
+        start,
+        target
+      );
+
+    if (
+      !path ||
+      path.length === 0
+    ) {
+      continue;
+    }
+
+    const pathDistance =
+      getGardenPathDistance(
+        start,
+        path
+      );
+
+    if (
+      pathDistance >
+      CHINATSU_AUTO_WALK_MAX_DISTANCE
+    ) {
+      continue;
+    }
+
+    candidates.push({
+      path,
+      pathDistance,
+    });
   }
 
-  return false;
+  if (
+    candidates.length === 0
+  ) {
+    return false;
+  }
+
+  const choice =
+    candidates[
+      Math.floor(
+        Math.random() *
+        candidates.length
+      )
+    ];
+
+  setChinatsuMovePath(
+    choice.path
+  );
+
+  return true;
 }
 
 function updateChinatsuAutoWalk(now) {
@@ -10871,6 +10953,22 @@ const GARDEN_CHAT_SPOTS = [
   chifuyu: { x: 780, y: 700, direction: -1 },
   chinatsu: { x: 520, y: 700, direction: 1 },
 },
+
+// 枯山水後方
+{
+  name: "karesansui-back",
+  chifuyu: {
+    x: 460,
+    y: 1040,
+    direction: 1,
+  },
+  chinatsu: {
+    x: 780,
+    y: 1040,
+    direction: -1,
+  },
+},
+
 ];
 
 const gardenChatState = {
