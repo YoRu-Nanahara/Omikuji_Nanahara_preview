@@ -8620,6 +8620,13 @@ const CHIFUYU_IDLE_FRAME_POSITIONS = CHIFUYU_FRAME_POSITIONS.slice(0, 31);
 const GARDEN_MOBILE_PERF_MODE =
   GARDEN_IPAD_SAFE_MODE;
 
+
+const GARDEN_FREEZE_SPRITE_VISUAL_TEST = true;
+
+// 千冬改用 Idle / Walk / Talk 三層常駐測試
+const GARDEN_CHIFUYU_THREE_LAYER_TEST = true;
+
+
 const CHIFUYU_WALK_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 58 : 42;
 const CHIFUYU_IDLE_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 110 : 80;
 
@@ -8658,6 +8665,195 @@ talk: {
 },
 };
 
+/* =========================
+   Chifuyu Three-Layer Sprite Test
+
+   Idle / Walk / Talk 各自擁有固定 DOM layer。
+   background-image 設定一次後永遠不再更換。
+
+   模式切換只改 opacity。
+========================= */
+
+const chifuyuSpriteLayers = {
+  idle: null,
+  walk: null,
+  talk: null,
+};
+
+let chifuyuSpriteLayersReady = false;
+
+
+function ensureChifuyuSpriteLayers() {
+  if (chifuyuSpriteLayersReady) {
+    return true;
+  }
+
+  if (!chifuyuWalkTest) {
+    return false;
+  }
+
+  /*
+    原本 #chifuyuWalkTest 自己就是 sprite。
+    現在把它改成純容器。
+
+    wrapper 完全不碰，
+    所以位置 / 翻面 / 景深仍維持原樣。
+  */
+  chifuyuWalkTest.classList.remove(
+    CHIFUYU_WALK_SHEET_CLASS,
+    CHIFUYU_IDLE_SHEET_CLASS,
+    CHIFUYU_TALK_SHEET_CLASS
+  );
+
+  chifuyuWalkTest.style.backgroundImage =
+    "none";
+
+  chifuyuWalkTest.style.backgroundPosition =
+    "";
+
+  chifuyuWalkTest.style.backgroundSize =
+    "";
+
+  chifuyuWalkTest.style.backgroundRepeat =
+    "";
+
+  chifuyuWalkTest.style.width =
+    "650px";
+
+  chifuyuWalkTest.style.height =
+    "650px";
+
+  /*
+    上一輪 Idle-only 測試留下的標記
+    對三層模式已經沒有用途。
+  */
+  delete chifuyuWalkTest.dataset
+    .gardenFrozenVisual;
+
+
+  for (const mode of [
+    "idle",
+    "walk",
+    "talk",
+  ]) {
+    const anim =
+      CHIFUYU_ANIMS[mode];
+
+    const asset =
+      getGardenAnimationAsset(
+        "chifuyu",
+        mode
+      );
+
+    const layer =
+      document.createElement("div");
+
+    layer.dataset.gardenSpriteMode =
+      mode;
+
+    /*
+      每一層從出生開始就綁定自己的圖片。
+      後面再也不修改 background-image。
+    */
+    layer.style.position =
+      "absolute";
+
+    layer.style.left =
+      "0";
+
+    layer.style.top =
+      "0";
+
+    layer.style.width =
+      "650px";
+
+    layer.style.height =
+      "650px";
+
+    layer.style.pointerEvents =
+      "none";
+
+    layer.style.backgroundImage =
+      `url("${asset.src}")`;
+
+    layer.style.backgroundSize =
+      `${asset.logicalSize}px ` +
+      `${asset.logicalSize}px`;
+
+    layer.style.backgroundRepeat =
+      "no-repeat";
+
+    layer.style.backgroundPosition =
+      anim.positions[0];
+
+    /*
+      不用 display:none，
+      三層始終存在。
+    */
+    layer.style.opacity =
+      "0";
+
+    layer.style.transition =
+      "none";
+
+    /*
+      沿用原本相對於角色本體的定位。
+    */
+    layer.style.transform =
+      "none";
+
+    layer.style.transformOrigin =
+      "center bottom";
+
+    chifuyuWalkTest.appendChild(
+      layer
+    );
+
+    chifuyuSpriteLayers[mode] =
+      layer;
+  }
+
+  chifuyuSpriteLayersReady = true;
+
+  return true;
+}
+
+
+function getChifuyuSpriteLayer(mode) {
+  if (!ensureChifuyuSpriteLayers()) {
+    return null;
+  }
+
+  return (
+    chifuyuSpriteLayers[mode] ||
+    chifuyuSpriteLayers.idle
+  );
+}
+
+
+function showChifuyuSpriteLayer(mode) {
+  if (!ensureChifuyuSpriteLayers()) {
+    return;
+  }
+
+  for (const layerMode of [
+    "idle",
+    "walk",
+    "talk",
+  ]) {
+    const layer =
+      chifuyuSpriteLayers[
+        layerMode
+      ];
+
+    if (!layer) continue;
+
+    layer.style.opacity =
+      layerMode === mode
+        ? "1"
+        : "0";
+  }
+}
 
 const gardenAnimationWarmupState = {
   chifuyuIdle: false,
@@ -9592,6 +9788,167 @@ function setChifuyuAnimationMode(
     CHIFUYU_ANIMS[mode] ||
     CHIFUYU_ANIMS.idle;
 
+  /*
+    =========================
+    千冬三層常駐模式
+    =========================
+  */
+  if (
+    GARDEN_CHIFUYU_THREE_LAYER_TEST
+  ) {
+    const state =
+      chifuyuWalkTestState;
+
+    const safeMode =
+      mode === "talk"
+        ? "talk"
+        : mode === "walk"
+          ? "walk"
+          : "idle";
+
+    const safeAnim =
+      CHIFUYU_ANIMS[
+        safeMode
+      ];
+
+    const warmupKey =
+      getGardenAnimationWarmupKey(
+        "chifuyu",
+        safeMode
+      );
+
+    /*
+      沿用現有 warmup。
+      還沒準備好的 sheet 不急著顯示。
+    */
+    if (
+      !gardenAnimationWarmupState[
+        warmupKey
+      ]
+    ) {
+      requestGardenAnimationWarmup(
+        "chifuyu",
+        safeMode,
+        safeAnim
+      );
+
+      return;
+    }
+
+    if (
+      !force &&
+      state.animMode === safeMode
+    ) {
+      return;
+    }
+
+    if (
+      !ensureChifuyuSpriteLayers()
+    ) {
+      return;
+    }
+
+    state.animMode =
+      safeMode;
+
+    state.frameIndex =
+      0;
+
+    state.frameTimer =
+      0;
+
+    state.animLoopCount =
+      0;
+
+    /*
+      新模式每次都從第 0 幀開始，
+      但只是修改該 layer 自己的
+      background-position。
+    */
+    const targetLayer =
+      getChifuyuSpriteLayer(
+        safeMode
+      );
+
+    if (targetLayer) {
+      targetLayer.style.backgroundPosition =
+        safeAnim.positions[0];
+    }
+
+    /*
+      真正的模式切換：
+      只改 opacity。
+    */
+    showChifuyuSpriteLayer(
+      safeMode
+    );
+
+    releaseGardenAnimationWarmup(
+      warmupKey
+    );
+
+    return;
+  }
+
+
+    if (GARDEN_FREEZE_SPRITE_VISUAL_TEST) {
+  const state = chifuyuWalkTestState;
+
+  // 邏輯上的動畫模式仍然正常切換
+  if (
+    force ||
+    state.animMode !== mode
+  ) {
+    state.animMode = mode;
+    state.frameIndex = 0;
+    state.frameTimer = 0;
+    state.animLoopCount = 0;
+  }
+
+  // 畫面只在第一次固定成 Idle 第 0 幀
+  if (
+    chifuyuWalkTest.dataset
+      .gardenFrozenVisual !== "1"
+  ) {
+    const idleAnim =
+      CHIFUYU_ANIMS.idle;
+
+    const idleAsset =
+      getGardenAnimationAsset(
+        "chifuyu",
+        "idle"
+      );
+
+    chifuyuWalkTest.classList.remove(
+      CHIFUYU_WALK_SHEET_CLASS,
+      CHIFUYU_IDLE_SHEET_CLASS,
+      CHIFUYU_TALK_SHEET_CLASS
+    );
+
+    chifuyuWalkTest.classList.add(
+      idleAnim.sheetClass
+    );
+
+    chifuyuWalkTest.style.backgroundImage =
+      `url("${idleAsset.src}")`;
+
+    chifuyuWalkTest.style.backgroundSize =
+      `${idleAsset.logicalSize}px ` +
+      `${idleAsset.logicalSize}px`;
+
+    chifuyuWalkTest.style.backgroundRepeat =
+      "no-repeat";
+
+  chifuyuWalkTest.style.backgroundPosition =
+  idleAnim.positions[0];
+
+    chifuyuWalkTest.dataset
+      .gardenFrozenVisual = "1";
+  }
+
+  return;
+}
+
   const previousMode =
     chifuyuWalkTestState.animMode;
 
@@ -9712,8 +10069,10 @@ function setChifuyuAnimationMode(
       chifuyuWalkTest.style.backgroundRepeat =
         "no-repeat";
 
-      chifuyuWalkTest.style.backgroundPosition =
-        anim.positions[0];
+      if (!GARDEN_FREEZE_SPRITE_VISUAL_TEST) {
+  chifuyuWalkTest.style.backgroundPosition =
+    anim.positions[0];
+}
 
       releaseGardenAnimationWarmup(
         warmupKey
@@ -9728,6 +10087,130 @@ function setChifuyuAnimationMode(
 function updateChifuyuAnimationFrame(deltaMs) {
   if (!chifuyuWalkTest) return;
 
+    if (
+    GARDEN_CHIFUYU_THREE_LAYER_TEST
+  ) {
+    const state =
+      chifuyuWalkTestState;
+
+    const anim =
+      CHIFUYU_ANIMS[
+        state.animMode
+      ] ||
+      CHIFUYU_ANIMS.idle;
+
+    const layer =
+      getChifuyuSpriteLayer(
+        state.animMode
+      );
+
+    if (!layer) {
+      return;
+    }
+
+    /*
+      Talk 已經完成指定輪數：
+      固定該 Talk layer 在第 0 幀，
+      等千夏也完成。
+    */
+    if (
+      gardenChatState.mode ===
+        "chat" &&
+      state.animMode ===
+        "talk" &&
+      isGardenTalkReadyToEndForCharacter(
+        "chifuyu"
+      )
+    ) {
+      state.frameIndex = 0;
+      state.frameTimer = 0;
+
+      layer.style.backgroundPosition =
+        anim.positions[0];
+
+      return;
+    }
+
+    state.frameTimer +=
+      deltaMs;
+
+    while (
+      state.frameTimer >=
+      anim.frameMs
+    ) {
+      state.frameTimer -=
+        anim.frameMs;
+
+      const nextFrameIndex =
+        (
+          state.frameIndex + 1
+        ) %
+        anim.positions.length;
+
+      if (
+        nextFrameIndex === 0 &&
+        state.frameIndex !== 0
+      ) {
+        state.animLoopCount =
+          (
+            state.animLoopCount ||
+            0
+          ) + 1;
+      }
+
+      state.frameIndex =
+        nextFrameIndex;
+
+      /*
+        只修改目前 layer 的 frame。
+        background-image 完全不碰。
+      */
+      layer.style.backgroundPosition =
+        anim.positions[
+          state.frameIndex
+        ];
+
+      /*
+        Talk 跑完指定輪數。
+      */
+      if (
+        gardenChatState.mode ===
+          "chat" &&
+        state.animMode ===
+          "talk" &&
+        (
+          state.animLoopCount ||
+          0
+        ) >=
+          Math.max(
+            1,
+            gardenChatState
+              .targetLoops || 1
+          ) &&
+        state.frameIndex === 0
+      ) {
+        markGardenTalkReadyToEnd(
+          "chifuyu"
+        );
+
+        state.frameIndex = 0;
+        state.frameTimer = 0;
+
+        layer.style.backgroundPosition =
+          anim.positions[0];
+
+        return;
+      }
+    }
+
+    return;
+  }
+
+  updateGardenIdleOnlyVisual(
+    "chifuyu",
+    deltaMs
+  );
+
   const state = chifuyuWalkTestState;
 
   const anim =
@@ -9736,15 +10219,20 @@ function updateChifuyuAnimationFrame(deltaMs) {
   // 千冬的聊天動畫已經完整跑完指定輪數後，
   // 先固定停在 talk 第 0 幀，等千夏也完成
   if (
-    gardenChatState.mode === "chat" &&
-    state.animMode === "talk" &&
-    isGardenTalkReadyToEndForCharacter("chifuyu")
-  ) {
-    state.frameIndex = 0;
-    state.frameTimer = 0;
-    chifuyuWalkTest.style.backgroundPosition = anim.positions[0];
-    return;
+  gardenChatState.mode === "chat" &&
+  state.animMode === "talk" &&
+  isGardenTalkReadyToEndForCharacter("chifuyu")
+) {
+  state.frameIndex = 0;
+  state.frameTimer = 0;
+
+  if (!GARDEN_FREEZE_SPRITE_VISUAL_TEST) {
+    chifuyuWalkTest.style.backgroundPosition =
+      anim.positions[state.frameIndex];
   }
+
+  return;
+}
 
   state.frameTimer += deltaMs;
 
@@ -9760,8 +10248,10 @@ function updateChifuyuAnimationFrame(deltaMs) {
 
     state.frameIndex = nextFrameIndex;
 
-    chifuyuWalkTest.style.backgroundPosition =
-      anim.positions[state.frameIndex];
+    if (!GARDEN_FREEZE_SPRITE_VISUAL_TEST) {
+  chifuyuWalkTest.style.backgroundPosition =
+    anim.positions[state.frameIndex];
+}
 
     // talk 動畫跑完指定輪數，並回到下一輪第 0 幀
     if (
@@ -9774,8 +10264,10 @@ function updateChifuyuAnimationFrame(deltaMs) {
 
       state.frameIndex = 0;
       state.frameTimer = 0;
-      chifuyuWalkTest.style.backgroundPosition = anim.positions[0];
-
+    if (!GARDEN_FREEZE_SPRITE_VISUAL_TEST) {
+  chifuyuWalkTest.style.backgroundPosition =
+    anim.positions[state.frameIndex];
+}
       return;
     }
   }
@@ -9831,6 +10323,99 @@ const CHINATSU_ANIMS = {
   positions: CHINATSU_TALK_FRAME_POSITIONS,
 },
 };
+
+/* =========================
+   Garden Idle-Sheet-Only A/B Test
+
+   永遠使用 Idle spritesheet，
+   但恢復 Idle sheet 自己的逐幀動畫。
+
+   用來判斷：
+   - 同一張 sheet 換 background-position 是否會閃
+   - 還是只有換 background-image 才會閃
+========================= */
+
+const gardenIdleOnlyVisualState = {
+  chifuyu: {
+    frameIndex: 0,
+    frameTimer: 0,
+  },
+
+  chinatsu: {
+    frameIndex: 0,
+    frameTimer: 0,
+  },
+};
+
+function updateGardenIdleOnlyVisual(
+  character,
+  deltaMs
+) {
+  if (!GARDEN_FREEZE_SPRITE_VISUAL_TEST) {
+    return;
+  }
+
+  const isChifuyu =
+    character === "chifuyu";
+
+  const el =
+    isChifuyu
+      ? chifuyuWalkTest
+      : chinatsuWalkTest;
+
+  const idleAnim =
+    isChifuyu
+      ? CHIFUYU_ANIMS.idle
+      : CHINATSU_ANIMS.idle;
+
+  const visualState =
+    gardenIdleOnlyVisualState[
+      character
+    ];
+
+  if (
+    !el ||
+    !idleAnim ||
+    !visualState ||
+    !idleAnim.positions.length
+  ) {
+    return;
+  }
+
+  visualState.frameTimer += deltaMs;
+
+  let frameChanged = false;
+
+  while (
+    visualState.frameTimer >=
+    idleAnim.frameMs
+  ) {
+    visualState.frameTimer -=
+      idleAnim.frameMs;
+
+    visualState.frameIndex =
+      (
+        visualState.frameIndex + 1
+      ) %
+      idleAnim.positions.length;
+
+    frameChanged = true;
+  }
+
+  /*
+    只有真的換到下一幀時才寫 CSS，
+    避免每個 requestAnimationFrame
+    都重複寫相同 background-position。
+  */
+  if (frameChanged) {
+    el.style.backgroundPosition =
+      idleAnim.positions[
+        visualState.frameIndex
+      ];
+  }
+}
+
+
 
 const chinatsuWalkTestState = {
   x: 430,
@@ -9890,6 +10475,62 @@ function setChinatsuAnimationMode(
   const anim =
     CHINATSU_ANIMS[mode] ||
     CHINATSU_ANIMS.idle;
+
+    if (GARDEN_FREEZE_SPRITE_VISUAL_TEST) {
+  const state = chinatsuWalkTestState;
+
+  if (
+    force ||
+    state.animMode !== mode
+  ) {
+    state.animMode = mode;
+    state.frameIndex = 0;
+    state.frameTimer = 0;
+    state.animLoopCount = 0;
+  }
+
+  if (
+    chinatsuWalkTest.dataset
+      .gardenFrozenVisual !== "1"
+  ) {
+    const idleAnim =
+      CHINATSU_ANIMS.idle;
+
+    const idleAsset =
+      getGardenAnimationAsset(
+        "chinatsu",
+        "idle"
+      );
+
+    chinatsuWalkTest.classList.remove(
+      CHINATSU_WALK_SHEET_CLASS,
+      CHINATSU_IDLE_SHEET_CLASS,
+      CHINATSU_TALK_SHEET_CLASS
+    );
+
+    chinatsuWalkTest.classList.add(
+      idleAnim.sheetClass
+    );
+
+    chinatsuWalkTest.style.backgroundImage =
+      `url("${idleAsset.src}")`;
+
+    chinatsuWalkTest.style.backgroundSize =
+      `${idleAsset.logicalSize}px ` +
+      `${idleAsset.logicalSize}px`;
+
+    chinatsuWalkTest.style.backgroundRepeat =
+      "no-repeat";
+
+    chinatsuWalkTest.style.backgroundPosition =
+      idleAnim.positions[0];
+
+    chinatsuWalkTest.dataset
+      .gardenFrozenVisual = "1";
+  }
+
+  return;
+}
 
   const previousMode =
     chinatsuWalkTestState.animMode;
@@ -10024,13 +10665,20 @@ function setChinatsuAnimationMode(
 function updateChinatsuAnimationFrame(deltaMs) {
   if (!chinatsuWalkTest) return;
 
+  updateGardenIdleOnlyVisual(
+    "chinatsu",
+    deltaMs
+  );
+
   const state = chinatsuWalkTestState;
 
   const anim =
-    CHINATSU_ANIMS[state.animMode] || CHINATSU_ANIMS.idle;
+    CHINATSU_ANIMS[state.animMode] ||
+    CHINATSU_ANIMS.idle;
 
   // 千夏的聊天動畫已經完整跑完指定輪數後，
-  // 先固定停在 talk 第 0 幀，等千冬也完成
+  // 邏輯照常停在 talk 第 0 幀，
+  // 但凍結測試期間不改畫面。
   if (
     gardenChatState.mode === "chat" &&
     state.animMode === "talk" &&
@@ -10038,7 +10686,12 @@ function updateChinatsuAnimationFrame(deltaMs) {
   ) {
     state.frameIndex = 0;
     state.frameTimer = 0;
-    chinatsuWalkTest.style.backgroundPosition = anim.positions[0];
+
+    if (!GARDEN_FREEZE_SPRITE_VISUAL_TEST) {
+      chinatsuWalkTest.style.backgroundPosition =
+        anim.positions[0];
+    }
+
     return;
   }
 
@@ -10048,29 +10701,48 @@ function updateChinatsuAnimationFrame(deltaMs) {
     state.frameTimer -= anim.frameMs;
 
     const nextFrameIndex =
-      (state.frameIndex + 1) % anim.positions.length;
+      (state.frameIndex + 1) %
+      anim.positions.length;
 
-    if (nextFrameIndex === 0 && state.frameIndex !== 0) {
-      state.animLoopCount = (state.animLoopCount || 0) + 1;
+    if (
+      nextFrameIndex === 0 &&
+      state.frameIndex !== 0
+    ) {
+      state.animLoopCount =
+        (state.animLoopCount || 0) + 1;
     }
 
-    state.frameIndex = nextFrameIndex;
+    state.frameIndex =
+      nextFrameIndex;
 
-    chinatsuWalkTest.style.backgroundPosition =
-      anim.positions[state.frameIndex];
+    if (!GARDEN_FREEZE_SPRITE_VISUAL_TEST) {
+      chinatsuWalkTest.style.backgroundPosition =
+        anim.positions[state.frameIndex];
+    }
 
-    // talk 動畫跑完指定輪數，並回到下一輪第 0 幀
+    // Talk 邏輯照樣計算完成輪數，
+    // 只是不更新視覺。
     if (
       gardenChatState.mode === "chat" &&
       state.animMode === "talk" &&
-      (state.animLoopCount || 0) >= Math.max(1, gardenChatState.targetLoops || 1) &&
+      (state.animLoopCount || 0) >=
+        Math.max(
+          1,
+          gardenChatState.targetLoops || 1
+        ) &&
       state.frameIndex === 0
     ) {
-      markGardenTalkReadyToEnd("chinatsu");
+      markGardenTalkReadyToEnd(
+        "chinatsu"
+      );
 
       state.frameIndex = 0;
       state.frameTimer = 0;
-      chinatsuWalkTest.style.backgroundPosition = anim.positions[0];
+
+      if (!GARDEN_FREEZE_SPRITE_VISUAL_TEST) {
+        chinatsuWalkTest.style.backgroundPosition =
+          anim.positions[0];
+      }
 
       return;
     }
