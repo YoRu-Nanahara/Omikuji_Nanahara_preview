@@ -7995,16 +7995,13 @@ const GARDEN_WALK_AREAS = {
       points: [
       
         { x: 910, y: 600 },
-        { x: 961, y: 640 },
-        { x: 1054, y: 650 },
-         { x: 998, y: 802 },
+         { x: 700, y: 750 },
         { x: 699, y: 740 },
          { x: 451, y: 974 },
-        { x: 454, y: 957 },
         { x: 490, y: 988 },
-        { x: 671, y: 960 },
-        { x: 510, y: 1000 },
-        { x: 150, y: 1100 },
+        { x: 850, y: 960 },
+        { x: 800, y: 1100 },
+        { x: 150, y: 1150 },
         { x: 150, y: 1309 },
         { x: 160, y: 1419 },
         { x: 210, y: 1507 },
@@ -8015,7 +8012,7 @@ const GARDEN_WALK_AREAS = {
         { x: 34, y: 1552 },
         { x: 28, y: 765 },
         { x: 262, y: 757 },
-        { x: 147, y: 909 },
+        { x: 147, y: 1000 },
         { x: 271, y: 921 },
         { x: 448, y: 672 },
         { x: 485, y: 650 },
@@ -8342,6 +8339,15 @@ const GARDEN_PATH_NODES = [
   { name: "far-down-left", x: 285, y: 665 },
   { name: "far-gate", x: 165, y: 735 },
 
+{ name: "upper-mid-low", x: 300, y: 950 },
+{ name: "upper-mid", x: 420, y: 850 },
+{ name: "upper-right", x: 610, y: 705 },
+
+{ name: "upper-lower-bridge", x: 500, y: 1100 },
+
+{ name: "corridor-right", x: 900, y: 640 },
+{ name: "right-upper", x: 1000, y: 700 },
+
   /*
     far / ground 銜接
   */
@@ -8394,9 +8400,13 @@ const GARDEN_AUTO_TARGET_POINTS = [
   { name: "auto-far-gate", x: 165, y: 735, zone: "far" },
 
   // 上庭院
-  { name: "auto-upper-right", x: 900, y: 640, zone: "ground" },
-  { name: "auto-upper-mid", x: 610, y: 705, zone: "ground" },
-  { name: "auto-upper-left", x: 420, y: 850, zone: "ground" },
+{ name: "auto-upper-right", x: 900, y: 640, zone: "ground" },
+{ name: "auto-upper-mid", x: 610, y: 705, zone: "ground" },
+{ name: "auto-upper-left", x: 420, y: 850, zone: "ground" },
+
+// 新增：右側下段庭院
+{ name: "auto-upper-lower-right", x: 790, y: 985, zone: "ground" },
+{ name: "auto-upper-lower-mid", x: 730, y: 1060, zone: "ground" },
 
   // 左側主路
   { name: "auto-left-upper", x: 100, y: 900, zone: "ground" },
@@ -8737,9 +8747,22 @@ function getChifuyuDepthLayerByPosition(x, y) {
     角色腳底 y 在 600~900 左右時，高於 building-corner。
     x >= 560 是為了避免左側同高度區域也被搬到轉角前方。
   */
-  const GARDEN_CORNER_FRONT_X_MIN = 560;
+ const GARDEN_CORNER_FRONT_X_MIN = 560;
 const GARDEN_CORNER_FRONT_Y_OVER = 780;
 const GARDEN_CORNER_FRONT_Y_MAX = 1400;
+
+/*
+  枯山水後方區域。
+
+  角色進到這一帶時，
+  維持 normal layer，
+  讓 z-index 650 的枯山水前景自然遮住角色。
+*/
+const GARDEN_KARESANSUI_BACK_X_MIN = 450;
+const GARDEN_KARESANSUI_BACK_X_MAX = 860;
+
+const GARDEN_KARESANSUI_BACK_Y_MIN = 930;
+const GARDEN_KARESANSUI_BACK_Y_MAX = 1150;
 
 /*
   最下方前景優先。
@@ -8754,6 +8777,22 @@ if (
   return "front";
 }
 
+
+/*
+  枯山水後方。
+
+  這個判斷必須放在 cornerFront 前面，
+  否則 x >= 560 的角色會先被送進 z-index 900。
+*/
+if (
+  zone === "ground" &&
+  x >= GARDEN_KARESANSUI_BACK_X_MIN &&
+  x <= GARDEN_KARESANSUI_BACK_X_MAX &&
+  y >= GARDEN_KARESANSUI_BACK_Y_MIN &&
+  y <= GARDEN_KARESANSUI_BACK_Y_MAX
+) {
+  return "normal";
+}
 /*
   右上建築轉角。
 
