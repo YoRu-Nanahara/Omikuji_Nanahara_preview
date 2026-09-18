@@ -2663,6 +2663,58 @@ body.autumn-mode.night-mode .menu-background.night {
 }
 
 
+
+
+
+/* =========================
+   Garden Night Character Lighting
+========================= */
+
+/* =========================
+   Garden Night Character Lighting
+========================= */
+
+#chifuyuWalkTest,
+#chinatsuWalkTest {
+  --garden-char-brightness: 0.65;
+  --garden-char-saturate: 0.84;
+  --garden-char-sepia: 0;
+  --garden-char-hue: 0deg;
+}
+
+body.night-mode
+#gardenScreen
+#chifuyuWalkTest,
+
+body.night-mode
+#gardenScreen
+#chinatsuWalkTest {
+  filter:
+    brightness(
+      var(--garden-char-brightness)
+    )
+    saturate(
+      var(--garden-char-saturate)
+    )
+    sepia(
+      var(--garden-char-sepia)
+    )
+    hue-rotate(
+      var(--garden-char-hue)
+    );
+
+  transition: filter 0.35s ease;
+}
+
+body.night-mode.garden-active #sakura {
+  filter: brightness(0.65);
+}
+
+
+
+
+
+
 .chifuyu-walk-sheet,
 .chifuyu-idle-sheet,
 .chifuyu-talk-sheet,
@@ -2764,7 +2816,20 @@ body.autumn-mode.night-mode .menu-background.night {
 }
 
 
+/* =========================
+   Garden Night Character Shadow
+========================= */
 
+body.night-mode #gardenScreen #chifuyuWalkShadow,
+body.night-mode #gardenScreen #chinatsuWalkShadow {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(19, 12, 12, 0.84) 0%,
+    rgba(19, 12, 12, 0.64) 34%,
+    rgba(19, 12, 12, 0.36) 58%,
+    rgba(19, 12, 12, 0) 88%
+  );
+}
 
 
 

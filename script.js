@@ -485,7 +485,16 @@ function goToScreen(
     }
 
     fromScreen.classList.add("hidden");
-    toScreen.classList.remove("hidden");
+toScreen.classList.remove("hidden");
+
+/*
+  Garden 顯示狀態。
+  只有目前畫面真的是 Garden 時才存在。
+*/
+document.body.classList.toggle(
+  "garden-active",
+  toScreen === gardenScreen
+);
 
     requestAnimationFrame(() => {
   if (
@@ -1068,18 +1077,129 @@ function getGardenAnimationAsset(
 let gardenAssetsLoaded = false;
 let gardenAssetsPromise = null;
 
-const GARDEN_SCENE_ASSETS = [
-  "images/garden/courtyard/courtyard-bg-day.jpg",
-  "images/garden/courtyard/courtyard-obj-karesansui-front.png",
-  "images/garden/courtyard/courtyard-fg-building-front-edge.png",
-  "images/garden/courtyard/courtyard-fg-lantern-left.png",
-  "images/garden/courtyard/courtyard-fg-building-corner.png",
-  "images/garden/courtyard/courtyard-fg-sakura-top.png",
-  "images/garden/courtyard/courtyard-fg-sakura-shadow-01.png",
-  "images/garden/courtyard/courtyard-fg-sakura-shadow-02.png",
-  "images/garden/courtyard/courtyard-fg-building-occluder.png",
-  "images/garden/courtyard/courtyard-fg-far-area.png",
+const GARDEN_SCENE_LAYER_ASSETS = [
+  {
+    selector: ".garden-bg",
+    day: "images/garden/courtyard/courtyard-bg-day.jpg",
+    night: "images/garden/courtyard/courtyard-bg-night.jpg",
+  },
+
+  {
+    selector: ".garden-obj-karesansui-front",
+    day: "images/garden/courtyard/courtyard-obj-karesansui-front.png",
+    night: "images/garden/courtyard/courtyard-obj-karesansui-front-night.png",
+  },
+
+  {
+    selector: ".garden-fg-building-front-edge",
+    day: "images/garden/courtyard/courtyard-fg-building-front-edge.png",
+    night: "images/garden/courtyard/courtyard-fg-building-front-edge-night.png",
+  },
+
+  {
+    selector: ".garden-fg-lantern-left",
+    day: "images/garden/courtyard/courtyard-fg-lantern-left.png",
+    night: "images/garden/courtyard/courtyard-fg-lantern-left-night.png",
+  },
+
+  {
+    selector: ".garden-fg-building-corner",
+    day: "images/garden/courtyard/courtyard-fg-building-corner.png",
+    night: "images/garden/courtyard/courtyard-fg-building-corner-night.png",
+  },
+
+  {
+    selector: ".garden-fg-sakura-top",
+    day: "images/garden/courtyard/courtyard-fg-sakura-top.png",
+    night: "images/garden/courtyard/courtyard-fg-sakura-top-night.png",
+  },
+
+  {
+  selector: ".garden-sakura-top-shadow-a",
+  day: "images/garden/courtyard/courtyard-fg-sakura-shadow-01.png",
+  night: "images/garden/courtyard/courtyard-fg-sakura-shadow-01-night.png",
+},
+
+{
+  selector: ".garden-sakura-top-shadow-b",
+  day: "images/garden/courtyard/courtyard-fg-sakura-shadow-02.png",
+  night: "images/garden/courtyard/courtyard-fg-sakura-shadow-02-night.png",
+},
+
+  {
+    selector: ".garden-fg-building-occluder",
+    day: "images/garden/courtyard/courtyard-fg-building-occluder.png",
+    night: "images/garden/courtyard/courtyard-fg-building-occluder-night.png",
+  },
+
+  {
+    selector: ".garden-fg-far-area",
+    day: "images/garden/courtyard/courtyard-fg-far-area.png",
+    night: "images/garden/courtyard/courtyard-fg-far-area-night.png",
+  },
 ];
+
+
+const GARDEN_SCENE_ASSETS_BY_MODE = {
+  day:
+    GARDEN_SCENE_LAYER_ASSETS.map(
+      (item) => item.day
+    ),
+
+  night:
+    GARDEN_SCENE_LAYER_ASSETS.map(
+      (item) => item.night
+    ),
+};
+
+
+/*
+  暫時保留舊名稱作為 day alias，
+  避免其他尚未整理到的舊引用報錯。
+*/
+const GARDEN_SCENE_ASSETS =
+  GARDEN_SCENE_ASSETS_BY_MODE.day;
+
+
+function getGardenSceneModeByTime() {
+  return document.body.classList.contains(
+    "night-mode"
+  )
+    ? "night"
+    : "day";
+}
+
+
+function applyGardenSceneMode(
+  mode = getGardenSceneModeByTime()
+) {
+  const safeMode =
+    mode === "night"
+      ? "night"
+      : "day";
+
+  for (
+    const item of
+    GARDEN_SCENE_LAYER_ASSETS
+  ) {
+    const el =
+      gardenScreen?.querySelector(
+        item.selector
+      );
+
+    if (!el) continue;
+
+    const nextSrc =
+      item[safeMode];
+
+    if (
+      el.getAttribute("src") !==
+      nextSrc
+    ) {
+      el.src = nextSrc;
+    }
+  }
+}
 
 const GARDEN_CHARACTER_ASSETS = [
   CHIFUYU_IDLE_SHEET_SRC,
@@ -1207,7 +1327,13 @@ const GARDEN_ACTIVE_CHARACTER_ASSETS = [
 
 
 
-let gardenSceneAssetsLoaded = false;
+const gardenSceneAssetsLoaded = {
+  day: false,
+  night: false,
+};
+
+const gardenSceneModePromises =
+  new Map();
 
 const gardenCharacterModeLoaded = {
   idle: false,
@@ -1405,6 +1531,87 @@ async function preloadGardenAssetsInBatches(
   }
 }
 
+async function ensureGardenSceneModeReady(
+  mode
+) {
+  const safeMode =
+    mode === "night"
+      ? "night"
+      : "day";
+
+  if (
+    gardenSceneAssetsLoaded[
+      safeMode
+    ]
+  ) {
+    return;
+  }
+
+  /*
+    同一套正在載入時，
+    不要開第二組請求。
+  */
+  if (
+    gardenSceneModePromises.has(
+      safeMode
+    )
+  ) {
+    await gardenSceneModePromises.get(
+      safeMode
+    );
+
+    return;
+  }
+
+  const sceneAssets =
+    GARDEN_SCENE_ASSETS_BY_MODE[
+      safeMode
+    ];
+
+  const promise =
+    preloadGardenAssetsInBatches(
+      sceneAssets,
+
+      /*
+        iPad 一張一張，
+        其他裝置兩張一批。
+      */
+      GARDEN_IPAD_SAFE_MODE
+        ? 1
+        : 2,
+
+      {
+        /*
+          延續目前既有策略：
+          iPad 不強制 decode，
+          其他裝置可以提前 decode。
+        */
+        decode:
+          !GARDEN_IPAD_SAFE_MODE,
+
+        loadTimeoutMs: 10000,
+        decodeTimeoutMs: 1800,
+      }
+    );
+
+  gardenSceneModePromises.set(
+    safeMode,
+    promise
+  );
+
+  try {
+    await promise;
+
+    gardenSceneAssetsLoaded[
+      safeMode
+    ] = true;
+  } finally {
+    gardenSceneModePromises.delete(
+      safeMode
+    );
+  }
+}
+
 async function preloadGardenCharacterModeDownloadOnly(
   mode
 ) {
@@ -1546,35 +1753,27 @@ async function preloadGardenAssets(
   /*
     場景素材只需要準備一次。
   */
-  if (!gardenSceneAssetsLoaded) {
-    await preloadGardenAssetsInBatches(
-      GARDEN_SCENE_ASSETS,
+  /*
+  只準備目前時間需要的
+  day / night 場景。
+*/
+const gardenSceneMode =
+  getGardenSceneModeByTime();
 
-      /*
-        iPad 一張一張；
-        其他裝置一次兩張。
-      */
-      GARDEN_IPAD_SAFE_MODE
-        ? 1
-        : 2,
+await ensureGardenSceneModeReady(
+  gardenSceneMode
+);
 
-      {
-        /*
-          iPad 不主動 decode 整套場景，
-          降低 WebKit 壓力。
+/*
+  圖片都準備完成之後，
+  才真正換 Garden DOM 的 src。
 
-          其他裝置維持原本做法。
-        */
-        decode:
-          !GARDEN_IPAD_SAFE_MODE,
-
-        loadTimeoutMs: 10000,
-        decodeTimeoutMs: 1800,
-      }
-    );
-
-    gardenSceneAssetsLoaded = true;
-  }
+  此時拉門仍然關著，
+  玩家不會看到切圖過程。
+*/
+applyGardenSceneMode(
+  gardenSceneMode
+);
 
 
   /*
@@ -1635,7 +1834,10 @@ async function preloadGardenAssets(
    Wind Game / 轉場開始時立即停止
 ========================= */
 
-let gardenBackgroundPreloadIndex = 0;
+const gardenBackgroundPreloadIndex = {
+  day: 0,
+  night: 0,
+};
 let gardenBackgroundPreloadTimer = null;
 let gardenBackgroundPreloadToken = 0;
 let gardenBackgroundPreloadRunning = false;
@@ -1696,6 +1898,23 @@ async function runGardenBackgroundPreloadQueue(
     return;
   }
 
+const sceneMode =
+  getGardenSceneModeByTime();
+
+const sceneAssets =
+  GARDEN_SCENE_ASSETS_BY_MODE[
+    sceneMode
+  ];
+
+if (
+  gardenSceneAssetsLoaded[
+    sceneMode
+  ]
+) {
+  return;
+}
+
+
   if (gardenAssetsLoaded) {
     return;
   }
@@ -1704,8 +1923,10 @@ async function runGardenBackgroundPreloadQueue(
 
   try {
     while (
-      gardenBackgroundPreloadIndex <
-      GARDEN_SCENE_ASSETS.length
+      gardenBackgroundPreloadIndex[
+  sceneMode
+] <
+sceneAssets.length
     ) {
       /*
         使用者已經按了其他功能，
@@ -1725,9 +1946,11 @@ async function runGardenBackgroundPreloadQueue(
       }
 
       const src =
-        GARDEN_SCENE_ASSETS[
-          gardenBackgroundPreloadIndex
-        ];
+  sceneAssets[
+    gardenBackgroundPreloadIndex[
+      sceneMode
+    ]
+  ];
 
       /*
         只下載進瀏覽器 cache。
@@ -1744,7 +1967,9 @@ async function runGardenBackgroundPreloadQueue(
         return;
       }
 
-      gardenBackgroundPreloadIndex += 1;
+     gardenBackgroundPreloadIndex[
+  sceneMode
+] += 1;
 
       /*
         每張之間稍微休息，
@@ -1774,13 +1999,30 @@ function startGardenBackgroundPreloadIdle(
 
   if (gardenAssetsLoaded) return;
 
-  if (
-    gardenBackgroundPreloadIndex >=
-    GARDEN_SCENE_ASSETS.length
-  ) {
-    return;
-  }
+  const sceneMode =
+  getGardenSceneModeByTime();
 
+const sceneAssets =
+  GARDEN_SCENE_ASSETS_BY_MODE[
+    sceneMode
+  ];
+
+if (
+  gardenSceneAssetsLoaded[
+    sceneMode
+  ]
+) {
+  return;
+}
+
+if (
+  gardenBackgroundPreloadIndex[
+    sceneMode
+  ] >=
+  sceneAssets.length
+) {
+  return;
+}
   /*
     先讓舊排程失效。
   */
@@ -7601,15 +7843,75 @@ closeModal.addEventListener("click", () => {
 
 
 function updateDayNightMode() {
-  const hour = new Date().getHours();
+  const hour =
+    new Date().getHours();
 
-  if (hour >= 18 || hour < 6) {
-    document.body.classList.add("night-mode");
+  if (
+    hour >= 18 ||
+    hour < 6
+  ) {
+    document.body.classList.add(
+      "night-mode"
+    );
   } else {
-    document.body.classList.remove("night-mode");
+    document.body.classList.remove(
+      "night-mode"
+    );
   }
 
   updateShrineSeasonMode();
+
+  /*
+    如果玩家此刻就在 Garden，
+    才處理 Garden 日夜切換。
+
+    Garden 沒開時完全不載另一套素材。
+  */
+  if (
+    gardenScreen &&
+    !gardenScreen.classList.contains(
+      "hidden"
+    )
+  ) {
+    const mode =
+      getGardenSceneModeByTime();
+
+    ensureGardenSceneModeReady(
+      mode
+    )
+      .then(() => {
+        /*
+          等載完時再次確認：
+          玩家仍在 Garden，
+          而且時間模式沒有又變掉。
+        */
+        if (
+          !gardenScreen ||
+          gardenScreen.classList.contains(
+            "hidden"
+          )
+        ) {
+          return;
+        }
+
+        if (
+          getGardenSceneModeByTime() !==
+          mode
+        ) {
+          return;
+        }
+
+        applyGardenSceneMode(
+          mode
+        );
+      })
+      .catch((err) => {
+        console.warn(
+          "[Garden] day/night scene switch failed:",
+          err
+        );
+      });
+  }
 }
 
 // 進站時先判斷一次
@@ -11120,6 +11422,483 @@ function applyGardenChatSpot(spot) {
   return true;
 }
 
+    /* =========================
+   Garden Night Lighting
+========================= */
+
+/*
+  左下燈籠的「光源中心」。
+
+  這不是圖片本身的位置，
+  而是庭院 1080×1920 logical 座標中的
+  發光中心。
+
+  這組先作為測試值，
+  等實際畫面確認後再微調。
+*/
+const GARDEN_LANTERN_LIGHTS = [
+  {
+    x: 170,
+    y: 1660,
+    radius: 600,
+  },
+
+  {
+    x: 910,
+    y: 1660,
+    radius: 600,
+  },
+];
+
+
+/*
+  避免每一 frame 都重寫完全相同的 filter。
+*/
+const gardenCharacterLightCache = {
+  chifuyu: null,
+  chinatsu: null,
+};
+
+
+function clamp01(value) {
+  return Math.max(
+    0,
+    Math.min(1, value)
+  );
+}
+
+
+function smoothGardenLight(value) {
+  const t = clamp01(value);
+
+  /*
+    smoothstep：
+    比單純線性變化自然，
+    不會一進光照範圍就突然變色。
+  */
+  return (
+    t * t * (3 - 2 * t)
+  );
+}
+
+function getPointToSegmentDistance(
+  px,
+  py,
+  ax,
+  ay,
+  bx,
+  by
+) {
+  const abx = bx - ax;
+  const aby = by - ay;
+
+  const apx = px - ax;
+  const apy = py - ay;
+
+  const abLengthSq =
+    abx * abx +
+    aby * aby;
+
+  if (abLengthSq === 0) {
+    return Math.hypot(
+      px - ax,
+      py - ay
+    );
+  }
+
+  let t =
+    (
+      apx * abx +
+      apy * aby
+    ) /
+    abLengthSq;
+
+  t = clamp01(t);
+
+  const closestX =
+    ax + abx * t;
+
+  const closestY =
+    ay + aby * t;
+
+  return Math.hypot(
+    px - closestX,
+    py - closestY
+  );
+}
+
+
+function getDistanceToGardenPolygonEdge(
+  x,
+  y,
+  points
+) {
+  let minDistance = Infinity;
+
+  for (
+    let i = 0;
+    i < points.length;
+    i++
+  ) {
+    const a = points[i];
+
+    const b =
+      points[
+        (i + 1) %
+        points.length
+      ];
+
+    const distance =
+      getPointToSegmentDistance(
+        x,
+        y,
+        a.x,
+        a.y,
+        b.x,
+        b.y
+      );
+
+    if (
+      distance <
+      minDistance
+    ) {
+      minDistance =
+        distance;
+    }
+  }
+
+  return minDistance;
+}
+
+
+function getGardenFarDarkness(
+  x,
+  y
+) {
+  const zone =
+    getGardenMoveZoneAt(
+      x,
+      y
+    );
+
+  if (zone !== "far") {
+    return 0;
+  }
+
+  const farArea =
+    GARDEN_WALK_AREAS
+      .far[0];
+
+  if (!farArea) {
+    return 0;
+  }
+
+  const distance =
+    getDistanceToGardenPolygonEdge(
+      x,
+      y,
+      farArea.points
+    );
+
+  /*
+    進入遠景後約 140px，
+    才完全達到遠景暗度。
+  */
+  const raw =
+    clamp01(
+      distance / 140
+    );
+
+  return smoothGardenLight(
+    raw
+  );
+}
+
+
+function getGardenLanternInfluence(
+  x,
+  y
+) {
+  let strongestInfluence = 0;
+
+  /*
+    =========================
+    左右燈籠本身的圓形光源
+    =========================
+  */
+  for (const light of GARDEN_LANTERN_LIGHTS) {
+    const dx = x - light.x;
+    const dy = y - light.y;
+
+    const distance =
+      Math.hypot(dx, dy);
+
+    const raw =
+      1 -
+      distance / light.radius;
+
+    const influence =
+      smoothGardenLight(
+        clamp01(raw)
+      );
+
+    if (
+      influence >
+      strongestInfluence
+    ) {
+      strongestInfluence =
+        influence;
+    }
+  }
+
+
+  /*
+    =========================
+    兩盞燈之間的橫向暖光帶
+    =========================
+  */
+  const leftLight =
+    GARDEN_LANTERN_LIGHTS[0];
+
+  const rightLight =
+    GARDEN_LANTERN_LIGHTS[1];
+
+  if (
+    leftLight &&
+    rightLight
+  ) {
+    const minX =
+      Math.min(
+        leftLight.x,
+        rightLight.x
+      );
+
+    const maxX =
+      Math.max(
+        leftLight.x,
+        rightLight.x
+      );
+
+    /*
+      兩盞燈高度相同時就是 1660。
+    */
+    const bridgeY =
+      (
+        leftLight.y +
+        rightLight.y
+      ) / 2;
+
+
+    /*
+      只有兩盞燈之間才有這條補光。
+    */
+    if (
+      x >= minX &&
+      x <= maxX
+    ) {
+      const verticalDistance =
+        Math.abs(
+          y - bridgeY
+        );
+
+      /*
+        光帶上下影響範圍。
+
+        越大：
+        暖光會往庭院更上方延伸。
+      */
+      const bridgeRadius =
+        720;
+
+      const rawBridge =
+        1 -
+        verticalDistance /
+          bridgeRadius;
+
+      /*
+        中間光帶不要跟燈籠本身一樣亮。
+
+        0.55 = 中央最高約 55% 燈光強度。
+      */
+      const bridgeInfluence =
+        smoothGardenLight(
+          clamp01(rawBridge)
+        ) * 0.85;
+
+
+      strongestInfluence =
+        Math.max(
+          strongestInfluence,
+          bridgeInfluence
+        );
+    }
+  }
+
+
+  return strongestInfluence;
+}
+
+function updateGardenCharacterNightLighting(
+  character,
+  spriteEl,
+  x,
+  y
+) {
+  if (!spriteEl) return;
+
+  const isNight =
+    document.body.classList.contains(
+      "night-mode"
+    );
+
+  /*
+    白天不做任何特殊 filter 數值。
+  */
+  if (!isNight) {
+    if (
+      gardenCharacterLightCache[
+        character
+      ] !== "day"
+    ) {
+      spriteEl.style.removeProperty(
+        "--garden-char-brightness"
+      );
+
+      spriteEl.style.removeProperty(
+        "--garden-char-saturate"
+      );
+
+      spriteEl.style.removeProperty(
+        "--garden-char-sepia"
+      );
+
+      spriteEl.style.removeProperty(
+        "--garden-char-hue"
+      );
+
+      gardenCharacterLightCache[
+        character
+      ] = "day";
+    }
+
+    return;
+  }
+
+
+  const influence =
+    getGardenLanternInfluence(
+      x,
+      y
+    );
+
+
+  /*
+    小幅量化。
+
+    只有暖光強度真的有變化時
+    才重新寫 CSS，
+    避免每個 requestAnimationFrame
+    都更新 filter。
+  */
+ const level =
+  Math.round(
+    influence * 50
+  ) / 50;
+
+
+/*
+  先判斷目前角色所在的景深層。
+*/
+const depthLayer =
+  getChifuyuDepthLayerByPosition(
+    x,
+    y
+  );
+
+  const farDarknessRaw =
+  getGardenFarDarkness(
+    x,
+    y
+  );
+
+/*
+  量化成 0.02 一階，
+  避免走路時每個 pixel
+  都重寫 CSS filter。
+*/
+const farDarkness =
+  Math.round(
+    farDarknessRaw * 50
+  ) / 50;
+
+
+/*
+  cache 不只記暖光強度，
+  也要記目前是在 far / normal / front...
+*/
+const cacheKey =
+  `${depthLayer}:${level}:${farDarkness}`;
+
+
+if (
+  gardenCharacterLightCache[
+    character
+  ] === cacheKey
+) {
+  return;
+}
+
+gardenCharacterLightCache[
+  character
+] = cacheKey;
+
+
+/*
+  夜間基礎亮度
+  + 燈籠暖光
+*/
+let brightness =
+  0.65 +
+  level * 0.18 -
+  farDarkness * 0.28
+
+
+const saturate =
+  1.08 +
+  level * 0.42;
+
+const sepia =
+  level * 0.3;
+
+const hue =
+  level * -4;
+
+
+
+
+
+
+  spriteEl.style.setProperty(
+    "--garden-char-brightness",
+    brightness.toFixed(3)
+  );
+
+  spriteEl.style.setProperty(
+    "--garden-char-saturate",
+    saturate.toFixed(3)
+  );
+
+  spriteEl.style.setProperty(
+    "--garden-char-sepia",
+    sepia.toFixed(3)
+  );
+
+  spriteEl.style.setProperty(
+    "--garden-char-hue",
+    `${hue.toFixed(1)}deg`
+  );
+}
+
 function startGardenChat(
   now = performance.now(),
   spot = null
@@ -11166,6 +11945,8 @@ function startGardenChat(
     視覺暫時使用 Idle 動畫。
   */
  
+
+
 
 
   /*
@@ -11532,6 +12313,14 @@ function renderChinatsuWalkTest() {
     `scale(${depthScale})`;
 
   chinatsuWalkTestWrap.style.zIndex = Math.round(chinatsuWalkTestState.y);
+
+  updateGardenCharacterNightLighting(
+  "chinatsu",
+  chinatsuWalkTest,
+  chinatsuWalkTestState.x,
+  chinatsuWalkTestState.y
+);
+
 }
 
 
@@ -11851,6 +12640,14 @@ function renderChifuyuWalkTest() {
 
   chifuyuWalkTestWrap.style.zIndex =
     Math.round(chifuyuWalkTestState.y);
+
+updateGardenCharacterNightLighting(
+  "chifuyu",
+  chifuyuWalkTest,
+  chifuyuWalkTestState.x,
+  chifuyuWalkTestState.y
+);
+
 }
 
 function getGardenScaleByY(y) {
