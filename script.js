@@ -8623,8 +8623,8 @@ const GARDEN_MOBILE_PERF_MODE =
 
 const GARDEN_FREEZE_SPRITE_VISUAL_TEST = true;
 
-// 千冬改用 Idle / Walk / Talk 三層常駐測試
 const GARDEN_CHIFUYU_THREE_LAYER_TEST = true;
+const GARDEN_CHINATSU_THREE_LAYER_TEST = true;
 
 
 const CHIFUYU_WALK_FRAME_MS = GARDEN_MOBILE_PERF_MODE ? 58 : 42;
@@ -10325,6 +10325,172 @@ const CHINATSU_ANIMS = {
 };
 
 /* =========================
+   Chinatsu Three-Layer Sprite
+========================= */
+
+const chinatsuSpriteLayers = {
+  idle: null,
+  walk: null,
+  talk: null,
+};
+
+let chinatsuSpriteLayersReady = false;
+
+
+function ensureChinatsuSpriteLayers() {
+  if (chinatsuSpriteLayersReady) {
+    return true;
+  }
+
+  if (!chinatsuWalkTest) {
+    return false;
+  }
+
+  // 原本 sprite 本體改成純容器
+  chinatsuWalkTest.classList.remove(
+    CHINATSU_WALK_SHEET_CLASS,
+    CHINATSU_IDLE_SHEET_CLASS,
+    CHINATSU_TALK_SHEET_CLASS
+  );
+
+  chinatsuWalkTest.style.backgroundImage =
+    "none";
+
+  chinatsuWalkTest.style.backgroundPosition =
+    "";
+
+  chinatsuWalkTest.style.backgroundSize =
+    "";
+
+  chinatsuWalkTest.style.backgroundRepeat =
+    "";
+
+  chinatsuWalkTest.style.width =
+    "650px";
+
+  chinatsuWalkTest.style.height =
+    "650px";
+
+  delete chinatsuWalkTest.dataset
+    .gardenFrozenVisual;
+
+
+  for (const mode of [
+    "idle",
+    "walk",
+    "talk",
+  ]) {
+    const anim =
+      CHINATSU_ANIMS[mode];
+
+    const asset =
+      getGardenAnimationAsset(
+        "chinatsu",
+        mode
+      );
+
+    const layer =
+      document.createElement("div");
+
+    layer.dataset.gardenSpriteMode =
+      mode;
+
+    layer.style.position =
+      "absolute";
+
+    layer.style.left =
+      "0";
+
+    layer.style.top =
+      "0";
+
+    layer.style.width =
+      "650px";
+
+    layer.style.height =
+      "650px";
+
+    layer.style.pointerEvents =
+      "none";
+
+    // 每一層永遠綁自己的 spritesheet
+    layer.style.backgroundImage =
+      `url("${asset.src}")`;
+
+    layer.style.backgroundSize =
+      `${asset.logicalSize}px ` +
+      `${asset.logicalSize}px`;
+
+    layer.style.backgroundRepeat =
+      "no-repeat";
+
+    layer.style.backgroundPosition =
+      anim.positions[0];
+
+    layer.style.opacity =
+      "0";
+
+    layer.style.transition =
+      "none";
+
+    layer.style.transform =
+      "none";
+
+    layer.style.transformOrigin =
+      "center bottom";
+
+    chinatsuWalkTest.appendChild(
+      layer
+    );
+
+    chinatsuSpriteLayers[mode] =
+      layer;
+  }
+
+  chinatsuSpriteLayersReady = true;
+
+  return true;
+}
+
+
+function getChinatsuSpriteLayer(mode) {
+  if (!ensureChinatsuSpriteLayers()) {
+    return null;
+  }
+
+  return (
+    chinatsuSpriteLayers[mode] ||
+    chinatsuSpriteLayers.idle
+  );
+}
+
+
+function showChinatsuSpriteLayer(mode) {
+  if (!ensureChinatsuSpriteLayers()) {
+    return;
+  }
+
+  for (const layerMode of [
+    "idle",
+    "walk",
+    "talk",
+  ]) {
+    const layer =
+      chinatsuSpriteLayers[
+        layerMode
+      ];
+
+    if (!layer) continue;
+
+    layer.style.opacity =
+      layerMode === mode
+        ? "1"
+        : "0";
+  }
+}
+
+
+/* =========================
    Garden Idle-Sheet-Only A/B Test
 
    永遠使用 Idle spritesheet，
@@ -10475,6 +10641,101 @@ function setChinatsuAnimationMode(
   const anim =
     CHINATSU_ANIMS[mode] ||
     CHINATSU_ANIMS.idle;
+
+  if (
+    GARDEN_CHINATSU_THREE_LAYER_TEST
+  ) {
+    const state =
+      chinatsuWalkTestState;
+
+    const safeMode =
+      mode === "talk"
+        ? "talk"
+        : mode === "walk"
+          ? "walk"
+          : "idle";
+
+    const safeAnim =
+      CHINATSU_ANIMS[
+        safeMode
+      ];
+
+    const warmupKey =
+      getGardenAnimationWarmupKey(
+        "chinatsu",
+        safeMode
+      );
+
+    /*
+      該模式還沒 warmup 時，
+      先保留舊畫面。
+    */
+    if (
+      !gardenAnimationWarmupState[
+        warmupKey
+      ]
+    ) {
+      requestGardenAnimationWarmup(
+        "chinatsu",
+        safeMode,
+        safeAnim
+      );
+
+      return;
+    }
+
+    if (
+      !force &&
+      state.animMode === safeMode
+    ) {
+      return;
+    }
+
+    if (
+      !ensureChinatsuSpriteLayers()
+    ) {
+      return;
+    }
+
+    state.animMode =
+      safeMode;
+
+    state.frameIndex =
+      0;
+
+    state.frameTimer =
+      0;
+
+    state.animLoopCount =
+      0;
+
+    const targetLayer =
+      getChinatsuSpriteLayer(
+        safeMode
+      );
+
+    if (targetLayer) {
+      targetLayer.style.backgroundPosition =
+        safeAnim.positions[0];
+    }
+
+    /*
+      切模式只切 opacity，
+      不改 background-image。
+    */
+    showChinatsuSpriteLayer(
+      safeMode
+    );
+
+    releaseGardenAnimationWarmup(
+      warmupKey
+    );
+
+    return;
+  }
+
+
+
 
     if (GARDEN_FREEZE_SPRITE_VISUAL_TEST) {
   const state = chinatsuWalkTestState;
@@ -10663,7 +10924,124 @@ function setChinatsuAnimationMode(
   );
 }
 function updateChinatsuAnimationFrame(deltaMs) {
+  
   if (!chinatsuWalkTest) return;
+
+
+  if (
+    GARDEN_CHINATSU_THREE_LAYER_TEST
+  ) {
+    const state =
+      chinatsuWalkTestState;
+
+    const anim =
+      CHINATSU_ANIMS[
+        state.animMode
+      ] ||
+      CHINATSU_ANIMS.idle;
+
+    const layer =
+      getChinatsuSpriteLayer(
+        state.animMode
+      );
+
+    if (!layer) {
+      return;
+    }
+
+    /*
+      聊天動畫已完成：
+      停在 Talk 第 0 幀等待另一人。
+    */
+    if (
+      gardenChatState.mode ===
+        "chat" &&
+      state.animMode ===
+        "talk" &&
+      isGardenTalkReadyToEndForCharacter(
+        "chinatsu"
+      )
+    ) {
+      state.frameIndex = 0;
+      state.frameTimer = 0;
+
+      layer.style.backgroundPosition =
+        anim.positions[0];
+
+      return;
+    }
+
+    state.frameTimer +=
+      deltaMs;
+
+    while (
+      state.frameTimer >=
+      anim.frameMs
+    ) {
+      state.frameTimer -=
+        anim.frameMs;
+
+      const nextFrameIndex =
+        (
+          state.frameIndex + 1
+        ) %
+        anim.positions.length;
+
+      if (
+        nextFrameIndex === 0 &&
+        state.frameIndex !== 0
+      ) {
+        state.animLoopCount =
+          (
+            state.animLoopCount ||
+            0
+          ) + 1;
+      }
+
+      state.frameIndex =
+        nextFrameIndex;
+
+      /*
+        只換目前 layer 的 frame。
+      */
+      layer.style.backgroundPosition =
+        anim.positions[
+          state.frameIndex
+        ];
+
+      if (
+        gardenChatState.mode ===
+          "chat" &&
+        state.animMode ===
+          "talk" &&
+        (
+          state.animLoopCount ||
+          0
+        ) >=
+          Math.max(
+            1,
+            gardenChatState
+              .targetLoops || 1
+          ) &&
+        state.frameIndex === 0
+      ) {
+        markGardenTalkReadyToEnd(
+          "chinatsu"
+        );
+
+        state.frameIndex = 0;
+        state.frameTimer = 0;
+
+        layer.style.backgroundPosition =
+          anim.positions[0];
+
+        return;
+      }
+    }
+
+    return;
+  }
+
 
   updateGardenIdleOnlyVisual(
     "chinatsu",
