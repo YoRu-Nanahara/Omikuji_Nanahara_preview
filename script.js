@@ -10969,6 +10969,22 @@ const GARDEN_CHAT_SPOTS = [
   },
 },
 
+// 枯山水後方
+{
+  name: "karesansui-back",
+  chifuyu: {
+    x: 780,
+    y: 1040,
+    direction: -1,
+  },
+  chinatsu: {
+    x: 460,
+    y: 1040,
+    direction: 1,
+  },
+},
+
+
 ];
 
 const gardenChatState = {
