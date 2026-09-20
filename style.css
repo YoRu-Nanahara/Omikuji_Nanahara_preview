@@ -3509,9 +3509,7 @@ will-change: transform, opacity;
   transform:
     translateX(1200px);
 
-  will-change:
-    transform,
-    opacity;
+
 }
 
 
@@ -3525,6 +3523,12 @@ will-change: transform, opacity;
 
   animation-fill-mode:
     forwards;
+
+  /*
+    只有真正移動中的雲
+    才建立合成提示。
+  */
+  will-change: transform;
 }
 
 
@@ -3611,11 +3615,4 @@ will-change: transform, opacity;
   display: none
 }
 
-
-/* Moon Bridge Cloud Performance Test */
-.moon-bridge-cloud-01,
-.moon-bridge-cloud-02,
-.moon-bridge-cloud-03 {
-  display: none !important;
-}
 

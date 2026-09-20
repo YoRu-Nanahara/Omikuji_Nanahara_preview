@@ -16899,7 +16899,7 @@ function initGardenScreen() {
   測試完成後要恢復時改回 true。
 */
 const MOON_BRIDGE_CLOUDS_ENABLED =
-  false;
+  true;
 
 
 const MOON_BRIDGE_CLOUD_MIN_Y = -60;
@@ -17217,6 +17217,27 @@ function spawnMoonBridgeCloud() {
     getMoonBridgeCloudElements();
 
 
+    /*
+  手機效能保護：
+
+  同一時間最多只允許一朵雲移動。
+
+  三張雲素材仍然會隨機輪流使用，
+  只是不要同時疊加透明 PNG 動畫。
+*/
+const hasActiveCloud =
+  cloudEls.some((el) =>
+    el.classList.contains(
+      "is-moving"
+    )
+  );
+
+
+if (hasActiveCloud) {
+  return;
+}
+
+
   const picked =
     pickMoonBridgeCloudElement(
       cloudEls
@@ -17309,6 +17330,9 @@ for (
       cloudEl.classList.remove(
         "is-moving"
       );
+
+      cloudEl.style.willChange =
+  "auto";
 
       cloudEl.dataset.cloudY =
         "";
@@ -17427,6 +17451,9 @@ function stopMoonBridgeClouds() {
     cloudEl.classList.remove(
       "is-moving"
     );
+
+    cloudEl.style.willChange =
+  "auto";
 
     cloudEl.dataset.cloudY =
       "";
