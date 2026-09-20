@@ -3605,6 +3605,15 @@ will-change: transform, opacity;
 
 }
 
+/* Test 1：先停湖光 */
+.moon-bridge-lake-glow-01,
+.moon-bridge-lake-glow-02,
+.moon-bridge-lake-glow-03,
+.moon-bridge-lake-glow-lower-01,
+.moon-bridge-lake-glow-lower-02,
+.moon-bridge-lake-glow-lower-03 {
+  animation: none !important;
+}
 
 /* =========================
    Moon Bridge Clouds
