@@ -3701,3 +3701,11 @@ will-change: transform, opacity;
   pointer-events: none;
   display: none
 }
+
+
+/* Moon Bridge Cloud Performance Test */
+.moon-bridge-cloud-01,
+.moon-bridge-cloud-02,
+.moon-bridge-cloud-03 {
+  display: none !important;
+}

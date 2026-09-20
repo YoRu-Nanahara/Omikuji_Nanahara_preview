@@ -16889,6 +16889,19 @@ function initGardenScreen() {
    Moon Bridge Clouds
 ========================= */
 
+/*
+  Performance Test
+
+  false：
+  完全停止賞月橋動態雲，
+  不產生 timer / animation。
+
+  測試完成後要恢復時改回 true。
+*/
+const MOON_BRIDGE_CLOUDS_ENABLED =
+  false;
+
+
 const MOON_BRIDGE_CLOUD_MIN_Y = -60;
 const MOON_BRIDGE_CLOUD_MAX_Y = 200;
 
@@ -17346,6 +17359,19 @@ const delay =
 }
 
 function startMoonBridgeClouds() {
+  /*
+    手機效能測試：
+    關閉時確保舊 timer / animation
+    也全部清乾淨。
+  */
+  if (
+    !MOON_BRIDGE_CLOUDS_ENABLED
+  ) {
+    stopMoonBridgeClouds();
+    return;
+  }
+
+
   if (
     moonBridgeCloudRunning
   ) {
@@ -17359,8 +17385,6 @@ function startMoonBridgeClouds() {
 
   /*
     剛進場不要立刻飛出一朵。
-
-    先隨機等 1～3 秒。
   */
   const firstDelay =
     randomMoonBridgeCloudNumber(
