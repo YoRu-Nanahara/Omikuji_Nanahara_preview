@@ -3619,17 +3619,3 @@ will-change: transform, opacity;
   display: none !important;
 }
 
-/* =========================
-   Moon Bridge Lake Glow
-   Performance Test OFF
-========================= */
-
-.moon-bridge-lake-glow-01,
-.moon-bridge-lake-glow-02,
-.moon-bridge-lake-glow-03,
-.moon-bridge-lake-glow-lower-01,
-.moon-bridge-lake-glow-lower-02,
-.moon-bridge-lake-glow-lower-03 {
-  display: none !important;
-  animation: none !important;
-}
