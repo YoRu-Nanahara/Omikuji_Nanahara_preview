@@ -8169,7 +8169,7 @@ function pointInPolygon(x, y, polygon) {
    Debug Version
 ========================= */
 
-const GARDEN_WALK_DEBUG = true;
+const GARDEN_WALK_DEBUG = false;
 
 const GARDEN_WALK_AREAS = {
   ground: [
