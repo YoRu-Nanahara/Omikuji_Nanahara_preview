@@ -3326,97 +3326,6 @@ body.night-mode #gardenScreen #chinatsuWalkShadow {
 }
 
 
-/* =========================
-   Moon Bridge Character Moonlight
-========================= */
-
-/*
-  只在：
-  - 夜晚
-  - 賞月橋
-  才啟用。
-
-  ::after 會複製角色當前 sprite，
-  所以透明區仍然透明，
-  不會出現 650×650 的藍色方塊。
-*/
-body.night-mode
-#gardenScreen.moon-bridge-active
-#chifuyuWalkTest
-> [data-garden-sprite-mode]::after,
-
-body.night-mode
-#gardenScreen.moon-bridge-active
-#chinatsuWalkTest
-> [data-garden-sprite-mode]::after {
-  content: "";
-
-  position: absolute;
-  inset: 0;
-
-  pointer-events: none;
-
-  /*
-    直接繼承原 sprite：
-    圖片、大小、目前動畫幀位置全部同步。
-  */
-  background-image: inherit;
-  background-size: inherit;
-  background-position: inherit;
-  background-repeat: inherit;
-
-  /*
-    月光非常淡。
-    真正控制「染多少」主要是 opacity。
-  */
-opacity: 0.23;
-
-filter:
-  brightness(1)
-  saturate(10)
-  sepia(1)
-  hue-rotate(185deg);
-
--webkit-mask-image:
-  linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 1) 38%,
-    rgba(0, 0, 0, 0.65) 48%,
-    rgba(0, 0, 0, 0.18) 60%,
-    rgba(0, 0, 0, 0) 72%
-  );
-
-mask-image:
-  linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 1) 38%,
-    rgba(0, 0, 0, 0.65) 48%,
-    rgba(0, 0, 0, 0.18) 60%,
-    rgba(0, 0, 0, 0) 72%
-  );
-
-
-/* =========================
-   Moon Bridge Moonlight
-   Performance Test OFF
-========================= */
-
-body.night-mode
-#gardenScreen.moon-bridge-active
-#chifuyuWalkTest
-> [data-garden-sprite-mode]::after,
-
-body.night-mode
-#gardenScreen.moon-bridge-active
-#chinatsuWalkTest
-> [data-garden-sprite-mode]::after {
-  content: none !important;
-}
-
-
-}
 
 
 /* =========================
@@ -3708,4 +3617,19 @@ will-change: transform, opacity;
 .moon-bridge-cloud-02,
 .moon-bridge-cloud-03 {
   display: none !important;
+}
+
+/* =========================
+   Moon Bridge Lake Glow
+   Performance Test OFF
+========================= */
+
+.moon-bridge-lake-glow-01,
+.moon-bridge-lake-glow-02,
+.moon-bridge-lake-glow-03,
+.moon-bridge-lake-glow-lower-01,
+.moon-bridge-lake-glow-lower-02,
+.moon-bridge-lake-glow-lower-03 {
+  display: none !important;
+  animation: none !important;
 }
