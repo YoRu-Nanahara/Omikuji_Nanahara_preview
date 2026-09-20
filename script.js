@@ -15742,7 +15742,7 @@ const CHIFUYU_AUTO_WALK_ENABLED = true;
 */
 
 const GARDEN_AUTO_TRAVEL_ENABLED =
-  true;
+  false;
 
 
 /*
@@ -17614,7 +17614,7 @@ const GARDEN_CHARACTER_ACTIVITY =
 
 const gardenCharacterWorldState = {
   chifuyu: {
-    sceneId: "courtyard",
+    sceneId: "moonBridge",
 
     activity:
       GARDEN_CHARACTER_ACTIVITY
@@ -17626,7 +17626,7 @@ const gardenCharacterWorldState = {
   },
 
   chinatsu: {
-    sceneId: "courtyard",
+    sceneId: "moonBridge",
 
     activity:
       GARDEN_CHARACTER_ACTIVITY
@@ -17653,7 +17653,7 @@ function areGardenCharactersInViewedScene() {
 ========================= */
 
 let gardenViewSceneId =
-  "courtyard";
+  "moonBridge";
 
 
 function getGardenSceneById(
