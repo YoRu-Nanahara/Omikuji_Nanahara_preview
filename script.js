@@ -1139,6 +1139,175 @@ const GARDEN_SCENE_LAYER_ASSETS = [
   },
 ];
 
+/* =========================
+   Moon Bridge Scene Assets
+========================= */
+
+const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
+  {
+    selector:
+      ".moon-bridge-bg",
+
+    /*
+      賞月橋目前只有夜晚版。
+
+      day 暫時也使用夜景，
+      避免白天進入時變成空白場景。
+
+      之後真的完成白天版，
+      再單獨替換 day 即可。
+    */
+    day:
+      "images/garden/moon-bridge/moon-bridge-bg-night.png",
+
+    night:
+      "images/garden/moon-bridge/moon-bridge-bg-night.png",
+  },
+
+
+{
+  selector:
+    ".moon-bridge-cloud-01",
+
+  day:
+    "images/garden/moon-bridge/moon-bridge-cloud-01-night.png",
+
+  night:
+    "images/garden/moon-bridge/moon-bridge-cloud-01-night.png",
+},
+
+{
+  selector:
+    ".moon-bridge-cloud-02",
+
+  day:
+    "images/garden/moon-bridge/moon-bridge-cloud-02-night.png",
+
+  night:
+    "images/garden/moon-bridge/moon-bridge-cloud-02-night.png",
+},
+
+{
+  selector:
+    ".moon-bridge-cloud-03",
+
+  day:
+    "images/garden/moon-bridge/moon-bridge-cloud-03-night.png",
+
+  night:
+    "images/garden/moon-bridge/moon-bridge-cloud-03-night.png",
+},
+
+
+
+
+  {
+    selector:
+      ".moon-bridge-lake-glow-01",
+
+    day:
+      "images/garden/moon-bridge/moon-bridge-lake-glow-01-night.png",
+
+    night:
+      "images/garden/moon-bridge/moon-bridge-lake-glow-01-night.png",
+  },
+
+
+  {
+    selector:
+      ".moon-bridge-lake-glow-02",
+
+    day:
+      "images/garden/moon-bridge/moon-bridge-lake-glow-02-night.png",
+
+    night:
+      "images/garden/moon-bridge/moon-bridge-lake-glow-02-night.png",
+  },
+
+
+  {
+    selector:
+      ".moon-bridge-lake-glow-03",
+
+    day:
+      "images/garden/moon-bridge/moon-bridge-lake-glow-03-night.png",
+
+    night:
+      "images/garden/moon-bridge/moon-bridge-lake-glow-03-night.png",
+  },
+
+
+{
+  selector:
+    ".moon-bridge-lake-glow-lower-01",
+
+  day:
+    "images/garden/moon-bridge/moon-bridge-lake-glow-01-night.png",
+
+  night:
+    "images/garden/moon-bridge/moon-bridge-lake-glow-01-night.png",
+},
+
+{
+  selector:
+    ".moon-bridge-lake-glow-lower-02",
+
+  day:
+    "images/garden/moon-bridge/moon-bridge-lake-glow-02-night.png",
+
+  night:
+    "images/garden/moon-bridge/moon-bridge-lake-glow-02-night.png",
+},
+
+{
+  selector:
+    ".moon-bridge-lake-glow-lower-03",
+
+  day:
+    "images/garden/moon-bridge/moon-bridge-lake-glow-03-night.png",
+
+  night:
+    "images/garden/moon-bridge/moon-bridge-lake-glow-03-night.png",
+},
+
+
+
+  {
+    selector:
+      ".moon-bridge-main",
+
+    day:
+      "images/garden/moon-bridge/moon-bridge-main-night.png",
+
+    night:
+      "images/garden/moon-bridge/moon-bridge-main-night.png",
+  },
+
+
+  {
+    selector:
+      ".moon-bridge-railing-front",
+
+    day:
+      "images/garden/moon-bridge/moon-bridge-railing-front-night.png",
+
+    night:
+      "images/garden/moon-bridge/moon-bridge-railing-front-night.png",
+  },
+
+
+  {
+    selector:
+      ".moon-bridge-fg-shidarezakura",
+
+    day:
+      "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-night.png",
+
+    night:
+      "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-night.png",
+  },
+];
+
 
 const GARDEN_SCENE_ASSETS_BY_MODE = {
   day:
@@ -1191,6 +1360,52 @@ function applyGardenSceneMode(
     scene.sceneLayers || [];
 
 
+  /*
+  =========================
+  先隱藏所有已登記的場景圖層
+  =========================
+
+  不再依賴：
+  - 一定有 .garden-layer
+  - 一定位於 #gardenScene 裡
+
+  只要這個元素有登記在某個
+  sceneLayers 素材表裡，
+  切場景時就一定會被清掉。
+*/
+const allRegisteredSceneLayers = [
+  ...GARDEN_SCENE_LAYER_ASSETS,
+  ...MOON_BRIDGE_SCENE_LAYER_ASSETS,
+];
+
+for (
+  const item of
+  allRegisteredSceneLayers
+) {
+  const elements =
+    gardenScreen?.querySelectorAll(
+      item.selector
+    );
+
+  if (!elements) {
+    continue;
+  }
+
+  for (
+    const el of
+    elements
+  ) {
+    el.style.display =
+      "none";
+  }
+}
+
+
+  /*
+    =========================
+    顯示目前場景需要的圖層
+    =========================
+  */
   for (
     const item of
     sceneLayers
@@ -1208,6 +1423,10 @@ function applyGardenSceneMode(
     const nextSrc =
       item[safeMode];
 
+    /*
+      這個場景在目前模式
+      沒有這張素材，就保持隱藏。
+    */
     if (!nextSrc) {
       continue;
     }
@@ -1219,6 +1438,10 @@ function applyGardenSceneMode(
     ) {
       el.src = nextSrc;
     }
+
+
+    el.style.display =
+      "block";
   }
 }
 
@@ -5834,6 +6057,10 @@ const gardenInitialMode =
       "wander";
   }
 
+updateGardenSceneNav();
+
+  startGardenUiAutoHide();
+
 
   if (GARDEN_IPAD_SAFE_MODE) {
 
@@ -5931,15 +6158,27 @@ if (actualInitialMode === "chat") {
 }
       );
     } else {
-      menuScreen.classList.add("hidden");
-      gardenScreen.classList.remove("hidden");
+  menuScreen.classList.add(
+    "hidden"
+  );
 
-      if (typeof initGardenScreen === "function") {
-        initGardenScreen();
-      }
-    }
+  gardenScreen.classList.remove(
+    "hidden"
+  );
+
+  if (
+    typeof initGardenScreen ===
+    "function"
+  ) {
+    initGardenScreen();
+  }
+
+  startGardenUiAutoHide();
+}
   });
 }
+
+
 
 if (btnMission) {
   btnMission.addEventListener("click", () => {
@@ -5978,6 +6217,398 @@ const btnOmikujiMenu = document.getElementById("btnOmikujiMenu");
 const btnOmamoriMenu = document.getElementById("btnOmamoriMenu");
 const btnGardenMenu = document.getElementById("btnGardenMenu");
 
+const btnGardenSceneLeft =
+  document.getElementById(
+    "btnGardenSceneLeft"
+  );
+
+const btnGardenSceneRight =
+  document.getElementById(
+    "btnGardenSceneRight"
+  );
+
+  /* =========================
+   Garden Scene Navigation
+========================= */
+
+let gardenSceneSwitchBusy = false;
+
+
+function updateGardenSceneNav() {
+  const scene =
+    getCurrentGardenScene();
+
+  const nav =
+    scene?.nav || {};
+
+
+  if (btnGardenSceneLeft) {
+    const target =
+      nav.left || null;
+
+    btnGardenSceneLeft.disabled =
+      !target;
+
+    btnGardenSceneLeft.dataset.sceneTarget =
+      target || "";
+  }
+
+
+  if (btnGardenSceneRight) {
+    const target =
+      nav.right || null;
+
+    btnGardenSceneRight.disabled =
+      !target;
+
+    btnGardenSceneRight.dataset.sceneTarget =
+      target || "";
+  }
+}
+
+async function handleGardenSceneNav(
+  button
+) {
+  if (!button) return;
+
+  if (gardenSceneSwitchBusy) {
+    return;
+  }
+
+
+  const targetSceneId =
+    button.dataset.sceneTarget;
+
+  if (!targetSceneId) {
+    return;
+  }
+
+
+  gardenSceneSwitchBusy = true;
+
+
+  /*
+    preload / 切換期間，
+    兩顆箭頭暫時都不能再按，
+    避免快速連點造成兩次場景切換。
+  */
+  if (btnGardenSceneLeft) {
+    btnGardenSceneLeft.disabled =
+      true;
+  }
+
+  if (btnGardenSceneRight) {
+    btnGardenSceneRight.disabled =
+      true;
+  }
+
+
+  try {
+    const switched =
+  await switchGardenScene(
+    targetSceneId,
+    {
+      /*
+        玩家切場景永遠只是在換鏡頭。
+
+        不論角色是否 travel，
+        都不能重新生成角色。
+      */
+      resetCharacters: false,
+    }
+  );
+
+
+    if (switched) {
+
+
+ /*
+    玩家切完場景後，
+    馬上重新判斷角色是否應該可見。
+  */
+  updateGardenCharacterVisibility();
+
+
+
+
+
+      /*
+        場景成功切換後，
+        重新決定左右方向。
+      */
+      updateGardenSceneNav();
+
+
+      /*
+        使用者剛操作過 UI，
+        重新開始 3 秒隱藏計時。
+      */
+      showGardenUi({
+        restartTimer: true,
+      });
+    }
+
+  } catch (err) {
+    console.error(
+      "[Garden] scene nav failed:",
+      err
+    );
+
+  } finally {
+    gardenSceneSwitchBusy =
+      false;
+
+    /*
+      switchGardenScene() 如果因聊天等原因
+      回傳 false，也要恢復正確按鈕狀態。
+    */
+    updateGardenSceneNav();
+  }
+}
+
+if (btnGardenSceneLeft) {
+  btnGardenSceneLeft.addEventListener(
+    "click",
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      handleGardenSceneNav(
+        btnGardenSceneLeft
+      );
+    }
+  );
+}
+
+
+if (btnGardenSceneRight) {
+  btnGardenSceneRight.addEventListener(
+    "click",
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      handleGardenSceneNav(
+        btnGardenSceneRight
+      );
+    }
+  );
+}
+
+
+
+
+/* =========================
+   Garden Auto-hide UI
+========================= */
+
+const GARDEN_UI_IDLE_HIDE_MS =
+  3000;
+
+let gardenUiHideTimer = null;
+let gardenSuppressNextClick = false;
+let gardenSuppressClickTimer = null;
+
+
+function isGardenUiActive() {
+  return (
+    gardenScreen &&
+    !gardenScreen.classList.contains(
+      "hidden"
+    )
+  );
+}
+
+
+function clearGardenUiHideTimer() {
+  if (!gardenUiHideTimer) {
+    return;
+  }
+
+  clearTimeout(
+    gardenUiHideTimer
+  );
+
+  gardenUiHideTimer = null;
+}
+
+
+function hideGardenUi() {
+  gardenUiHideTimer = null;
+
+  if (!isGardenUiActive()) {
+    return;
+  }
+
+  document.body.classList.add(
+    "garden-ui-hidden"
+  );
+}
+
+
+function scheduleGardenUiHide() {
+  clearGardenUiHideTimer();
+
+  if (!isGardenUiActive()) {
+    return;
+  }
+
+  gardenUiHideTimer =
+    setTimeout(
+      hideGardenUi,
+      GARDEN_UI_IDLE_HIDE_MS
+    );
+}
+
+
+function showGardenUi(
+  options = {}
+) {
+  const {
+    restartTimer = true,
+  } = options;
+
+  document.body.classList.remove(
+    "garden-ui-hidden"
+  );
+
+  if (restartTimer) {
+    scheduleGardenUiHide();
+  }
+}
+
+
+function startGardenUiAutoHide() {
+  /*
+    每次進入 Garden，
+    UI 都先完整顯示。
+  */
+  showGardenUi({
+    restartTimer: true,
+  });
+}
+
+
+function stopGardenUiAutoHide() {
+  clearGardenUiHideTimer();
+
+  gardenSuppressNextClick = false;
+
+  if (gardenSuppressClickTimer) {
+    clearTimeout(
+      gardenSuppressClickTimer
+    );
+
+    gardenSuppressClickTimer = null;
+  }
+
+  document.body.classList.remove(
+    "garden-ui-hidden"
+  );
+}
+
+
+/*
+  Garden UI 隱藏時：
+
+  第一次 pointerdown
+  → 只喚醒 UI
+  → 阻止其他 pointerdown 行為
+  → 標記下一個 click 也要吃掉
+
+  後續 click
+  → 完全攔截
+*/
+document.addEventListener(
+  "pointerdown",
+  (e) => {
+    if (!isGardenUiActive()) {
+      return;
+    }
+
+    const uiWasHidden =
+      document.body.classList.contains(
+        "garden-ui-hidden"
+      );
+
+    /*
+      UI 已經隱藏：
+      這一下只能喚醒 UI。
+    */
+    if (uiWasHidden) {
+      gardenSuppressNextClick = true;
+
+      if (gardenSuppressClickTimer) {
+        clearTimeout(
+          gardenSuppressClickTimer
+        );
+      }
+
+      /*
+        如果瀏覽器最後沒有產生 click，
+        800ms 後自動解除旗標。
+      */
+      gardenSuppressClickTimer =
+        setTimeout(() => {
+          gardenSuppressNextClick = false;
+          gardenSuppressClickTimer = null;
+        }, 800);
+
+      showGardenUi({
+        restartTimer: true,
+      });
+
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      return;
+    }
+
+    /*
+      UI 原本就在顯示中：
+      任意操作重新計算 3 秒。
+    */
+    scheduleGardenUiHide();
+  },
+  true
+);
+
+
+document.addEventListener(
+  "click",
+  (e) => {
+    if (!isGardenUiActive()) {
+      return;
+    }
+
+    if (!gardenSuppressNextClick) {
+      return;
+    }
+
+    gardenSuppressNextClick = false;
+
+    if (gardenSuppressClickTimer) {
+      clearTimeout(
+        gardenSuppressClickTimer
+      );
+
+      gardenSuppressClickTimer =
+        null;
+    }
+
+    /*
+      把剛才喚醒 UI 的那一次 click
+      完整吃掉。
+    */
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+  },
+  true
+);
+
+
 // 共用回 Menu 行為（會自動帶門動畫）
 function backToMenuFrom(screenEl) {
   if (!screenEl || !menuScreen) return;
@@ -5987,7 +6618,15 @@ function backToMenuFrom(screenEl) {
   }
 
 if (screenEl === gardenScreen) {
-  if (typeof stopChifuyuWalkMoveTest === "function") {
+
+  stopGardenUiAutoHide();
+
+  stopMoonBridgeClouds();
+
+  if (
+    typeof stopChifuyuWalkMoveTest ===
+    "function"
+  ) {
     stopChifuyuWalkMoveTest();
   }
 
@@ -8207,29 +8846,58 @@ const GARDEN_WALK_AREAS = {
   ],
 
   far: [
-    {
-      name: "far-path",
-      points: [
-        { x: 344, y: 532 },
-        { x: 908, y: 501 },
-        { x: 930, y: 503 },
-        { x:685, y: 585 },
-        { x:428, y: 585 },
-        { x:271, y: 678 },
-        { x:256, y: 760 },
-        { x: 28, y: 771 },
-      ],
-    },
-  ],
+  {
+    name: "far-path",
+
+    points: [
+      { x: 344, y: 532 },
+
+      /*
+        原本右上遠景道路
+      */
+      { x: 908, y: 501 },
+
+      /*
+        =========================
+        Courtyard → Moon Bridge Exit
+        =========================
+
+        直接把道路延伸到 1080 外面。
+
+        角色真的走到 x 1300+，
+        才會自然從畫面右側消失，
+        而不是碰到畫面邊界就瞬移。
+      */
+      { x: 1420, y: 500 },
+      { x: 1420, y: 580 },
+
+      /*
+        接回原本遠景道路下緣
+      */
+      { x: 685, y: 585 },
+      { x: 428, y: 585 },
+      { x: 271, y: 678 },
+      { x: 256, y: 760 },
+      { x: 28, y: 771 },
+    ],
+  },
+],
 };
 
-function getGardenMoveZoneAt(x, y) {
+function getGardenMoveZoneAtInScene(
+  sceneId,
+  x,
+  y
+) {
   const scene =
-    getCurrentGardenScene();
+    getGardenSceneById(
+      sceneId
+    );
 
   if (!scene) {
     return "blocked";
   }
+
 
   const walkAreas =
     scene.walkAreas;
@@ -8241,7 +8909,10 @@ function getGardenMoveZoneAt(x, y) {
     walkAreas?.ground || [];
 
 
-  for (const area of farAreas) {
+  for (
+    const area of
+    farAreas
+  ) {
     if (
       pointInPolygon(
         x,
@@ -8254,7 +8925,10 @@ function getGardenMoveZoneAt(x, y) {
   }
 
 
-  for (const area of groundAreas) {
+  for (
+    const area of
+    groundAreas
+  ) {
     if (
       pointInPolygon(
         x,
@@ -8268,6 +8942,24 @@ function getGardenMoveZoneAt(x, y) {
 
 
   return "blocked";
+}
+
+
+/*
+  舊版 wrapper。
+
+  UI 點擊、Debug 等尚未重構的功能，
+  仍然以玩家目前正在看的場景判斷。
+*/
+function getGardenMoveZoneAt(
+  x,
+  y
+) {
+  return getGardenMoveZoneAtInScene(
+    gardenViewSceneId,
+    x,
+    y
+  );
 }
 
 
@@ -8509,34 +9201,110 @@ async function preloadAllGardenIpadAnimations() {
 
 
 
+
+
 /* =========================
    Garden Path Finding
    角色不能穿越 blocked 區域
 ========================= */
 
-function isGardenWalkablePoint(x, y) {
-  return getGardenMoveZoneAt(x, y) !== "blocked";
+function isGardenWalkablePointInScene(
+  sceneId,
+  x,
+  y
+) {
+  return (
+    getGardenMoveZoneAtInScene(
+      sceneId,
+      x,
+      y
+    ) !== "blocked"
+  );
 }
 
-function isGardenSegmentWalkable(a, b) {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
+
+function isGardenWalkablePoint(
+  x,
+  y
+) {
+  return isGardenWalkablePointInScene(
+    gardenViewSceneId,
+    x,
+    y
+  );
+}
+
+
+
+function isGardenSegmentWalkableInScene(
+  sceneId,
+  a,
+  b
+) {
+  const dx =
+    b.x - a.x;
+
+  const dy =
+    b.y - a.y;
+
+  const dist =
+    Math.sqrt(
+      dx * dx +
+      dy * dy
+    );
+
 
   const stepSize = 10;
-  const steps = Math.max(1, Math.ceil(dist / stepSize));
 
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const x = a.x + dx * t;
-    const y = a.y + dy * t;
+  const steps =
+    Math.max(
+      1,
+      Math.ceil(
+        dist / stepSize
+      )
+    );
 
-    if (!isGardenWalkablePoint(x, y)) {
+
+  for (
+    let i = 0;
+    i <= steps;
+    i++
+  ) {
+    const t =
+      i / steps;
+
+    const x =
+      a.x + dx * t;
+
+    const y =
+      a.y + dy * t;
+
+
+    if (
+      !isGardenWalkablePointInScene(
+        sceneId,
+        x,
+        y
+      )
+    ) {
       return false;
     }
   }
 
+
   return true;
+}
+
+
+function isGardenSegmentWalkable(
+  a,
+  b
+) {
+  return isGardenSegmentWalkableInScene(
+    gardenViewSceneId,
+    a,
+    b
+  );
 }
 
 /*
@@ -8548,7 +9316,38 @@ const GARDEN_PATH_NODES = [
   /*
     far 遠景區
   */
+
   { name: "far-right", x: 850, y: 520 },
+
+  /*
+    =========================
+    Courtyard → Moon Bridge
+    出口路徑
+    =========================
+  */
+
+  /* 還看得見角色 */
+  {
+    name: "moon-bridge-exit-approach",
+    x: 1030,
+    y: 530,
+  },
+
+  /* 已經接近畫面外 */
+  {
+    name: "moon-bridge-exit-inner",
+    x: 1170,
+    y: 535,
+  },
+
+  /* 幾乎完全離開畫面 */
+  {
+    name: "moon-bridge-exit-out",
+    x: 1320,
+    y: 540,
+  },
+
+
   { name: "far-mid-right", x: 760, y: 535 },
   { name: "far-mid", x: 610, y: 550 },
   { name: "far-left", x: 430, y: 570 },
@@ -8606,6 +9405,252 @@ const GARDEN_PATH_NODES = [
   { name: "bottom-center", x: 600, y: 1810 },
   { name: "bottom-right", x: 930, y: 1810 },
 ];
+
+
+
+
+/* =========================
+   Courtyard → Moon Bridge
+   Exit Targets
+========================= */
+
+const COURTYARD_MOON_BRIDGE_EXIT_TARGETS = {
+  chifuyu: {
+    x: 1360,
+    y: 525,
+  },
+
+  chinatsu: {
+    x: 1360,
+    y: 560,
+  },
+};
+
+
+/* =========================
+   Courtyard → Moon Bridge
+   Travel Test
+========================= */
+
+const GARDEN_CHARACTER_TRAVEL_TRANSIT_MS =
+  1500;
+
+
+/*
+  賞月橋左側入口。
+
+  spawn 故意放在畫面外，
+  enter 則位於正式橋面內。
+
+  不需要把 spawn 放進 walkArea，
+  因為這段是「入口動畫專用 path」，
+  不是自由散步區。
+*/
+const MOON_BRIDGE_LEFT_ENTRANCE = {
+  chifuyu: {
+    spawn: {
+      x: -240,
+      y: 1260,
+    },
+
+    enter: {
+      x: 260,
+      y: 1260,
+    },
+  },
+
+  chinatsu: {
+    spawn: {
+      x: -320,
+      y: 1360,
+    },
+
+    enter: {
+      x: 250,
+      y: 1360,
+    },
+  },
+};
+
+
+/* =========================
+   Moon Bridge → Courtyard
+   Exit / Entrance Test
+========================= */
+
+/*
+  賞月橋左側出口。
+
+  approach：
+  還在正式橋面可走區裡。
+
+  out：
+  畫面左側外面。
+*/
+const MOON_BRIDGE_COURTYARD_EXIT = {
+  chifuyu: {
+    approach: {
+      x: 170,
+      y: 1240,
+    },
+
+    out: {
+      x: -300,
+      y: 1240,
+    },
+  },
+
+  chinatsu: {
+    approach: {
+      x: 170,
+      y: 1360,
+    },
+
+    out: {
+      x: -320,
+      y: 1360,
+    },
+  },
+};
+
+
+/*
+  回到庭院時，
+  從之前建立的右上方遠景出口反向走進來。
+*/
+const COURTYARD_MOON_BRIDGE_ENTRANCE = {
+  chifuyu: {
+    spawn: {
+      x: 1360,
+      y: 525,
+    },
+
+    enter: {
+      x: 850,
+      y: 520,
+    },
+  },
+
+  chinatsu: {
+    spawn: {
+      x: 1360,
+      y: 560,
+    },
+
+    enter: {
+      x: 820,
+      y: 555,
+    },
+  },
+};
+
+
+
+
+
+/* =========================
+   Garden Exit Test Visibility
+========================= */
+
+
+
+function getGardenCharacterActivity(
+  character
+) {
+  return (
+    gardenCharacterWorldState[
+      character
+    ]?.activity || null
+  );
+}
+
+
+function setGardenCharacterActivity(
+  character,
+  activity,
+  activityData = null
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+  if (!worldState) {
+    return false;
+  }
+
+  worldState.activity =
+    activity;
+
+  worldState.activityData =
+    activityData;
+
+  return true;
+}
+
+
+function setGardenPairActivity(
+  activity,
+  activityData = null
+) {
+  setGardenCharacterActivity(
+    "chifuyu",
+    activity,
+    activityData
+  );
+
+  setGardenCharacterActivity(
+    "chinatsu",
+    activity,
+    activityData
+  );
+}
+
+
+
+
+
+function updateGardenCharacterVisibility() {
+  /*
+    Player View 只決定「看不看得到」。
+
+    Character World State
+    才決定角色真正在哪裡。
+  */
+
+  if (
+    chifuyuWalkTestWrap
+  ) {
+    chifuyuWalkTestWrap.style.visibility =
+      gardenCharacterWorldState
+        .chifuyu.sceneId ===
+      gardenViewSceneId
+        ? "visible"
+        : "hidden";
+  }
+
+
+  if (
+    chinatsuWalkTestWrap
+  ) {
+    chinatsuWalkTestWrap.style.visibility =
+      gardenCharacterWorldState
+        .chinatsu.sceneId ===
+      gardenViewSceneId
+        ? "visible"
+        : "hidden";
+  }
+}
+
+
+/* =========================
+   Moon Bridge Entrance Test
+========================= */
+
+
+
+
+
 
 
 const GARDEN_AUTO_TARGET_POINTS = [
@@ -8856,123 +9901,296 @@ function randomizeGardenCharacterStartPositions() {
 
 
 
-function findGardenPath(start, target) {
-  if (!isGardenWalkablePoint(start.x, start.y)) return null;
-  if (!isGardenWalkablePoint(target.x, target.y)) return null;
-
-  // 直線能走，就直接走
-  if (isGardenSegmentWalkable(start, target)) {
-    return [target];
+function findGardenPath(
+  start,
+  target,
+  sceneId = gardenViewSceneId
+) {
+  /*
+    起點與終點，
+    都必須屬於指定場景的可走區。
+  */
+  if (
+    !isGardenWalkablePointInScene(
+      sceneId,
+      start.x,
+      start.y
+    )
+  ) {
+    return null;
   }
 
+
+  if (
+    !isGardenWalkablePointInScene(
+      sceneId,
+      target.x,
+      target.y
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    直線可以走，
+    就不需要建立 path graph。
+  */
+  if (
+    isGardenSegmentWalkableInScene(
+      sceneId,
+      start,
+      target
+    )
+  ) {
+    return [
+      {
+        x: target.x,
+        y: target.y,
+      },
+    ];
+  }
+
+
   const scene =
-  getCurrentGardenScene();
-
-if (!scene) {
-  return null;
-}
-
-const pathNodes =
-  scene.pathNodes || [];
+    getGardenSceneById(
+      sceneId
+    );
 
 
-const nodes = [
-  {
-    name: "start",
-    x: start.x,
-    y: start.y,
-  },
+  if (!scene) {
+    return null;
+  }
 
-  ...pathNodes.filter(
-    (p) =>
-      isGardenWalkablePoint(
-        p.x,
-        p.y
-      )
-  ),
 
-  {
-    name: "target",
-    x: target.x,
-    y: target.y,
-  },
-];
+  const pathNodes =
+    scene.pathNodes || [];
+
+
+  /*
+    注意：
+    中繼節點也必須使用
+    character 所在的 sceneId 判定，
+    不能使用玩家正在看的場景。
+  */
+  const nodes = [
+    {
+      name: "start",
+      x: start.x,
+      y: start.y,
+    },
+
+    ...pathNodes.filter(
+      (p) =>
+        isGardenWalkablePointInScene(
+          sceneId,
+          p.x,
+          p.y
+        )
+    ),
+
+    {
+      name: "target",
+      x: target.x,
+      y: target.y,
+    },
+  ];
+
 
   const startIndex = 0;
-  const targetIndex = nodes.length - 1;
+  const targetIndex =
+    nodes.length - 1;
 
-  const graph = nodes.map(() => []);
 
-  // 建立安全連線：只有兩點之間全程可走，才連起來
-  for (let i = 0; i < nodes.length; i++) {
-    for (let j = i + 1; j < nodes.length; j++) {
+  const graph =
+    nodes.map(() => []);
+
+
+  /*
+    建立安全連線。
+
+    每一條 edge 也必須用
+    指定 sceneId 的 walkArea。
+  */
+  for (
+    let i = 0;
+    i < nodes.length;
+    i++
+  ) {
+    for (
+      let j = i + 1;
+      j < nodes.length;
+      j++
+    ) {
       const a = nodes[i];
       const b = nodes[j];
 
-      const dx = b.x - a.x;
-const dy = b.y - a.y;
-const cost = Math.sqrt(dx * dx + dy * dy);
 
-// 避免太遠的節點直接偷連，讓角色比較像沿著路走
-const MAX_NODE_LINK_DISTANCE = 360;
+      const dx =
+        b.x - a.x;
 
-if (cost > MAX_NODE_LINK_DISTANCE) continue;
-if (!isGardenSegmentWalkable(a, b)) continue;
+      const dy =
+        b.y - a.y;
 
-      graph[i].push({ to: j, cost });
-      graph[j].push({ to: i, cost });
+      const cost =
+        Math.sqrt(
+          dx * dx +
+          dy * dy
+        );
+
+
+      const MAX_NODE_LINK_DISTANCE =
+        360;
+
+
+      if (
+        cost >
+        MAX_NODE_LINK_DISTANCE
+      ) {
+        continue;
+      }
+
+
+      if (
+        !isGardenSegmentWalkableInScene(
+          sceneId,
+          a,
+          b
+        )
+      ) {
+        continue;
+      }
+
+
+      graph[i].push({
+        to: j,
+        cost,
+      });
+
+      graph[j].push({
+        to: i,
+        cost,
+      });
     }
   }
 
-  const dist = new Array(nodes.length).fill(Infinity);
-  const prev = new Array(nodes.length).fill(-1);
-  const visited = new Array(nodes.length).fill(false);
+
+  /*
+    Dijkstra
+  */
+  const dist =
+    new Array(
+      nodes.length
+    ).fill(Infinity);
+
+  const prev =
+    new Array(
+      nodes.length
+    ).fill(-1);
+
+  const visited =
+    new Array(
+      nodes.length
+    ).fill(false);
+
 
   dist[startIndex] = 0;
 
-  for (let loop = 0; loop < nodes.length; loop++) {
+
+  for (
+    let loop = 0;
+    loop < nodes.length;
+    loop++
+  ) {
     let current = -1;
     let best = Infinity;
 
-    for (let i = 0; i < nodes.length; i++) {
-      if (!visited[i] && dist[i] < best) {
+
+    for (
+      let i = 0;
+      i < nodes.length;
+      i++
+    ) {
+      if (
+        !visited[i] &&
+        dist[i] < best
+      ) {
         best = dist[i];
         current = i;
       }
     }
 
-    if (current === -1) break;
-    if (current === targetIndex) break;
 
-    visited[current] = true;
+    if (
+      current === -1
+    ) {
+      break;
+    }
 
-    for (const edge of graph[current]) {
-      const nextDist = dist[current] + edge.cost;
 
-      if (nextDist < dist[edge.to]) {
-        dist[edge.to] = nextDist;
-        prev[edge.to] = current;
+    if (
+      current === targetIndex
+    ) {
+      break;
+    }
+
+
+    visited[current] =
+      true;
+
+
+    for (
+      const edge of
+      graph[current]
+    ) {
+      const nextDist =
+        dist[current] +
+        edge.cost;
+
+
+      if (
+        nextDist <
+        dist[edge.to]
+      ) {
+        dist[edge.to] =
+          nextDist;
+
+        prev[edge.to] =
+          current;
       }
     }
   }
 
-  if (prev[targetIndex] === -1) {
+
+  if (
+    prev[targetIndex] === -1
+  ) {
     return null;
   }
 
-  const path = [];
-  let cur = targetIndex;
 
-  while (cur !== startIndex && cur !== -1) {
+  const path = [];
+
+  let cur =
+    targetIndex;
+
+
+  while (
+    cur !== startIndex &&
+    cur !== -1
+  ) {
     path.push({
       x: nodes[cur].x,
       y: nodes[cur].y,
     });
 
-    cur = prev[cur];
+    cur =
+      prev[cur];
   }
 
+
   path.reverse();
+
   return path;
 }
 
@@ -9046,21 +10264,38 @@ function drawGardenWalkDebug() {
     ctx.fillText(area.name, label.x + 12, label.y - 12);
   }
 
-  for (const area of GARDEN_WALK_AREAS.ground) {
-    drawPolygon(
-      area,
-      "rgba(0, 255, 0, 0.22)",
-      "rgba(0, 255, 0, 0.9)"
-    );
-  }
+  const scene =
+  getCurrentGardenScene();
 
-  for (const area of GARDEN_WALK_AREAS.far) {
-    drawPolygon(
-      area,
-      "rgba(255, 230, 0, 0.28)",
-      "rgba(255, 230, 0, 0.95)"
-    );
-  }
+const walkAreas =
+  scene?.walkAreas || {
+    ground: [],
+    far: [],
+  };
+
+
+for (
+  const area of
+  (walkAreas.ground || [])
+) {
+  drawPolygon(
+    area,
+    "rgba(0, 255, 0, 0.22)",
+    "rgba(0, 255, 0, 0.9)"
+  );
+}
+
+
+for (
+  const area of
+  (walkAreas.far || [])
+) {
+  drawPolygon(
+    area,
+    "rgba(255, 230, 0, 0.28)",
+    "rgba(255, 230, 0, 0.95)"
+  );
+}
 }
 
 
@@ -9180,22 +10415,26 @@ function isGardenDepthRuleMatched(
 }
 
 
-function getChifuyuDepthLayerByPosition(
+function getGardenDepthLayerByPositionInScene(
+  sceneId,
   x,
   y
 ) {
+  if (!sceneId) {
+    return "normal";
+  }
+
+
   const zone =
-    getGardenMoveZoneAt(
+    getGardenMoveZoneAtInScene(
+      sceneId,
       x,
       y
     );
 
 
   /*
-    遠景仍然是共用基本規則。
-
-    只要角色進 far walk area，
-    就進 far layer。
+    遠景是共用基本規則。
   */
   if (zone === "far") {
     return "far";
@@ -9203,20 +10442,15 @@ function getChifuyuDepthLayerByPosition(
 
 
   const scene =
-    getCurrentGardenScene();
+    getGardenSceneById(
+      sceneId
+    );
 
 
   const depthRules =
     scene?.depthRules || [];
 
 
-  /*
-    按照 Scene Config
-    中宣告的順序判斷。
-
-    第一條命中的規則
-    就決定角色所在 layer。
-  */
   for (
     const rule of
     depthRules
@@ -9240,11 +10474,23 @@ function getChifuyuDepthLayerByPosition(
   }
 
 
-  /*
-    沒有命中特殊遮擋規則，
-    就待在一般角色層。
-  */
   return "normal";
+}
+
+
+/*
+  舊名稱暫時保留給
+  還沒整理到的 View / Debug 程式。
+*/
+function getChifuyuDepthLayerByPosition(
+  x,
+  y
+) {
+  return getGardenDepthLayerByPositionInScene(
+    gardenViewSceneId,
+    x,
+    y
+  );
 }
 
 /* =========================
@@ -10552,6 +11798,828 @@ function setChifuyuMovePath(points) {
   chifuyuWalkTestState.isMoving = chifuyuWalkTestState.path.length > 0;
 }
 
+/* =========================
+   Garden Independent Character Travel
+========================= */
+
+
+function getGardenCharacterRuntime(
+  character
+) {
+  if (
+    character ===
+    "chifuyu"
+  ) {
+    return {
+      moveState:
+        chifuyuWalkTestState,
+
+      autoState:
+        chifuyuAutoWalkState,
+
+      setPath:
+        setChifuyuMovePath,
+
+      resetAutoWalk:
+        resetChifuyuAutoWalk,
+    };
+  }
+
+
+  if (
+    character ===
+    "chinatsu"
+  ) {
+    return {
+      moveState:
+        chinatsuWalkTestState,
+
+      autoState:
+        chinatsuAutoWalkState,
+
+      setPath:
+        setChinatsuMovePath,
+
+      resetAutoWalk:
+        resetChinatsuAutoWalk,
+    };
+  }
+
+
+  return null;
+}
+
+
+/*
+  暫時只有兩張正式場景，
+  所以先明確定義兩個方向。
+
+  之後場景增加時，
+  再把這層搬進 scene.exits /
+  scene.entrances。
+*/
+function getGardenCharacterTravelRoute(
+  fromSceneId,
+  toSceneId
+) {
+  const fromScene =
+    getGardenSceneById(
+      fromSceneId
+    );
+
+
+  const toScene =
+    getGardenSceneById(
+      toSceneId
+    );
+
+
+  if (
+    !fromScene ||
+    !toScene
+  ) {
+    return null;
+  }
+
+
+  /*
+    從「角色目前所在場景」
+    找通往目的地的出口。
+  */
+  const exit =
+    fromScene.exits?.[
+      toSceneId
+    ];
+
+
+  if (!exit) {
+    return null;
+  }
+
+
+  /*
+    Exit 明確指定：
+
+    抵達目的地後
+    要使用哪一個 Entrance。
+  */
+  const entranceId =
+    exit.targetEntranceId;
+
+
+  if (!entranceId) {
+    console.warn(
+      "[Garden Travel] exit has no targetEntranceId:",
+      fromSceneId,
+      "→",
+      toSceneId
+    );
+
+    return null;
+  }
+
+
+  const entrance =
+    toScene.entrances?.[
+      entranceId
+    ];
+
+
+  if (!entrance) {
+    console.warn(
+      "[Garden Travel] destination entrance not found:",
+      toSceneId,
+      entranceId
+    );
+
+    return null;
+  }
+
+
+  return {
+    fromSceneId,
+    toSceneId,
+
+    exitType:
+      exit.exitType,
+
+    exitByCharacter:
+      exit.characters,
+
+    entranceByCharacter:
+      entrance.characters,
+
+    entranceDirection:
+      entrance.direction ?? 1,
+
+    /*
+      先保留下來。
+      之後 Travel State Debug
+      也會很好用。
+    */
+    entranceId,
+  };
+}
+
+
+function isGardenCharacterTraveling(
+  character
+) {
+  return !!(
+    gardenCharacterWorldState[
+      character
+    ]?.travel
+  );
+}
+
+
+function isAnyGardenCharacterTraveling() {
+  return (
+    isGardenCharacterTraveling(
+      "chifuyu"
+    ) ||
+    isGardenCharacterTraveling(
+      "chinatsu"
+    )
+  );
+}
+
+
+/*
+  建立角色離開目前場景的 path。
+*/
+function buildGardenCharacterExitPath(
+  character,
+  route
+) {
+  const runtime =
+    getGardenCharacterRuntime(
+      character
+    );
+
+
+  if (
+    !runtime ||
+    !route
+  ) {
+    return null;
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  const exit =
+    route.exitByCharacter?.[
+      character
+    ];
+
+
+  if (!exit) {
+    return null;
+  }
+
+
+  const start = {
+    x: state.x,
+    y: state.y,
+  };
+
+
+  /*
+    Courtyard → Moon Bridge
+
+    出口點本身仍位於庭院
+    far walkArea 內，
+    所以直接正常尋路。
+  */
+  if (
+    route.exitType ===
+    "direct"
+  ) {
+    return findGardenPath(
+      start,
+      exit,
+      route.fromSceneId
+    );
+  }
+
+
+  /*
+    Moon Bridge → Courtyard
+
+    先正常走到橋面左端，
+    再追加一個位於畫面外的 out。
+  */
+  if (
+    route.exitType ===
+    "approachOut"
+  ) {
+    const approachPath =
+      findGardenPath(
+        start,
+        exit.approach,
+        route.fromSceneId
+      );
+
+
+    if (!approachPath) {
+      return null;
+    }
+
+
+    return [
+      ...approachPath,
+
+      {
+        x: exit.out.x,
+        y: exit.out.y,
+      },
+    ];
+  }
+
+
+  return null;
+}
+
+
+/*
+  Transit 完成後，
+  讓指定角色自己從目的地入口走進來。
+*/
+function startGardenCharacterTravelEntrance(
+  character
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      character
+    );
+
+
+  if (
+    !worldState ||
+    !runtime ||
+    !worldState.travel
+  ) {
+    return false;
+  }
+
+
+  const travel =
+    worldState.travel;
+
+
+  const route =
+    getGardenCharacterTravelRoute(
+      travel.fromSceneId,
+      travel.toSceneId
+    );
+
+
+  if (!route) {
+    console.warn(
+      "[Garden Travel] route missing:",
+      character,
+      travel.fromSceneId,
+      travel.toSceneId
+    );
+
+    return false;
+  }
+
+
+  const entrance =
+    route.entranceByCharacter?.[
+      character
+    ];
+
+
+  if (!entrance) {
+    console.warn(
+      "[Garden Travel] entrance missing:",
+      character,
+      travel.toSceneId
+    );
+
+    return false;
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  /*
+    從現在開始，
+    角色在世界狀態上已經屬於目的地。
+  */
+  worldState.sceneId =
+    travel.toSceneId;
+
+
+  state.x =
+    entrance.spawn.x;
+
+  state.y =
+    entrance.spawn.y;
+
+  state.direction =
+    route.entranceDirection;
+
+  state.path = [];
+
+  state.isMoving =
+    false;
+
+
+  /*
+    spawn 本來可以在 walkArea 外，
+    所以入口動畫直接走專用 path。
+  */
+  runtime.setPath([
+    {
+      x: entrance.enter.x,
+      y: entrance.enter.y,
+    },
+  ]);
+
+
+  travel.phase =
+    "walkingFromEntrance";
+
+
+  updateGardenCharacterVisibility();
+
+
+  console.log(
+    `[Garden Travel] ${character} entering ${travel.toSceneId}`
+  );
+
+
+  return true;
+}
+
+
+/*
+  每一幀更新「單一角色」的旅行。
+*/
+function updateGardenCharacterTravel(
+  character,
+  now = performance.now()
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      character
+    );
+
+
+  if (
+    !worldState ||
+    !runtime
+  ) {
+    return;
+  }
+
+
+  const travel =
+    worldState.travel;
+
+
+  if (!travel) {
+    return;
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  /* =========================
+     1. Walking To Exit
+  ========================= */
+
+  if (
+    travel.phase ===
+      "walkingToExit"
+  ) {
+    if (
+      state.isMoving
+    ) {
+      return;
+    }
+
+
+    /*
+      已經走出原場景。
+
+      Transit 期間不屬於
+      courtyard / moonBridge
+      任一可觀看場景。
+    */
+    worldState.sceneId =
+      null;
+
+
+    state.path = [];
+
+    state.isMoving =
+      false;
+
+
+    travel.phase =
+      "transit";
+
+
+    travel.transitUntil =
+  now +
+  GARDEN_CHARACTER_TRAVEL_TRANSIT_MS;
+
+
+    updateGardenCharacterVisibility();
+
+
+    console.log(
+      `[Garden Travel] ${character} → transit`
+    );
+
+
+    return;
+  }
+
+
+  /* =========================
+     2. Transit
+  ========================= */
+
+  if (
+    travel.phase ===
+      "transit"
+  ) {
+    if (
+      now <
+      travel.transitUntil
+    ) {
+      return;
+    }
+
+
+    startGardenCharacterTravelEntrance(
+      character
+    );
+
+
+    return;
+  }
+
+
+  /* =========================
+     3. Walking From Entrance
+  ========================= */
+
+  if (
+    travel.phase ===
+      "walkingFromEntrance"
+  ) {
+    if (
+      state.isMoving
+    ) {
+      return;
+    }
+
+
+    const destinationSceneId =
+      travel.toSceneId;
+
+
+    worldState.sceneId =
+      destinationSceneId;
+
+
+    /*
+      正式完成旅行。
+    */
+    worldState.travel =
+      null;
+setGardenCharacterActivity(
+  character,
+  GARDEN_CHARACTER_ACTIVITY
+    .WANDER
+);
+
+    runtime.resetAutoWalk();
+
+
+    updateGardenCharacterVisibility();
+
+
+    console.log(
+      `[Garden Travel] ${character} arrived:`,
+      destinationSceneId
+    );
+  }
+}
+
+
+/*
+  正式通用 API。
+
+  character:
+  "chifuyu"
+  "chinatsu"
+
+  toSceneId:
+  "courtyard"
+  "moonBridge"
+*/
+function travelGardenCharacter(
+  character,
+  toSceneId
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      character
+    );
+
+
+  if (
+    !worldState ||
+    !runtime
+  ) {
+    console.warn(
+      "[Garden Travel] unknown character:",
+      character
+    );
+
+    return false;
+  }
+
+
+
+  if (
+    worldState.travel
+  ) {
+    console.warn(
+      "[Garden Travel] character already traveling:",
+      character
+    );
+
+    return false;
+  }
+
+
+  const fromSceneId =
+    worldState.sceneId;
+
+
+  if (!fromSceneId) {
+    console.warn(
+      "[Garden Travel] character has no current scene:",
+      character
+    );
+
+    return false;
+  }
+
+
+  if (
+    fromSceneId ===
+    toSceneId
+  ) {
+    return true;
+  }
+
+
+  /*
+    目前先不允許正在進行雙人聊天時
+    任意拉走其中一個人。
+
+    玩家切鏡頭仍然完全不受限制。
+  */
+  if (
+    gardenChatState.mode !==
+      "wander"
+  ) {
+    console.warn(
+      "[Garden Travel] wait until wander mode:",
+      character
+    );
+
+    return false;
+  }
+
+
+  const route =
+    getGardenCharacterTravelRoute(
+      fromSceneId,
+      toSceneId
+    );
+
+
+  if (!route) {
+    console.warn(
+      "[Garden Travel] route not found:",
+      fromSceneId,
+      "→",
+      toSceneId
+    );
+
+    return false;
+  }
+
+
+  const path =
+    buildGardenCharacterExitPath(
+      character,
+      route
+    );
+
+
+  if (
+    !path ||
+    path.length === 0
+  ) {
+    console.warn(
+      "[Garden Travel] exit path not found:",
+      character,
+      fromSceneId,
+      "→",
+      toSceneId
+    );
+
+    return false;
+  }
+
+
+  worldState.travel = {
+    fromSceneId,
+    toSceneId,
+
+    phase:
+      "walkingToExit",
+
+    transitUntil:
+      0,
+  };
+
+
+  setGardenCharacterActivity(
+  character,
+  GARDEN_CHARACTER_ACTIVITY
+    .TRAVEL,
+  {
+    fromSceneId,
+    toSceneId,
+  }
+);
+
+
+  runtime.autoState.wasMoving =
+    false;
+
+
+  runtime.setPath(
+    path
+  );
+
+
+  updateGardenCharacterVisibility();
+
+
+  console.log(
+    `[Garden Travel] ${character}: ${fromSceneId} → ${toSceneId}`,
+    {
+      path,
+    }
+  );
+
+
+  return true;
+}
+
+
+/* =========================
+   Test Wrappers
+========================= */
+
+function startChifuyuCourtyardMoonBridgeTravelTest() {
+  return travelGardenCharacter(
+    "chifuyu",
+    "moonBridge"
+  );
+}
+
+
+function startChifuyuMoonBridgeCourtyardTravelTest() {
+  return travelGardenCharacter(
+    "chifuyu",
+    "courtyard"
+  );
+}
+
+
+window.testChifuyuCourtyardMoonBridgeTravel =
+  startChifuyuCourtyardMoonBridgeTravelTest;
+
+
+window.testChifuyuMoonBridgeCourtyardTravel =
+  startChifuyuMoonBridgeCourtyardTravelTest;
+
+
+/*
+  千夏測試
+*/
+window.testChinatsuCourtyardMoonBridgeTravel =
+  () =>
+    travelGardenCharacter(
+      "chinatsu",
+      "moonBridge"
+    );
+
+
+window.testChinatsuMoonBridgeCourtyardTravel =
+  () =>
+    travelGardenCharacter(
+      "chinatsu",
+      "courtyard"
+    );
+
+
+/*
+  正式 API 也先掛出來，
+  方便 Console 測試。
+*/
+window.travelGardenCharacter =
+  travelGardenCharacter;
+
+
+
+/*
+  Console：
+
+  testChifuyuCourtyardMoonBridgeTravel()
+*/
+window.testChifuyuCourtyardMoonBridgeTravel =
+  startChifuyuCourtyardMoonBridgeTravelTest;
+
 
 
 /* =========================
@@ -11069,6 +13137,32 @@ function scheduleNextChinatsuAutoMove(now = performance.now()) {
 }
 
 function pickRandomPointNearChifuyu() {
+  const chifuyuSceneId =
+    gardenCharacterWorldState
+      .chifuyu.sceneId;
+
+  const chinatsuSceneId =
+    gardenCharacterWorldState
+      .chinatsu.sceneId;
+
+
+  /*
+    不在同一個場景時，
+    千夏不能執行「靠近千冬」行為。
+  */
+  if (
+    !chifuyuSceneId ||
+    chifuyuSceneId !==
+      chinatsuSceneId
+  ) {
+    return null;
+  }
+
+
+  const sceneId =
+    chifuyuSceneId;
+
+
   const baseX =
     chifuyuWalkTestState.x;
 
@@ -11077,11 +13171,14 @@ function pickRandomPointNearChifuyu() {
 
 
   const scene =
-    getCurrentGardenScene();
+    getGardenSceneById(
+      sceneId
+    );
 
   if (!scene) {
     return null;
   }
+
 
   const autoTargets =
     scene.autoTargets || [];
@@ -11089,7 +13186,14 @@ function pickRandomPointNearChifuyu() {
 
   let candidates =
     autoTargets
-    .filter((p) => isGardenWalkablePoint(p.x, p.y))
+    .filter(
+  (p) =>
+    isGardenWalkablePointInScene(
+      sceneId,
+      p.x,
+      p.y
+    )
+)
     .map((p) => {
       const dx = p.x - baseX;
       const dy = (p.y - baseY) * 1.35;
@@ -11113,21 +13217,40 @@ function pickRandomPointNearChifuyu() {
     return { x: p.x, y: p.y };
   }
 
-  return pickRandomGardenWalkTarget();
+  return pickRandomGardenWalkTarget(
+  sceneId
+);
 }
 
 function startChinatsuAutoWalkToCompanionTarget() {
+  const sceneId =
+    gardenCharacterWorldState
+      .chinatsu.sceneId;
+
+
+  if (!sceneId) {
+    return false;
+  }
+
+
   const start = {
-    x: chinatsuWalkTestState.x,
-    y: chinatsuWalkTestState.y,
+    x:
+      chinatsuWalkTestState.x,
+
+    y:
+      chinatsuWalkTestState.y,
   };
 
-    const scene =
-    getCurrentGardenScene();
+
+  const scene =
+    getGardenSceneById(
+      sceneId
+    );
 
   if (!scene) {
     return false;
   }
+
 
   const autoTargets =
     scene.autoTargets || [];
@@ -11146,10 +13269,11 @@ function startChinatsuAutoWalkToCompanionTarget() {
   autoTargets
 ) {
     if (
-      !isGardenWalkablePoint(
-        target.x,
-        target.y
-      )
+      !isGardenWalkablePointInScene(
+  sceneId,
+  target.x,
+  target.y
+)
     ) {
       continue;
     }
@@ -11181,10 +13305,11 @@ function startChinatsuAutoWalkToCompanionTarget() {
     }
 
     const path =
-      findGardenPath(
-        start,
-        target
-      );
+  findGardenPath(
+    start,
+    target,
+    sceneId
+  );
 
     if (
       !path ||
@@ -11247,11 +13372,30 @@ function updateChinatsuAutoWalk(now) {
     return;
   }
 
-  if (now < chinatsuAutoWalkState.nextMoveTime) {
-    return;
-  }
+  if (
+  now <
+  chinatsuAutoWalkState
+    .nextMoveTime
+) {
+  return;
+}
 
-  const moved = startChinatsuAutoWalkToCompanionTarget();
+
+/*
+  下一個行動開始前，
+  先低機率判斷是否要跨場景。
+*/
+if (
+  tryStartGardenAutoTravel(
+    "chinatsu"
+  )
+) {
+  return;
+}
+
+
+const moved =
+  startChinatsuAutoWalkToCompanionTarget();
 
   if (!moved) {
     scheduleNextChinatsuAutoMove(now);
@@ -11539,13 +13683,53 @@ function clearGardenChatState() {
   scheduleNextGardenChatCheck(performance.now());
 }
 
-function getGardenNaturalChatAreaForPoint(p) {
-  if (!p) return null;
+function getGardenNaturalChatAreaForPointInScene(
+  sceneId,
+  p
+) {
+  if (
+    !sceneId ||
+    !p
+  ) {
+    return null;
+  }
 
-  const zone = getGardenMoveZoneAt(p.x, p.y);
 
-  for (const area of GARDEN_NATURAL_CHAT_AREAS) {
-    if (area.zone && area.zone !== zone) continue;
+  /*
+    目前 Natural Chat Area
+    只正式設定過 Courtyard。
+
+    Moon Bridge 已經有自己的
+    fixed chatSpots，
+    所以那邊暫時走 Approach Chat。
+  */
+  if (
+    sceneId !==
+    "courtyard"
+  ) {
+    return null;
+  }
+
+
+  const zone =
+    getGardenMoveZoneAtInScene(
+      sceneId,
+      p.x,
+      p.y
+    );
+
+
+  for (
+    const area of
+    GARDEN_NATURAL_CHAT_AREAS
+  ) {
+    if (
+      area.zone &&
+      area.zone !== zone
+    ) {
+      continue;
+    }
+
 
     if (
       p.x >= area.xMin &&
@@ -11557,31 +13741,111 @@ function getGardenNaturalChatAreaForPoint(p) {
     }
   }
 
+
   return null;
+}
+
+
+function getGardenNaturalChatAreaForPoint(
+  p
+) {
+  return getGardenNaturalChatAreaForPointInScene(
+    getGardenSharedCharacterSceneId(),
+    p
+  );
 }
 
 function isPointInsideNaturalChatArea(p) {
   return !!getGardenNaturalChatAreaForPoint(p);
 }
 
-function isGardenChatSpotValid(spot) {
-  if (!spot || !spot.chifuyu || !spot.chinatsu) return false;
-
-  if (!isGardenWalkablePoint(spot.chifuyu.x, spot.chifuyu.y)) return false;
-  if (!isGardenWalkablePoint(spot.chinatsu.x, spot.chinatsu.y)) return false;
-
+function isGardenChatSpotValidInScene(
+  sceneId,
+  spot
+) {
   if (
-    !isGardenChatDistanceValid(spot.chifuyu, spot.chinatsu, {
-      baseMinDistance: spot.baseMinDistance ?? 320,
-      baseMaxDistance: spot.baseMaxDistance ?? 520,
-      maxYDiff: spot.maxYDiff ?? 110,
-      distanceMultiplier: spot.distanceMultiplier ?? 1,
-    })
+    !sceneId ||
+    !spot ||
+    !spot.chifuyu ||
+    !spot.chinatsu
   ) {
     return false;
   }
 
+
+  if (
+    !isGardenWalkablePointInScene(
+      sceneId,
+      spot.chifuyu.x,
+      spot.chifuyu.y
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    !isGardenWalkablePointInScene(
+      sceneId,
+      spot.chinatsu.x,
+      spot.chinatsu.y
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    !isGardenChatDistanceValid(
+      spot.chifuyu,
+      spot.chinatsu,
+      {
+        baseMinDistance:
+          spot.baseMinDistance ??
+          320,
+
+        baseMaxDistance:
+          spot.baseMaxDistance ??
+          520,
+
+        maxYDiff:
+          spot.maxYDiff ??
+          110,
+
+        distanceMultiplier:
+          spot.distanceMultiplier ??
+          1,
+      }
+    )
+  ) {
+    return false;
+  }
+
+
   return true;
+}
+
+
+/*
+  舊名稱保留作 wrapper。
+
+  但 Chat 正式邏輯之後
+  都應該傳明確 sceneId。
+*/
+function isGardenChatSpotValid(
+  spot
+) {
+  const sceneId =
+    getGardenSharedCharacterSceneId();
+
+  if (!sceneId) {
+    return false;
+  }
+
+  return isGardenChatSpotValidInScene(
+    sceneId,
+    spot
+  );
 }
 
 function pickRandomGardenChatSpot() {
@@ -11594,12 +13858,30 @@ function pickRandomGardenChatSpot() {
   return validSpots[Math.floor(Math.random() * validSpots.length)];
 }
 
-function buildChifuyuChatArrivalPath(start, target) {
+function buildChifuyuChatArrivalPath(
+  start,
+  target
+) {
+  /*
+    聊天目前仍然只會在
+    角色所在場景被玩家觀看時啟動。
+
+    但尋路本身已經改成 scene-aware，
+    所以明確使用千冬自己的 sceneId。
+  */
+  const sceneId =
+    gardenCharacterWorldState
+      .chifuyu.sceneId;
+
+  if (!sceneId) {
+    return null;
+  }
+
+
   /*
     先只用便宜的幾何檢查找前置點。
     不要每試一個距離就跑一次完整尋路。
   */
-
   const preferredDistances = [
     70,
     60,
@@ -11612,15 +13894,28 @@ function buildChifuyuChatArrivalPath(start, target) {
 
   let stagingPoint = null;
 
-  for (const distance of preferredDistances) {
+
+  for (
+    const distance of
+    preferredDistances
+  ) {
     const candidate = {
-      x: target.x - target.direction * distance,
-      y: target.y,
+      x:
+        target.x -
+        target.direction *
+          distance,
+
+      y:
+        target.y,
     };
 
-    // 很便宜：只判斷點是否在可走區
+
+    /*
+      使用角色自己的場景判斷。
+    */
     if (
-      !isGardenWalkablePoint(
+      !isGardenWalkablePointInScene(
+        sceneId,
         candidate.x,
         candidate.y
       )
@@ -11628,10 +13923,14 @@ function buildChifuyuChatArrivalPath(start, target) {
       continue;
     }
 
-    // 也比完整尋路便宜很多：
-    // 確認最後一小段能直接走到聊天點
+
+    /*
+      確認最後一小段
+      可以直接走進聊天位置。
+    */
     if (
-      !isGardenSegmentWalkable(
+      !isGardenSegmentWalkableInScene(
+        sceneId,
         candidate,
         target
       )
@@ -11639,20 +13938,35 @@ function buildChifuyuChatArrivalPath(start, target) {
       continue;
     }
 
-    stagingPoint = candidate;
+
+    stagingPoint =
+      candidate;
+
     break;
   }
 
-  /*
-    找到前置點後，才真正尋路一次。
-  */
-  if (stagingPoint) {
-    const pathToStaging =
-      findGardenPath(start, stagingPoint);
 
-    if (pathToStaging) {
+  /*
+    找到前置點後，
+    才真正尋路一次。
+  */
+  if (
+    stagingPoint
+  ) {
+    const pathToStaging =
+      findGardenPath(
+        start,
+        stagingPoint,
+        sceneId
+      );
+
+
+    if (
+      pathToStaging
+    ) {
       return [
         ...pathToStaging,
+
         {
           x: target.x,
           y: target.y,
@@ -11661,83 +13975,172 @@ function buildChifuyuChatArrivalPath(start, target) {
     }
   }
 
+
   /*
     前置點真的走不到時，
     最多再做一次普通尋路當 fallback。
   */
-  return findGardenPath(start, target);
+  return findGardenPath(
+    start,
+    target,
+    sceneId
+  );
 }
 
 
 
-function getGardenChatApproachPlanForSpot(spot) {
-  if (!isGardenChatSpotValid(spot)) return null;
+function getGardenChatApproachPlanForSpot(
+  spot,
+  sceneId
+) {
+  if (
+    !isGardenChatSpotValidInScene(
+      sceneId,
+      spot
+    )
+  ) {
+    return null;
+  }
+
 
   const chifuyuStart = {
-    x: chifuyuWalkTestState.x,
-    y: chifuyuWalkTestState.y,
+    x:
+      chifuyuWalkTestState.x,
+
+    y:
+      chifuyuWalkTestState.y,
   };
+
 
   const chinatsuStart = {
-    x: chinatsuWalkTestState.x,
-    y: chinatsuWalkTestState.y,
+    x:
+      chinatsuWalkTestState.x,
+
+    y:
+      chinatsuWalkTestState.y,
   };
 
+
+  /*
+    千冬的 arrival path
+    本身已經讀角色自己的 sceneId。
+  */
   const chifuyuPath =
-  buildChifuyuChatArrivalPath(
-    chifuyuStart,
-    spot.chifuyu
-  );
+    buildChifuyuChatArrivalPath(
+      chifuyuStart,
+      spot.chifuyu
+    );
 
-const chinatsuPath =
-  findGardenPath(
-    chinatsuStart,
-    spot.chinatsu
-  );
 
-  if (!chifuyuPath || !chinatsuPath) return null;
+  /*
+    千夏這裡明確使用
+    Shared Character Scene。
+  */
+  const chinatsuPath =
+    findGardenPath(
+      chinatsuStart,
+      spot.chinatsu,
+      sceneId
+    );
+
+
+  if (
+    !chifuyuPath ||
+    !chinatsuPath
+  ) {
+    return null;
+  }
+
 
   const chifuyuDistance =
-    getGardenPathDistance(chifuyuStart, chifuyuPath);
+    getGardenPathDistance(
+      chifuyuStart,
+      chifuyuPath
+    );
+
 
   const chinatsuDistance =
-    getGardenPathDistance(chinatsuStart, chinatsuPath);
+    getGardenPathDistance(
+      chinatsuStart,
+      chinatsuPath
+    );
 
-  if (chifuyuDistance > GARDEN_CHAT_APPROACH_MAX_PATH_DISTANCE) return null;
-  if (chinatsuDistance > GARDEN_CHAT_APPROACH_MAX_PATH_DISTANCE) return null;
+
+  if (
+    chifuyuDistance >
+    GARDEN_CHAT_APPROACH_MAX_PATH_DISTANCE
+  ) {
+    return null;
+  }
+
+
+  if (
+    chinatsuDistance >
+    GARDEN_CHAT_APPROACH_MAX_PATH_DISTANCE
+  ) {
+    return null;
+  }
+
 
   return {
     spot,
+
+    sceneId,
+
     chifuyuPath,
     chinatsuPath,
-    totalDistance: chifuyuDistance + chinatsuDistance,
+
+    totalDistance:
+      chifuyuDistance +
+      chinatsuDistance,
   };
 }
 
-function getGardenChatSpotAreaName(spot) {
-  if (!spot || !spot.chifuyu || !spot.chinatsu) {
+function getGardenChatSpotAreaNameInScene(
+  sceneId,
+  spot
+) {
+  if (
+    !sceneId ||
+    !spot ||
+    !spot.chifuyu ||
+    !spot.chinatsu
+  ) {
     return "front";
   }
 
-  const chifuyuZone = getGardenMoveZoneAt(
-    spot.chifuyu.x,
-    spot.chifuyu.y
-  );
 
-  const chinatsuZone = getGardenMoveZoneAt(
-    spot.chinatsu.x,
-    spot.chinatsu.y
-  );
+  const chifuyuZone =
+    getGardenMoveZoneAtInScene(
+      sceneId,
+      spot.chifuyu.x,
+      spot.chifuyu.y
+    );
 
-  // 兩個點都在 far，就視為遠景聊天
-  if (chifuyuZone === "far" && chinatsuZone === "far") {
+
+  const chinatsuZone =
+    getGardenMoveZoneAtInScene(
+      sceneId,
+      spot.chinatsu.x,
+      spot.chinatsu.y
+    );
+
+
+  if (
+    chifuyuZone === "far" &&
+    chinatsuZone === "far"
+  ) {
     return "far";
   }
 
-  const avgY =
-    (spot.chifuyu.y + spot.chinatsu.y) / 2;
 
-  // 上方 ground 視為走廊 / 上庭院
+  const avgY =
+    (
+      spot.chifuyu.y +
+      spot.chinatsu.y
+    ) / 2;
+
+
   if (
     chifuyuZone === "ground" &&
     chinatsuZone === "ground" &&
@@ -11746,7 +14149,21 @@ function getGardenChatSpotAreaName(spot) {
     return "corridor";
   }
 
+
   return "front";
+}
+
+
+function getGardenChatSpotAreaName(
+  spot
+) {
+  const sceneId =
+    getGardenSharedCharacterSceneId();
+
+  return getGardenChatSpotAreaNameInScene(
+    sceneId,
+    spot
+  );
 }
 
 function getGardenChatSpotRoughDistance(spot) {
@@ -11777,92 +14194,163 @@ function getGardenChatSpotRoughDistance(spot) {
   return chifuyuDist + chinatsuDist;
 }
 
-function getGardenChatSpotPickWeight(spot) {
+function getGardenChatSpotPickWeight(
+  spot,
+  sceneId
+) {
   const roughDistance =
-    getGardenChatSpotRoughDistance(spot);
+    getGardenChatSpotRoughDistance(
+      spot
+    );
 
-  /*
-    距離越近越容易抽到，
-    但遠處仍然保有機率，不再像原本 nearest 5 那樣直接被淘汰。
-  */
+
   const distanceWeight =
-    1 / (1 + roughDistance / 900);
+    1 /
+    (
+      1 +
+      roughDistance / 900
+    );
 
-  const area = getGardenChatSpotAreaName(spot);
+
+  const area =
+    getGardenChatSpotAreaNameInScene(
+      sceneId,
+      spot
+    );
+
 
   let areaWeight = 1;
 
-  // 稍微補償遠景，不然因為通常路比較長還是會太少出現
-  if (area === "far") {
+
+  if (
+    area === "far"
+  ) {
     areaWeight = 1.25;
-  } else if (area === "corridor") {
+
+  } else if (
+    area === "corridor"
+  ) {
     areaWeight = 1.1;
   }
 
-  return distanceWeight * areaWeight;
+
+  return (
+    distanceWeight *
+    areaWeight
+  );
 }
 
-function pickWeightedGardenChatSpot(spots) {
-  if (!spots || spots.length === 0) return null;
+function pickWeightedGardenChatSpot(
+  spots,
+  sceneId
+) {
+  if (
+    !spots ||
+    spots.length === 0
+  ) {
+    return null;
+  }
+
 
   let totalWeight = 0;
 
-  const weighted = spots.map((spot) => {
-    const weight =
-      Math.max(0.001, getGardenChatSpotPickWeight(spot));
 
-    totalWeight += weight;
+  const weighted =
+    spots.map((spot) => {
+      const weight =
+        Math.max(
+          0.001,
+          getGardenChatSpotPickWeight(
+            spot,
+            sceneId
+          )
+        );
 
-    return {
-      spot,
-      weight,
-    };
-  });
 
-  let roll = Math.random() * totalWeight;
+      totalWeight +=
+        weight;
 
-  for (const item of weighted) {
+
+      return {
+        spot,
+        weight,
+      };
+    });
+
+
+  let roll =
+    Math.random() *
+    totalWeight;
+
+
+  for (
+    const item of weighted
+  ) {
     roll -= item.weight;
 
-    if (roll <= 0) {
+
+    if (
+      roll <= 0
+    ) {
       return item.spot;
     }
   }
 
-  return weighted[weighted.length - 1].spot;
+
+  return weighted[
+    weighted.length - 1
+  ].spot;
 }
 
 function pickGardenChatApproachPlan() {
+  /*
+    Chat 不再看 Player View。
+
+    直接詢問兩個角色
+    真正共同所在的場景。
+  */
+  const sceneId =
+    getGardenSharedCharacterSceneId();
+
+
+  if (!sceneId) {
+    return null;
+  }
+
+
   const scene =
-    getCurrentGardenScene();
+    getGardenSceneById(
+      sceneId
+    );
+
 
   if (!scene) {
     return null;
   }
 
+
   const chatSpots =
     scene.chatSpots || [];
 
 
-  /*
-    先做便宜的檢查。
-    不要一開始就對所有聊天點各跑兩次 findGardenPath。
-  */
   let remainingSpots =
     chatSpots.filter(
-      isGardenChatSpotValid
+      (spot) =>
+        isGardenChatSpotValidInScene(
+          sceneId,
+          spot
+        )
     );
 
 
-  if (remainingSpots.length === 0) {
+  if (
+    remainingSpots.length ===
+    0
+  ) {
     return null;
   }
 
 
-  /*
-    最多只真正尋路 3 個聊天點。
-    手機端會比原本「所有點全部尋路」輕很多。
-  */
   const maxAttempts =
     Math.min(
       3,
@@ -11877,7 +14365,8 @@ function pickGardenChatApproachPlan() {
   ) {
     const spot =
       pickWeightedGardenChatSpot(
-        remainingSpots
+        remainingSpots,
+        sceneId
       );
 
 
@@ -11888,7 +14377,8 @@ function pickGardenChatApproachPlan() {
 
     const plan =
       getGardenChatApproachPlanForSpot(
-        spot
+        spot,
+        sceneId
       );
 
 
@@ -11897,10 +14387,6 @@ function pickGardenChatApproachPlan() {
     }
 
 
-    /*
-      這個點找不到路，
-      就從候選中移除再試下一個。
-    */
     remainingSpots =
       remainingSpots.filter(
         (candidate) =>
@@ -11935,11 +14421,24 @@ function startGardenChatApproach(now = performance.now()) {
   }
 
   gardenChatState.mode = "approachChat";
-  gardenChatState.approachSpot = plan.spot;
-  gardenChatState.approachStartedAt = now;
-  gardenChatState.currentSpotName = plan.spot.name || "approach";
+gardenChatState.approachSpot = plan.spot;
+gardenChatState.approachStartedAt = now;
+gardenChatState.currentSpotName = plan.spot.name || "approach";
 
-  resetGardenTalkEndFlags();
+
+setGardenPairActivity(
+  GARDEN_CHARACTER_ACTIVITY
+    .CHAT,
+  {
+    phase: "approach",
+
+    sceneId:
+      getGardenSharedCharacterSceneId(),
+  }
+);
+
+
+resetGardenTalkEndFlags();
 
   // 中斷原本自由散步，改走向聊天點
   chifuyuWalkTestState.path = [];
@@ -11968,6 +14467,14 @@ window.testGardenChatApproach = function () {
 
 function cancelGardenChatApproach(now = performance.now()) {
   gardenChatState.mode = "wander";
+
+
+  setGardenPairActivity(
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER
+  );
+
+
   gardenChatState.approachSpot = null;
   gardenChatState.approachStartedAt = 0;
   gardenChatState.currentSpotName = "";
@@ -12215,29 +14722,43 @@ function getDistanceToGardenPolygonEdge(
 }
 
 
-function getGardenFarDarkness(
+function getGardenFarDarknessInScene(
+  sceneId,
   x,
   y
 ) {
+  if (!sceneId) {
+    return 0;
+  }
+
+
   const zone =
-    getGardenMoveZoneAt(
+    getGardenMoveZoneAtInScene(
+      sceneId,
       x,
       y
     );
+
 
   if (zone !== "far") {
     return 0;
   }
 
-  const scene =
-  getCurrentGardenScene();
 
-const farArea =
-  scene?.walkAreas?.far?.[0];
+  const scene =
+    getGardenSceneById(
+      sceneId
+    );
+
+
+  const farArea =
+    scene?.walkAreas?.far?.[0];
+
 
   if (!farArea) {
     return 0;
   }
+
 
   const distance =
     getDistanceToGardenPolygonEdge(
@@ -12246,27 +14767,43 @@ const farArea =
       farArea.points
     );
 
-  /*
-    進入遠景後約 140px，
-    才完全達到遠景暗度。
-  */
+
   const raw =
     clamp01(
       distance / 140
     );
+
 
   return smoothGardenLight(
     raw
   );
 }
 
+/*
+  舊版 View Scene wrapper。
+  給尚未 scene-aware 的舊程式使用。
+*/
+function getGardenFarDarkness(
+  x,
+  y
+) {
+  return getGardenFarDarknessInScene(
+    gardenViewSceneId,
+    x,
+    y
+  );
+}
 
-function getGardenLanternInfluence(
+
+function getGardenLanternInfluenceInScene(
+  sceneId,
   x,
   y
 ) {
   const scene =
-    getCurrentGardenScene();
+    getGardenSceneById(
+      sceneId
+    );
 
   if (!scene) {
     return 0;
@@ -12274,6 +14811,10 @@ function getGardenLanternInfluence(
 
   const lanternLights =
     scene.lanternLights || [];
+
+  // ↓↓↓
+  // 從這裡開始，
+  // 你目前原本的整段函式內容全部保留。
 
 
   let strongestInfluence = 0;
@@ -12403,23 +14944,57 @@ function getGardenLanternInfluence(
 
 
   return strongestInfluence;
+
 }
+
+function getGardenLanternInfluence(
+  x,
+  y
+) {
+  return getGardenLanternInfluenceInScene(
+    gardenViewSceneId,
+    x,
+    y
+  );
+}
+
 
 function updateGardenCharacterNightLighting(
   character,
   spriteEl,
   x,
-  y
+  y,
+  sceneId = null
 ) {
   if (!spriteEl) return;
 
+
+  const characterSceneId =
+    sceneId ||
+    getGardenCharacterSceneId(
+      character
+    );
+
+
+  if (!characterSceneId) {
+    return;
+  }
+
+
+  /*
+    =========================
+    Day / Night
+    =========================
+  */
   const isNight =
     document.body.classList.contains(
       "night-mode"
     );
 
+
   /*
-    白天不做任何特殊 filter 數值。
+    白天：
+    清除所有夜間角色 filter。
   */
   if (!isNight) {
     if (
@@ -12443,106 +15018,119 @@ function updateGardenCharacterNightLighting(
         "--garden-char-hue"
       );
 
+
       gardenCharacterLightCache[
         character
       ] = "day";
     }
 
+
     return;
   }
 
 
+  /*
+    =========================
+    Night Lighting
+    =========================
+  */
+
   const influence =
-    getGardenLanternInfluence(
+    getGardenLanternInfluenceInScene(
+      characterSceneId,
       x,
       y
     );
 
 
-  /*
-    小幅量化。
-
-    只有暖光強度真的有變化時
-    才重新寫 CSS，
-    避免每個 requestAnimationFrame
-    都更新 filter。
-  */
- const level =
-  Math.round(
-    influence * 50
-  ) / 50;
+  const level =
+    Math.round(
+      influence * 50
+    ) / 50;
 
 
-/*
-  先判斷目前角色所在的景深層。
-*/
-const depthLayer =
-  getChifuyuDepthLayerByPosition(
-    x,
-    y
-  );
+  const depthLayer =
+    getGardenDepthLayerByPositionInScene(
+      characterSceneId,
+      x,
+      y
+    );
+
 
   const farDarknessRaw =
-  getGardenFarDarkness(
-    x,
-    y
-  );
-
-/*
-  量化成 0.02 一階，
-  避免走路時每個 pixel
-  都重寫 CSS filter。
-*/
-const farDarkness =
-  Math.round(
-    farDarknessRaw * 50
-  ) / 50;
+    getGardenFarDarknessInScene(
+      characterSceneId,
+      x,
+      y
+    );
 
 
-/*
-  cache 不只記暖光強度，
-  也要記目前是在 far / normal / front...
-*/
-const cacheKey =
-  `${depthLayer}:${level}:${farDarkness}`;
+  const farDarkness =
+    Math.round(
+      farDarknessRaw * 50
+    ) / 50;
 
 
-if (
+  /*
+    Character Scene
+    必須是 cache key 的一部分。
+
+    這樣角色從 courtyard
+    去 moonBridge 時一定會重新計算。
+  */
+  const cacheKey =
+    `${characterSceneId}:${depthLayer}:${level}:${farDarkness}`;
+
+
+  if (
+    gardenCharacterLightCache[
+      character
+    ] === cacheKey
+  ) {
+    return;
+  }
+
+
   gardenCharacterLightCache[
     character
-  ] === cacheKey
-) {
-  return;
-}
-
-gardenCharacterLightCache[
-  character
-] = cacheKey;
+  ] = cacheKey;
 
 
-/*
-  夜間基礎亮度
-  + 燈籠暖光
-*/
-let brightness =
-  0.65 +
-  level * 0.18 -
-  farDarkness * 0.28
+  /*
+    夜間基礎亮度
+    + 燈籠暖光
+    + 遠景暗度
+  */
+  let brightness =
+    0.65 +
+    level * 0.18 -
+    farDarkness * 0.28;
 
 
-const saturate =
-  1.08 +
-  level * 0.42;
-
-const sepia =
-  level * 0.3;
-
-const hue =
-  level * -4;
+  let saturate =
+    1.08 +
+    level * 0.42;
 
 
+  let sepia =
+    level * 0.3;
 
 
+  let hue =
+    level * -4;
+
+
+  /*
+    =========================
+    Moon Bridge Night Tone
+    =========================
+  */
+  if (
+    characterSceneId ===
+    "moonBridge"
+  ) {
+    brightness *= 1.18;
+  }
 
 
   spriteEl.style.setProperty(
@@ -12550,15 +15138,18 @@ const hue =
     brightness.toFixed(3)
   );
 
+
   spriteEl.style.setProperty(
     "--garden-char-saturate",
     saturate.toFixed(3)
   );
 
+
   spriteEl.style.setProperty(
     "--garden-char-sepia",
     sepia.toFixed(3)
   );
+
 
   spriteEl.style.setProperty(
     "--garden-char-hue",
@@ -12592,7 +15183,20 @@ function startGardenChat(
   gardenChatState.mode =
   "chatPreparing";
 
-  resetGardenTalkEndFlags();
+
+setGardenPairActivity(
+  GARDEN_CHARACTER_ACTIVITY
+    .CHAT,
+  {
+    phase: "talk",
+
+    sceneId:
+      getGardenSharedCharacterSceneId(),
+  }
+);
+
+
+resetGardenTalkEndFlags();
 
   chifuyuWalkTestState.path = [];
   chifuyuWalkTestState.isMoving = false;
@@ -12668,7 +15272,15 @@ function startGardenChatAtRandomSpot(now = performance.now()) {
 
 function endGardenChat(now = performance.now()) {
   gardenChatState.mode = "wander";
-gardenChatState.targetLoops = 0;
+
+
+  setGardenPairActivity(
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER
+  );
+
+
+  gardenChatState.targetLoops = 0;
 
 gardenChatState.approachSpot = null;
 gardenChatState.approachStartedAt = 0;
@@ -12699,47 +15311,117 @@ gardenChatState.currentSpotName = "";
 }
 
 function canStartNaturalGardenChat() {
-  if (gardenChatState.mode !== "wander") return false;
+  if (
+    gardenChatState.mode !==
+    "wander"
+  ) {
+    return false;
+  }
 
-  if (chifuyuWalkTestState.isMoving) return false;
-  if (chinatsuWalkTestState.isMoving) return false;
 
-  const chifuyuPoint = {
-    x: chifuyuWalkTestState.x,
-    y: chifuyuWalkTestState.y,
-  };
+  const sceneId =
+    getGardenSharedCharacterSceneId();
 
-  const chinatsuPoint = {
-    x: chinatsuWalkTestState.x,
-    y: chinatsuWalkTestState.y,
-  };
 
-  const chifuyuArea = getGardenNaturalChatAreaForPoint(chifuyuPoint);
-  const chinatsuArea = getGardenNaturalChatAreaForPoint(chinatsuPoint);
+  if (!sceneId) {
+    return false;
+  }
 
-  // 兩人都必須在可聊天區
-  if (!chifuyuArea || !chinatsuArea) return false;
-
-  // 避免一個人在遠景、一個人在前景卻開始聊天
-  if (chifuyuArea.name !== chinatsuArea.name) return false;
 
   if (
-  !isGardenChatDistanceValid(chifuyuPoint, chinatsuPoint, {
-    baseMinDistance:
-      chifuyuArea.baseMinDistance ?? GARDEN_NATURAL_CHAT_MIN_DISTANCE,
+    chifuyuWalkTestState
+      .isMoving
+  ) {
+    return false;
+  }
 
-    baseMaxDistance:
-      chifuyuArea.baseMaxDistance ?? GARDEN_NATURAL_CHAT_MAX_DISTANCE,
 
-    maxYDiff:
-      chifuyuArea.maxYDiff ?? GARDEN_NATURAL_CHAT_MAX_Y_DIFF,
+  if (
+    chinatsuWalkTestState
+      .isMoving
+  ) {
+    return false;
+  }
 
-    distanceMultiplier:
-      chifuyuArea.distanceMultiplier ?? 1,
-  })
-) {
-  return false;
-}
+
+  const chifuyuPoint = {
+    x:
+      chifuyuWalkTestState.x,
+
+    y:
+      chifuyuWalkTestState.y,
+  };
+
+
+  const chinatsuPoint = {
+    x:
+      chinatsuWalkTestState.x,
+
+    y:
+      chinatsuWalkTestState.y,
+  };
+
+
+  const chifuyuArea =
+    getGardenNaturalChatAreaForPointInScene(
+      sceneId,
+      chifuyuPoint
+    );
+
+
+  const chinatsuArea =
+    getGardenNaturalChatAreaForPointInScene(
+      sceneId,
+      chinatsuPoint
+    );
+
+
+  if (
+    !chifuyuArea ||
+    !chinatsuArea
+  ) {
+    return false;
+  }
+
+
+  if (
+    chifuyuArea.name !==
+    chinatsuArea.name
+  ) {
+    return false;
+  }
+
+
+  if (
+    !isGardenChatDistanceValid(
+      chifuyuPoint,
+      chinatsuPoint,
+      {
+        baseMinDistance:
+          chifuyuArea
+            .baseMinDistance ??
+          GARDEN_NATURAL_CHAT_MIN_DISTANCE,
+
+        baseMaxDistance:
+          chifuyuArea
+            .baseMaxDistance ??
+          GARDEN_NATURAL_CHAT_MAX_DISTANCE,
+
+        maxYDiff:
+          chifuyuArea
+            .maxYDiff ??
+          GARDEN_NATURAL_CHAT_MAX_Y_DIFF,
+
+        distanceMultiplier:
+          chifuyuArea
+            .distanceMultiplier ??
+          1,
+      }
+    )
+  ) {
+    return false;
+  }
+
 
   return true;
 }
@@ -12889,23 +15571,47 @@ if (
 
 
 function planGardenInitialMode() {
-  if (gardenPendingInitialMode) {
+  /*
+    Garden World 已經存在。
+
+    重新進入只是重新打開 View，
+    不再重新抽「初次進場 Chat」。
+  */
+  if (
+    gardenWorldInitialized
+  ) {
+    gardenPendingInitialMode =
+      null;
+
+
+    if (
+      gardenChatState.mode ===
+      "chat"
+    ) {
+      return "chat";
+    }
+
+
+    return "wander";
+  }
+
+
+  /*
+    第一次真正建立 Garden World。
+  */
+  if (
+    gardenPendingInitialMode
+  ) {
     return gardenPendingInitialMode;
   }
 
-  /*
-    所有裝置都先決定這次進 Garden
-    是 Chat 還是 Wander。
 
-    這樣拉門關閉期間，
-    只需要準備真正會立刻用到的
-    兩張角色 spritesheet。
-  */
   gardenPendingInitialMode =
     Math.random() <
     GARDEN_INITIAL_CHAT_CHANCE
       ? "chat"
       : "wander";
+
 
   return gardenPendingInitialMode;
 }
@@ -12957,14 +15663,37 @@ function setupGardenInitialMode(
 
 
 function renderChinatsuWalkTest() {
-  if (!chinatsuWalkTestWrap) return;
+  if (!chinatsuWalkTestWrap) {
+    return;
+  }
 
-  const depthLayer = getChifuyuDepthLayerByPosition(
-    chinatsuWalkTestState.x,
-    chinatsuWalkTestState.y
+
+  const sceneId =
+    gardenCharacterWorldState
+      .chinatsu.sceneId;
+
+
+  if (
+    !sceneId ||
+    sceneId !==
+      gardenViewSceneId
+  ) {
+    return;
+  }
+
+
+  const depthLayer =
+    getGardenDepthLayerByPositionInScene(
+      sceneId,
+      chinatsuWalkTestState.x,
+      chinatsuWalkTestState.y
+    );
+
+
+  moveChinatsuToDepthLayer(
+    depthLayer
   );
 
-  moveChinatsuToDepthLayer(depthLayer);
 
   const facingScale =
     chinatsuWalkTestState.direction === 1
@@ -12981,11 +15710,12 @@ function renderChinatsuWalkTest() {
 
   chinatsuWalkTestWrap.style.zIndex = Math.round(chinatsuWalkTestState.y);
 
-  updateGardenCharacterNightLighting(
+ updateGardenCharacterNightLighting(
   "chinatsu",
   chinatsuWalkTest,
   chinatsuWalkTestState.x,
-  chinatsuWalkTestState.y
+  chinatsuWalkTestState.y,
+  sceneId
 );
 
 }
@@ -12998,7 +15728,217 @@ function renderChinatsuWalkTest() {
 
 const CHIFUYU_AUTO_WALK_ENABLED = true;
 
+/*
+  =========================
+  Garden Auto Travel Test
+  =========================
 
+  暫時讓角色在自由散步期間，
+  偶爾自行決定前往其他場景。
+
+  之後正式 Schedule 完成後，
+  可以直接改成 false，
+  或整套交給日程系統接管。
+*/
+
+const GARDEN_AUTO_TRAVEL_ENABLED =
+  true;
+
+
+/*
+  每次角色「準備決定下一個行動」時，
+  有 12% 機率嘗試跨場景。
+
+  不是每一幀抽，
+  所以不會瘋狂切場景。
+*/
+const GARDEN_AUTO_TRAVEL_CHANCE =
+  0.12;
+
+
+function getGardenAutoTravelTargets(
+  character
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  if (
+    !worldState ||
+    !worldState.sceneId
+  ) {
+    return [];
+  }
+
+
+  const fromSceneId =
+    worldState.sceneId;
+
+
+  const scene =
+    getGardenSceneById(
+      fromSceneId
+    );
+
+
+  if (!scene) {
+    return [];
+  }
+
+
+  const exits =
+    scene.exits || {};
+
+
+  const targets =
+    Object.values(
+      exits
+    )
+      .map(
+        (exit) =>
+          exit?.targetSceneId ||
+          null
+      )
+      .filter(Boolean);
+
+
+  /*
+    去掉重複場景，
+    並確認正式 Travel Route
+    真的存在。
+  */
+  return [
+    ...new Set(targets),
+  ].filter(
+    (toSceneId) =>
+      toSceneId !==
+        fromSceneId &&
+      !!getGardenCharacterTravelRoute(
+        fromSceneId,
+        toSceneId
+      )
+  );
+}
+
+
+function tryStartGardenAutoTravel(
+  character
+) {
+  if (
+    !GARDEN_AUTO_TRAVEL_ENABLED
+  ) {
+    return false;
+  }
+
+
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  if (!worldState) {
+    return false;
+  }
+
+
+  /*
+    只有真正處於自由散步狀態
+    才可以自己決定旅行。
+  */
+  if (
+    worldState.activity !==
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER
+  ) {
+    return false;
+  }
+
+
+  if (
+    worldState.travel
+  ) {
+    return false;
+  }
+
+
+  /*
+    測試階段先限制：
+    一次只讓一人自動開始跨場景。
+
+    Console 手動指令仍然可以
+    測兩人同時旅行。
+  */
+  if (
+    isAnyGardenCharacterTraveling()
+  ) {
+    return false;
+  }
+
+
+  /*
+    聊天／靠近聊天期間
+    不能突然跑去別的場景。
+  */
+  if (
+    gardenChatState.mode !==
+    "wander"
+  ) {
+    return false;
+  }
+
+
+  const targets =
+    getGardenAutoTravelTargets(
+      character
+    );
+
+
+  if (
+    targets.length === 0
+  ) {
+    return false;
+  }
+
+
+  /*
+    真正的低機率判定。
+  */
+  if (
+    Math.random() >=
+    GARDEN_AUTO_TRAVEL_CHANCE
+  ) {
+    return false;
+  }
+
+
+  const toSceneId =
+    targets[
+      Math.floor(
+        Math.random() *
+        targets.length
+      )
+    ];
+
+
+  const started =
+    travelGardenCharacter(
+      character,
+      toSceneId
+    );
+
+
+  if (started) {
+    console.log(
+      `[Garden Auto Travel] ${character} decided to travel → ${toSceneId}`
+    );
+  }
+
+
+  return started;
+}
 
 // 停下來多久後再走下一段
 const CHIFUYU_AUTO_IDLE_MIN_MS = 3500;
@@ -13058,13 +15998,25 @@ function pickRandomPointInGardenArea(area) {
   return null;
 }
 
-function pickRandomGardenWalkTarget() {
+function pickRandomGardenWalkTarget(
+  sceneId =
+    gardenCharacterWorldState
+      .chifuyu.sceneId
+) {
+  if (!sceneId) {
+    return null;
+  }
+
+
   const scene =
-    getCurrentGardenScene();
+    getGardenSceneById(
+      sceneId
+    );
 
   if (!scene) {
     return null;
   }
+
 
   const autoTargets =
     scene.autoTargets || [];
@@ -13076,34 +16028,39 @@ function pickRandomGardenWalkTarget() {
 
 
   let pool =
-    autoTargets.filter((p) => {
-      if (useFar) {
-        return p.zone === "far";
-      }
+    autoTargets.filter(
+      (p) => {
+        if (useFar) {
+          return (
+            p.zone === "far"
+          );
+        }
 
-      return p.zone === "ground";
-    });
+        return (
+          p.zone === "ground"
+        );
+      }
+    );
 
 
   pool = pool.filter(
     (p) =>
-      isGardenWalkablePoint(
+      isGardenWalkablePointInScene(
+        sceneId,
         p.x,
         p.y
       )
   );
 
 
-  /*
-    如果目前選中的 zone
-    沒有任何可用點，
-    就從全場景找。
-  */
-  if (pool.length === 0) {
+  if (
+    pool.length === 0
+  ) {
     pool =
       autoTargets.filter(
         (p) =>
-          isGardenWalkablePoint(
+          isGardenWalkablePointInScene(
+            sceneId,
             p.x,
             p.y
           )
@@ -13111,7 +16068,9 @@ function pickRandomGardenWalkTarget() {
   }
 
 
-  if (pool.length === 0) {
+  if (
+    pool.length === 0
+  ) {
     return null;
   }
 
@@ -13133,13 +16092,28 @@ function pickRandomGardenWalkTarget() {
 }
 
 function startChifuyuAutoWalkToRandomTarget() {
+
+const sceneId =
+  gardenCharacterWorldState
+    .chifuyu.sceneId;
+
+if (!sceneId) {
+  return false;
+}
+
+
+
+
   const start = {
     x: chifuyuWalkTestState.x,
     y: chifuyuWalkTestState.y,
   };
 
   for (let i = 0; i < CHIFUYU_AUTO_PICK_RETRY; i++) {
-    const target = pickRandomGardenWalkTarget();
+    const target =
+  pickRandomGardenWalkTarget(
+    sceneId
+  );
     if (!target) continue;
 
     const dx = target.x - start.x;
@@ -13152,7 +16126,12 @@ if (dist < 140) continue;
 // 先用直線距離粗略排除太遠目標，避免浪費尋路
 if (dist > CHIFUYU_AUTO_WALK_MAX_DISTANCE * 1.15) continue;
 
-    const path = findGardenPath(start, target);
+   const path =
+  findGardenPath(
+    start,
+    target,
+    sceneId
+  );
 if (!path || path.length === 0) continue;
 
 const pathDistance = getGardenPathDistance(start, path);
@@ -13188,11 +16167,30 @@ function updateChifuyuAutoWalk(now) {
   }
 
   // 還沒到下一次移動時間
-  if (now < chifuyuAutoWalkState.nextMoveTime) {
-    return;
-  }
+  if (
+  now <
+  chifuyuAutoWalkState
+    .nextMoveTime
+) {
+  return;
+}
 
-  const moved = startChifuyuAutoWalkToRandomTarget();
+
+/*
+  下一個行動開始前，
+  先低機率判斷是否要跨場景。
+*/
+if (
+  tryStartGardenAutoTravel(
+    "chifuyu"
+  )
+) {
+  return;
+}
+
+
+const moved =
+  startChifuyuAutoWalkToRandomTarget();
 
   // 無論成功或失敗，都先安排下一次，避免每一幀狂抽
   if (!moved) {
@@ -13318,12 +16316,36 @@ function updateChifuyuWalkPosition(deltaMs) {
 
 
 function renderChifuyuWalkTest() {
-  if (!chifuyuWalkTestWrap) return;
+  if (!chifuyuWalkTestWrap) {
+    return;
+  }
 
-  const depthLayer = getChifuyuDepthLayerByPosition(
-    chifuyuWalkTestState.x,
-    chifuyuWalkTestState.y
-  );
+
+  const sceneId =
+    gardenCharacterWorldState
+      .chifuyu.sceneId;
+
+
+  /*
+    World State 照樣更新，
+    但角色不在玩家目前看的場景時，
+    完全不做 DOM render。
+  */
+  if (
+    !sceneId ||
+    sceneId !==
+      gardenViewSceneId
+  ) {
+    return;
+  }
+
+
+  const depthLayer =
+    getGardenDepthLayerByPositionInScene(
+      sceneId,
+      chifuyuWalkTestState.x,
+      chifuyuWalkTestState.y
+    );
 
   moveChifuyuToDepthLayer(depthLayer);
 
@@ -13361,7 +16383,8 @@ updateGardenCharacterNightLighting(
   "chifuyu",
   chifuyuWalkTest,
   chifuyuWalkTestState.x,
-  chifuyuWalkTestState.y
+  chifuyuWalkTestState.y,
+  sceneId
 );
 
 }
@@ -13451,19 +16474,87 @@ function chifuyuWalkMoveLoop(now) {
   // 避免切頁、轉場、手機瞬間卡頓後，下一幀一次補太多造成角色跳動
   const deltaMs = Math.min(rawDeltaMs, 50);
 
-  // 先更新兩人的移動位置
-  updateChifuyuWalkPosition(deltaMs);
-  updateChinatsuWalkPosition(deltaMs);
 
-  // 先判斷聊天事件。
-  // 這樣如果這一幀抽到合流聊天，就不會先被自動散步搶走。
-  updateGardenChatSystem(now);
+/*
+  =========================
+  Character World Update
+  =========================
 
-  // 聊天 / 合流聊天期間，不允許自由散步改路線
-  if (!isGardenChatBlockingWalk()) {
-    updateChifuyuAutoWalk(now);
-    updateChinatsuAutoWalk(now);
+  角色移動本身不再依賴玩家正在看的場景。
+
+  即使玩家正在看另一張場景，
+  已經存在的 path 仍然繼續走。
+*/
+updateChifuyuWalkPosition(
+  deltaMs
+);
+
+updateChinatsuWalkPosition(
+  deltaMs
+);
+
+
+/*
+  =========================
+  Independent Character Travel
+  =========================
+*/
+
+updateGardenCharacterTravel(
+  "chifuyu",
+  now
+);
+
+updateGardenCharacterTravel(
+  "chinatsu",
+  now
+);
+
+
+const sharedChatSceneId =
+  getGardenSharedCharacterSceneId();
+
+
+/*
+  只要兩人在同一個 World Scene，
+  Chat 就能正常運作。
+
+  玩家鏡頭在哪裡完全無關。
+*/
+if (
+  sharedChatSceneId
+) {
+  updateGardenChatSystem(
+    now
+  );
+}
+
+
+if (
+  gardenChatState.mode ===
+    "wander"
+) {
+  if (
+    !isGardenCharacterTraveling(
+      "chifuyu"
+    )
+  ) {
+    updateChifuyuAutoWalk(
+      now
+    );
   }
+
+
+  if (
+    !isGardenCharacterTraveling(
+      "chinatsu"
+    )
+  ) {
+    updateChinatsuAutoWalk(
+      now
+    );
+  }
+}
 
   // 千冬動畫
   if (isGardenChatting()) {
@@ -13496,6 +16587,12 @@ function chifuyuWalkMoveLoop(now) {
 renderChifuyuWalkTest();
 renderChinatsuWalkTest();
 
+/*
+  根據 Character World State
+  與 Player View 更新顯示。
+*/
+updateGardenCharacterVisibility();
+
 
 chifuyuWalkMoveFrame =
   requestAnimationFrame(
@@ -13503,7 +16600,22 @@ chifuyuWalkMoveFrame =
   );
 }
 
-let chifuyuWalkMoveFrame = null;
+
+
+
+/*
+  Garden World 只初始化一次。
+
+  回 Menu 再進 Garden 時，
+  不重新生成角色位置、
+  不重新同步角色 sceneId。
+*/
+let gardenWorldInitialized =
+  false;
+
+
+let chifuyuWalkMoveFrame =
+  null;
 
 function startChifuyuWalkMoveTest() {
   if (chifuyuWalkMoveFrame) return;
@@ -13513,83 +16625,1010 @@ function startChifuyuWalkMoveTest() {
 }
 
 function stopChifuyuWalkMoveTest() {
-if (typeof clearGardenChatState === "function") {
-  clearGardenChatState();
-}
+  /*
+    離開 Garden 時，
+    只停止 requestAnimationFrame。
 
-  if (chifuyuWalkMoveFrame) {
-    cancelAnimationFrame(chifuyuWalkMoveFrame);
-    chifuyuWalkMoveFrame = null;
-  }
+    不再修改：
+    - sceneId
+    - x / y
+    - path
+    - isMoving
+    - travel
+    - chat state
+    - animation state
 
-  chifuyuWalkTestState.path = [];
-  chifuyuWalkTestState.isMoving = false;
+    這些都屬於 Garden World State，
+    不是畫面生命週期。
+  */
+  if (
+    chifuyuWalkMoveFrame
+  ) {
+    cancelAnimationFrame(
+      chifuyuWalkMoveFrame
+    );
 
-  chinatsuWalkTestState.path = [];
-  chinatsuWalkTestState.isMoving = false;
-
-  if (typeof setChifuyuAnimationMode === "function") {
-    setChifuyuAnimationMode("idle", true);
-  }
-
-  if (typeof setChinatsuAnimationMode === "function") {
-    setChinatsuAnimationMode("idle", true);
+    chifuyuWalkMoveFrame =
+      null;
   }
 }
 
 function initGardenScreen() {
-  const now = performance.now();
+  const now =
+    performance.now();
 
-  chifuyuWalkTestState.lastTime = now;
 
-  const initialMode = setupGardenInitialMode(now);
+  /*
+    避免從 Menu 回來之後，
+    第一幀吃到很大的 delta。
+  */
+  chifuyuWalkTestState.lastTime =
+    now;
 
-  if (initialMode !== "chat") {
-    // 每次進入庭院時，重新決定兩人的初始位置
-    randomizeGardenCharacterStartPositions();
 
-    // 防呆：如果千冬抽到 blocked，就移到安全起點
-    if (!isGardenWalkablePoint(chifuyuWalkTestState.x, chifuyuWalkTestState.y)) {
-      chifuyuWalkTestState.x = 600;
-      chifuyuWalkTestState.y = 1725;
-      chifuyuWalkTestState.path = [];
-      chifuyuWalkTestState.isMoving = false;
+  let initialMode =
+    "wander";
+
+
+  /* =========================
+     First Garden Initialization
+  ========================= */
+
+  if (
+    !gardenWorldInitialized
+  ) {
+    /*
+      只有第一次進 Garden
+      才允許產生初始 Chat / Wander。
+    */
+    initialMode =
+      setupGardenInitialMode(
+        now
+      );
+
+
+    /*
+      如果第一次不是直接聊天，
+      才隨機生成初始站位。
+    */
+    if (
+      initialMode !==
+      "chat"
+    ) {
+      randomizeGardenCharacterStartPositions();
+
+
+      /*
+        千冬安全位置檢查。
+      */
+      if (
+        !isGardenWalkablePointInScene(
+          gardenViewSceneId,
+          chifuyuWalkTestState.x,
+          chifuyuWalkTestState.y
+        )
+      ) {
+        chifuyuWalkTestState.x =
+          600;
+
+        chifuyuWalkTestState.y =
+          1725;
+
+        chifuyuWalkTestState.path =
+          [];
+
+        chifuyuWalkTestState.isMoving =
+          false;
+      }
+
+
+      /*
+        千夏安全位置檢查。
+      */
+      if (
+        !isGardenWalkablePointInScene(
+          gardenViewSceneId,
+          chinatsuWalkTestState.x,
+          chinatsuWalkTestState.y
+        )
+      ) {
+        chinatsuWalkTestState.x =
+          430;
+
+        chinatsuWalkTestState.y =
+          1680;
+
+        chinatsuWalkTestState.path =
+          [];
+
+        chinatsuWalkTestState.isMoving =
+          false;
+      }
+
+
+      setChifuyuAnimationMode(
+        "idle",
+        true
+      );
+
+
+      setChinatsuAnimationMode(
+        "idle",
+        true
+      );
+
+
+      resetChifuyuAutoWalk();
+
+      resetChinatsuAutoWalk();
     }
 
-    // 防呆：如果千夏抽到 blocked，就移到安全起點附近
-    if (!isGardenWalkablePoint(chinatsuWalkTestState.x, chinatsuWalkTestState.y)) {
-      chinatsuWalkTestState.x = 430;
-      chinatsuWalkTestState.y = 1680;
-      chinatsuWalkTestState.path = [];
-      chinatsuWalkTestState.isMoving = false;
-    }
 
-    setChifuyuAnimationMode("idle", true);
-    setChinatsuAnimationMode("idle", true);
+    /*
+      只有 World 第一次建立時，
+      才設定角色初始場景。
 
-    resetChifuyuAutoWalk();
-    resetChinatsuAutoWalk();
+      之後永遠不再由 Player View
+      覆蓋角色 sceneId。
+    */
+    gardenCharacterWorldState
+      .chifuyu.sceneId =
+        gardenViewSceneId;
+
+
+    gardenCharacterWorldState
+      .chinatsu.sceneId =
+        gardenViewSceneId;
+
+
+    gardenWorldInitialized =
+      true;
   }
 
+
+  /* =========================
+     Resume Existing Garden World
+  ========================= */
+
+  else {
+    /*
+      不呼叫：
+      setupGardenInitialMode()
+      randomizeGardenCharacterStartPositions()
+
+      不修改：
+      sceneId
+      x / y
+      path
+      travel
+      chat
+    */
+
+    initialMode =
+      gardenChatState.mode ===
+        "chat"
+        ? "chat"
+        : "wander";
+  }
+
+
+  /* =========================
+     Restore Player View
+  ========================= */
+
+  /*
+    玩家 View 本身保留最後的位置。
+  */
+  if (
+    gardenScreen
+  ) {
+    gardenScreen.classList.toggle(
+      "moon-bridge-active",
+      gardenViewSceneId ===
+        "moonBridge"
+    );
+  }
+
+
+  /*
+    場景自己的動畫屬於 Player View，
+    所以重新進 Garden 時要恢復。
+  */
+  if (
+    gardenViewSceneId ===
+      "moonBridge"
+  ) {
+    startMoonBridgeClouds();
+  } else {
+    stopMoonBridgeClouds();
+  }
+
+
+  /*
+    根據：
+    character.sceneId
+    vs
+    gardenViewSceneId
+
+    恢復各角色 visibility。
+  */
+  updateGardenCharacterVisibility();
+
+
   renderChifuyuWalkTest();
+
   renderChinatsuWalkTest();
+
 
   drawGardenWalkDebug();
 
+
+  /*
+    從保存的 World State
+    繼續模擬。
+  */
   startChifuyuWalkMoveTest();
 
-return initialMode;
+
+  return initialMode;
 }
 
 // 自由移動模式：不再讓玩家點擊控制千冬
 // if (gardenScreen) {
 //   gardenScreen.addEventListener("pointerdown", handleGardenPointerDown);
 // }
+
+
+
+/* =========================
+   Moon Bridge Movement Config
+========================= */
+
+
+/* =========================
+   Moon Bridge Clouds
+========================= */
+
+const MOON_BRIDGE_CLOUD_MIN_Y = -60;
+const MOON_BRIDGE_CLOUD_MAX_Y = 200;
+
+const MOON_BRIDGE_CLOUD_PROFILES = [
+  {
+    widthMin: 480,
+    widthMax: 540,
+
+    durationMin: 22000,
+    durationMax: 28000,
+  },
+
+  {
+    widthMin: 530,
+    widthMax: 600,
+
+    durationMin: 26000,
+    durationMax: 33000,
+  },
+
+  {
+    widthMin: 590,
+    widthMax: 670,
+
+    durationMin: 30000,
+    durationMax: 38000,
+  },
+];
+
+
+
+
+/*
+  兩朵雲如果同時存在，
+  高度至少差這麼多。
+*/
+const MOON_BRIDGE_CLOUD_ACTIVE_Y_GAP =
+  110;
+
+const MOON_BRIDGE_CLOUD_LAST_Y_GAP =
+  70;
+
+
+function getMoonBridgeCloudSpawnDelay() {
+  const cloudEls =
+    getMoonBridgeCloudElements();
+
+  const activeCount =
+    cloudEls.filter((el) =>
+      el.classList.contains(
+        "is-moving"
+      )
+    ).length;
+
+
+  let min;
+  let max;
+
+
+  /*
+    天空完全沒有雲：
+    不要空太久。
+  */
+  if (activeCount === 0) {
+    min = 2200;
+    max = 5200;
+  }
+
+  /*
+    已經有一朵：
+    最自然的主要狀態。
+  */
+  else if (activeCount === 1) {
+    min = 4000;
+    max = 8500;
+  }
+
+  /*
+    已經有兩朵以上：
+    讓天空喘一下，
+    不要立刻再塞第三朵。
+  */
+  else {
+    min = 7000;
+    max = 13000;
+  }
+
+
+  let delay =
+    randomMoonBridgeCloudNumber(
+      min,
+      max
+    );
+
+
+  /*
+    約 18% 機率出現額外空窗。
+
+    這個就是打破
+    「每隔幾秒固定來一組」
+    的關鍵。
+  */
+  if (Math.random() < 0.18) {
+    delay +=
+      randomMoonBridgeCloudNumber(
+        2500,
+        6500
+      );
+  }
+
+
+  return delay;
+}
+
+
+
+/*
+  下一朵雲出現間隔。
+*/
+const MOON_BRIDGE_CLOUD_SPAWN_MIN_MS =
+  4000;
+
+const MOON_BRIDGE_CLOUD_SPAWN_MAX_MS =
+  6500;
+
+
+/*
+  單朵雲從右走到左的時間。
+*/
+const MOON_BRIDGE_CLOUD_DURATION_MIN_MS =
+  18000;
+
+const MOON_BRIDGE_CLOUD_DURATION_MAX_MS =
+  26000;
+
+
+let moonBridgeCloudTimer = null;
+
+let moonBridgeCloudRunning =
+  false;
+
+let moonBridgeLastCloudIndex =
+  -1;
+
+let moonBridgeLastCloudY =
+  null;
+
+
+function randomMoonBridgeCloudNumber(
+  min,
+  max
+) {
+  return (
+    min +
+    Math.random() *
+      (max - min)
+  );
+}
+
+function getMoonBridgeCloudElements() {
+  return [
+    document.querySelector(
+      ".moon-bridge-cloud-01"
+    ),
+
+    document.querySelector(
+      ".moon-bridge-cloud-02"
+    ),
+
+    document.querySelector(
+      ".moon-bridge-cloud-03"
+    ),
+  ].filter(Boolean);
+}
+
+function pickMoonBridgeCloudY(
+  cloudEls
+) {
+  const activeYs =
+    cloudEls
+      .filter((el) =>
+        el.classList.contains(
+          "is-moving"
+        )
+      )
+      .map((el) =>
+        Number(
+          el.dataset.cloudY
+        )
+      )
+      .filter(
+        Number.isFinite
+      );
+
+
+  /*
+    最多嘗試 12 次。
+
+    避免：
+    - 和目前畫面中的雲太近
+    - 和上一朵的位置幾乎一樣
+  */
+  for (
+    let i = 0;
+    i < 12;
+    i++
+  ) {
+    const y =
+      randomMoonBridgeCloudNumber(
+        MOON_BRIDGE_CLOUD_MIN_Y,
+        MOON_BRIDGE_CLOUD_MAX_Y
+      );
+
+
+    const tooCloseToActive =
+  activeYs.some(
+    (otherY) =>
+      Math.abs(
+        y - otherY
+      ) <
+      MOON_BRIDGE_CLOUD_ACTIVE_Y_GAP
+  );
+
+
+    const tooCloseToLast =
+  Number.isFinite(
+    moonBridgeLastCloudY
+  ) &&
+  Math.abs(
+    y -
+    moonBridgeLastCloudY
+  ) <
+    MOON_BRIDGE_CLOUD_LAST_Y_GAP;
+
+
+    if (
+      !tooCloseToActive &&
+      !tooCloseToLast
+    ) {
+      return y;
+    }
+  }
+
+
+  /*
+    如果天空剛好塞得太滿，
+    這次乾脆不生雲。
+
+    比硬塞一朵重疊的更自然。
+  */
+  return null;
+}
+
+
+function pickMoonBridgeCloudElement(
+  cloudEls
+) {
+  const available =
+    cloudEls
+      .map(
+        (el, index) => ({
+          el,
+          index,
+        })
+      )
+      .filter(
+        (item) =>
+          !item.el.classList.contains(
+            "is-moving"
+          ) &&
+          item.index !==
+            moonBridgeLastCloudIndex
+      );
+
+
+  if (
+    available.length === 0
+  ) {
+    return null;
+  }
+
+
+  const picked =
+    available[
+      Math.floor(
+        Math.random() *
+        available.length
+      )
+    ];
+
+
+  return picked;
+}
+
+
+function spawnMoonBridgeCloud() {
+  if (
+    !moonBridgeCloudRunning
+  ) {
+    return;
+  }
+
+
+  if (
+    gardenViewSceneId !==
+    "moonBridge"
+  ) {
+    return;
+  }
+
+
+  const cloudEls =
+    getMoonBridgeCloudElements();
+
+
+  const picked =
+    pickMoonBridgeCloudElement(
+      cloudEls
+    );
+
+
+  if (!picked) {
+    return;
+  }
+
+
+  const y =
+    pickMoonBridgeCloudY(
+      cloudEls
+    );
+
+
+  if (y === null) {
+    return;
+  }
+
+
+  const {
+  el,
+  index,
+} = picked;
+
+
+const profile =
+  MOON_BRIDGE_CLOUD_PROFILES[index] ||
+  MOON_BRIDGE_CLOUD_PROFILES[0];
+
+
+const duration =
+  randomMoonBridgeCloudNumber(
+    profile.durationMin,
+    profile.durationMax
+  );
+
+
+const width =
+  randomMoonBridgeCloudNumber(
+    profile.widthMin,
+    profile.widthMax
+  );
+
+
+  moonBridgeLastCloudIndex =
+    index;
+
+  moonBridgeLastCloudY =
+    y;
+
+
+  el.dataset.cloudY =
+    String(y);
+
+
+  el.style.top =
+  `${Math.round(y)}px`;
+
+el.style.width =
+  `${Math.round(width)}px`;
+
+el.style.animationDuration =
+  `${Math.round(duration)}ms`;
+
+
+  /*
+    保證重新觸發 animation。
+  */
+  el.classList.remove(
+    "is-moving"
+  );
+
+  void el.offsetWidth;
+
+  el.classList.add(
+    "is-moving"
+  );
+}
+
+for (
+  const cloudEl of
+  getMoonBridgeCloudElements()
+) {
+  cloudEl.addEventListener(
+    "animationend",
+    () => {
+      cloudEl.classList.remove(
+        "is-moving"
+      );
+
+      cloudEl.dataset.cloudY =
+        "";
+
+      cloudEl.style.animationDuration =
+        "";
+
+        cloudEl.style.width =
+  "";
+
+      cloudEl.style.opacity =
+        "";
+    }
+  );
+}
+
+
+function scheduleNextMoonBridgeCloud() {
+  if (
+    !moonBridgeCloudRunning
+  ) {
+    return;
+  }
+
+
+  if (moonBridgeCloudTimer) {
+    clearTimeout(
+      moonBridgeCloudTimer
+    );
+  }
+
+
+const delay =
+  getMoonBridgeCloudSpawnDelay();
+
+
+  moonBridgeCloudTimer =
+    setTimeout(() => {
+      moonBridgeCloudTimer =
+        null;
+
+
+      spawnMoonBridgeCloud();
+
+
+      scheduleNextMoonBridgeCloud();
+    }, delay);
+}
+
+function startMoonBridgeClouds() {
+  if (
+    moonBridgeCloudRunning
+  ) {
+    return;
+  }
+
+
+  moonBridgeCloudRunning =
+    true;
+
+
+  /*
+    剛進場不要立刻飛出一朵。
+
+    先隨機等 1～3 秒。
+  */
+  const firstDelay =
+    randomMoonBridgeCloudNumber(
+      1000,
+      3000
+    );
+
+
+  moonBridgeCloudTimer =
+    setTimeout(() => {
+      moonBridgeCloudTimer =
+        null;
+
+      spawnMoonBridgeCloud();
+
+      scheduleNextMoonBridgeCloud();
+    }, firstDelay);
+}
+
+
+function stopMoonBridgeClouds() {
+  moonBridgeCloudRunning =
+    false;
+
+
+  if (moonBridgeCloudTimer) {
+    clearTimeout(
+      moonBridgeCloudTimer
+    );
+
+    moonBridgeCloudTimer =
+      null;
+  }
+
+
+  for (
+    const cloudEl of
+    getMoonBridgeCloudElements()
+  ) {
+    cloudEl.classList.remove(
+      "is-moving"
+    );
+
+    cloudEl.dataset.cloudY =
+      "";
+
+    cloudEl.style.animationDuration =
+      "";
+
+      cloudEl.style.width =
+  "";
+
+    cloudEl.style.opacity =
+      "";
+  }
+
+
+  moonBridgeLastCloudIndex =
+    -1;
+
+  moonBridgeLastCloudY =
+    null;
+}
+
+
+
+
+
+
+/*
+  第一版先使用單純水平矩形。
+
+  等賞月橋實際顯示後，
+  再依橋面的腳底位置微調 y。
+*/
+const MOON_BRIDGE_WALK_AREAS = {
+  ground: [
+    {
+      name: "moon-bridge-ground",
+
+      points: [
+        { x: 160, y: 1180 },
+        { x: 920, y: 1180 },
+        { x: 920, y: 1420 },
+        { x: 160, y: 1420 },
+      ],
+    },
+  ],
+
+  far: [],
+};
+
+
+/*
+  因為橋面目前是完整凸矩形，
+  任意兩個可走點之間都能直接連線。
+
+  findGardenPath() 本身會優先檢查
+  direct segment，
+  所以目前不需要額外 path nodes。
+*/
+const MOON_BRIDGE_PATH_NODES = [];
+
+
+/*
+  自動散步目的地。
+
+  先平均分布在橋面左右與前後，
+  之後看實際美術構圖再調。
+*/
+const MOON_BRIDGE_AUTO_TARGET_POINTS = [
+  {
+    name: "bridge-left-back",
+    x: 250,
+    y: 1230,
+    zone: "ground",
+  },
+
+  {
+    name: "bridge-center-back",
+    x: 540,
+    y: 1230,
+    zone: "ground",
+  },
+
+  {
+    name: "bridge-right-back",
+    x: 830,
+    y: 1230,
+    zone: "ground",
+  },
+
+  {
+    name: "bridge-left-front",
+    x: 250,
+    y: 1360,
+    zone: "ground",
+  },
+
+  {
+    name: "bridge-center-front",
+    x: 540,
+    y: 1360,
+    zone: "ground",
+  },
+
+  {
+    name: "bridge-right-front",
+    x: 830,
+    y: 1360,
+    zone: "ground",
+  },
+];
+
+/* =========================
+   Moon Bridge Chat Spots
+========================= */
+
+const MOON_BRIDGE_CHAT_SPOTS = [
+  /*
+    橋中央
+  */
+  {
+    name: "moon-bridge-center",
+
+    chifuyu: {
+      x: 360,
+      y: 1300,
+      direction: 1,
+    },
+
+    chinatsu: {
+      x: 720,
+      y: 1300,
+      direction: -1,
+    },
+  },
+
+
+  /*
+    稍偏左
+  */
+  {
+    name: "moon-bridge-left",
+
+    chifuyu: {
+      x: 270,
+      y: 1240,
+      direction: 1,
+    },
+
+    chinatsu: {
+      x: 620,
+      y: 1240,
+      direction: -1,
+    },
+  },
+
+
+  /*
+    稍偏右，交換站位
+  */
+  {
+    name: "moon-bridge-right",
+
+    chifuyu: {
+      x: 810,
+      y: 1360,
+      direction: -1,
+    },
+
+    chinatsu: {
+      x: 450,
+      y: 1360,
+      direction: 1,
+    },
+  },
+];
+
+const GARDEN_CHARACTER_ACTIVITY =
+  Object.freeze({
+    WANDER: "wander",
+    TRAVEL: "travel",
+    CHAT: "chat",
+  });
+
+
+const gardenCharacterWorldState = {
+  chifuyu: {
+    sceneId: "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+
+    activityData: null,
+
+    travel: null,
+  },
+
+  chinatsu: {
+    sceneId: "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+
+    activityData: null,
+
+    travel: null,
+  },
+};
+
+function areGardenCharactersInViewedScene() {
+  return (
+    gardenCharacterWorldState.chifuyu.sceneId ===
+      gardenViewSceneId &&
+    gardenCharacterWorldState.chinatsu.sceneId ===
+      gardenViewSceneId
+  );
+}
+
+
 /* =========================
    Garden Scene Config
 ========================= */
 
-let currentGardenSceneId =
+let gardenViewSceneId =
   "courtyard";
 
 
@@ -13602,6 +17641,51 @@ function getGardenSceneById(
   ) {
     return {
       id: "courtyard",
+
+      nav: {
+  left: null,
+  right: "moonBridge",
+},
+
+/*
+  Character World Travel
+
+  nav
+  → 玩家鏡頭切換
+
+  exits / entrances
+  → 角色自己的跨場景移動
+*/
+exits: {
+  moonBridge: {
+    targetSceneId:
+      "moonBridge",
+
+    targetEntranceId:
+      "courtyard-right",
+
+    exitType:
+      "direct",
+
+    characters:
+      COURTYARD_MOON_BRIDGE_EXIT_TARGETS,
+  },
+},
+
+entrances: {
+  "moon-bridge-left": {
+    fromSceneId:
+      "moonBridge",
+
+    direction:
+      -1,
+
+    characters:
+      COURTYARD_MOON_BRIDGE_ENTRANCE,
+  },
+},
+
+
 
       walkAreas:
         GARDEN_WALK_AREAS,
@@ -13696,6 +17780,7 @@ function getGardenSceneById(
     =========================
     多場景系統測試用場景
 
+
     暫時共用 courtyard 圖片，
     但使用完全不同的：
     - 可走區
@@ -13704,6 +17789,108 @@ function getGardenSceneById(
     - spawn
     =========================
   */
+
+  /*
+    =========================
+    Moon Bridge
+    賞月橋
+    =========================
+  */
+  if (
+    sceneId ===
+    "moonBridge"
+  ) {
+    return {
+      id: "moonBridge",
+
+nav: {
+  left: "courtyard",
+  right: null,
+},
+
+exits: {
+  courtyard: {
+    targetSceneId:
+      "courtyard",
+
+    targetEntranceId:
+      "moon-bridge-left",
+
+    exitType:
+      "approachOut",
+
+    characters:
+      MOON_BRIDGE_COURTYARD_EXIT,
+  },
+},
+
+entrances: {
+  "courtyard-right": {
+    fromSceneId:
+      "courtyard",
+
+    direction:
+      1,
+
+    characters:
+      MOON_BRIDGE_LEFT_ENTRANCE,
+  },
+},
+
+
+      walkAreas:
+        MOON_BRIDGE_WALK_AREAS,
+
+
+      pathNodes:
+        MOON_BRIDGE_PATH_NODES,
+
+
+      autoTargets:
+        MOON_BRIDGE_AUTO_TARGET_POINTS,
+
+
+      /*
+        聊天地點之後再依實際畫面設定。
+      */
+      chatSpots:
+  MOON_BRIDGE_CHAT_SPOTS,
+
+
+      /*
+        賞月橋目前沒有庭院燈籠。
+        之後若新增橋燈，
+        再建立自己的 lighting config。
+      */
+      lanternLights: [],
+
+
+      sceneLayers:
+        MOON_BRIDGE_SCENE_LAYER_ASSETS,
+
+
+      /*
+        場景切換後兩人的安全出生基準。
+      */
+      defaultSpawn: {
+        x: 540,
+        y: 1300,
+      },
+
+
+      /*
+        橋欄杆本身已經固定在
+        z-index: 650。
+
+        角色目前保持 normal layer 500
+        就會自然被前方欄杆遮擋，
+        所以暫時不需要額外 depth rule。
+      */
+      depthRules: [],
+    };
+  }
+
+
   if (
     sceneId ===
     "testScene"
@@ -13851,9 +18038,114 @@ function getGardenSceneById(
 }
 
 
-function getCurrentGardenScene() {
+/* =========================
+   Garden View / World Scene Helpers
+========================= */
+
+function getGardenViewScene() {
   return getGardenSceneById(
-    currentGardenSceneId
+    gardenViewSceneId
+  );
+}
+
+
+/*
+  舊名稱暫時保留。
+
+  現階段所有還沒完成重構的
+  視覺 / UI 程式仍可繼續使用。
+*/
+function getCurrentGardenScene() {
+  return getGardenViewScene();
+}
+
+
+function getGardenCharacterSceneId(
+  character
+) {
+  return (
+    gardenCharacterWorldState[
+      character
+    ]?.sceneId || null
+  );
+}
+
+
+
+function getGardenSharedCharacterSceneId() {
+  const chifuyuSceneId =
+    gardenCharacterWorldState
+      .chifuyu.sceneId;
+
+  const chinatsuSceneId =
+    gardenCharacterWorldState
+      .chinatsu.sceneId;
+
+
+  /*
+    Transit 時 sceneId = null，
+    當然不能聊天。
+  */
+  if (
+    !chifuyuSceneId ||
+    !chinatsuSceneId
+  ) {
+    return null;
+  }
+
+
+  /*
+    不在同一張場景，
+    不能進行雙人 Chat。
+  */
+  if (
+    chifuyuSceneId !==
+    chinatsuSceneId
+  ) {
+    return null;
+  }
+
+
+  /*
+    任一角色正在旅行，
+    不開啟新的 Chat。
+  */
+  if (
+    isGardenCharacterTraveling(
+      "chifuyu"
+    ) ||
+    isGardenCharacterTraveling(
+      "chinatsu"
+    )
+  ) {
+    return null;
+  }
+
+
+  return chifuyuSceneId;
+}
+
+
+function areGardenCharactersInSameScene() {
+  return !!getGardenSharedCharacterSceneId();
+}
+
+
+
+function getGardenCharacterScene(
+  character
+) {
+  const sceneId =
+    getGardenCharacterSceneId(
+      character
+    );
+
+  if (!sceneId) {
+    return null;
+  }
+
+  return getGardenSceneById(
+    sceneId
   );
 }
 
@@ -13902,7 +18194,15 @@ async function switchGardenScene(
 ) {
   const {
     force = false,
-    resetCharacters = true,
+
+    /*
+      場景切換預設只影響玩家鏡頭。
+
+      若未來真的有 Debug / Reset
+      需要搬動角色，
+      必須明確傳 true。
+    */
+    resetCharacters = false,
   } = options;
 
 
@@ -13910,7 +18210,7 @@ async function switchGardenScene(
     先取得目標場景。
 
     這時候還沒有修改
-    currentGardenSceneId。
+    gardenViewSceneId。
   */
   const targetScene =
     getGardenSceneById(
@@ -13937,32 +18237,13 @@ async function switchGardenScene(
   if (
     !force &&
     sceneId ===
-      currentGardenSceneId
+      gardenViewSceneId
   ) {
     return true;
   }
 
 
-  /*
-    第一版先禁止聊天途中切場景。
-
-    之後真的製作入口／出口動畫時，
-    再處理聊天中斷流程。
-
-    現階段避免 Talk / approachChat
-    狀態被切到一半。
-  */
-  if (
-    gardenChatState.mode !==
-    "wander"
-  ) {
-    console.warn(
-      "[Garden] scene switch blocked during chat:",
-      gardenChatState.mode
-    );
-
-    return false;
-  }
+ 
 
 
   const sceneMode =
@@ -13973,7 +18254,7 @@ async function switchGardenScene(
     先準備目標場景圖片。
 
     注意：
-    currentGardenSceneId
+    gardenViewSceneId
     此時仍然是舊場景。
   */
   await ensureGardenSceneModeReady(
@@ -13986,8 +18267,19 @@ async function switchGardenScene(
     圖片準備好後，
     才真正切換目前場景。
   */
-  currentGardenSceneId =
+  gardenViewSceneId =
     sceneId;
+
+
+
+
+    if (gardenScreen) {
+  gardenScreen.classList.toggle(
+    "moon-bridge-active",
+    gardenViewSceneId ===
+      "moonBridge"
+  );
+}
 
 
   /*
@@ -13997,6 +18289,25 @@ async function switchGardenScene(
   applyGardenSceneMode(
     sceneMode
   );
+
+if (
+  gardenViewSceneId ===
+  "moonBridge"
+) {
+  startMoonBridgeClouds();
+} else {
+  stopMoonBridgeClouds();
+}
+
+
+
+  if (
+  GARDEN_WALK_DEBUG &&
+  typeof drawGardenWalkDebug ===
+    "function"
+) {
+  drawGardenWalkDebug();
+}
 
 
   if (resetCharacters) {

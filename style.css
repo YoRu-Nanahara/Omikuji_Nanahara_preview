@@ -604,6 +604,113 @@ html, body {
   transform-origin: center center;
 }
 
+
+/* =========================
+   Garden 左上角：場景切換箭頭
+========================= */
+
+#gardenSceneNav {
+  position: absolute;
+
+  /* 和右上角 Menu 按鈕同高 */
+  top: 14px;
+  left: 20px;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+
+  gap: 30px;
+
+  z-index: 4999;
+}
+
+.garden-scene-nav-btn {
+  width: 120px;
+  height: 138px;
+
+  padding: 0;
+  border: none;
+  background: transparent;
+
+  cursor: pointer;
+
+  flex: 0 0 auto;
+}
+
+.garden-scene-nav-btn img {
+  width: 100%;
+  height: 100%;
+
+  display: block;
+  object-fit: contain;
+
+  pointer-events: none;
+}
+
+.garden-scene-nav-btn:active {
+  transform: scale(0.96);
+}
+
+/*
+  現在還沒接正式場景切換，
+  disabled 只阻止操作，
+  不要自動變灰。
+*/
+.garden-scene-nav-btn {
+  width: 120px;
+  height: 138px;
+
+  padding: 0;
+  border: none;
+  background: transparent;
+
+  cursor: pointer;
+
+  flex: 0 0 auto;
+}
+
+.garden-scene-nav-btn img {
+  width: 100%;
+  height: 100%;
+
+  display: block;
+  object-fit: contain;
+
+  pointer-events: none;
+}
+
+.garden-scene-nav-btn:active {
+  transform: scale(0.96);
+}
+
+.garden-scene-nav-btn:disabled {
+  cursor: default;
+  opacity: 0.28;
+}
+
+
+/* =========================
+   Garden Auto-hide UI
+========================= */
+
+.garden-auto-hide-ui {
+  opacity: 1;
+
+  transition:
+    opacity 0.45s ease;
+}
+
+body.garden-ui-hidden
+.garden-auto-hide-ui {
+  opacity: 0;
+  pointer-events: none;
+}
+
+
+
+
+
 /* =========================
    右上角：返回 Menu 按鈕（共用）
 ========================= */
@@ -3151,6 +3258,423 @@ body.night-mode #gardenScreen #chinatsuWalkShadow {
 .garden-fg-sakura-top {
   z-index: 920;
 }
+
+
+
+/* =========================
+   Moon Bridge Scene Layers
+========================= */
+
+/* 最底層夜景 */
+.moon-bridge-bg {
+  z-index: 0;
+}
+
+/*
+  橋本體：
+  在角色下面。
+*/
+.moon-bridge-main {
+  z-index: 300;
+}
+
+.moon-bridge-lake-glow-lower-01 {
+  z-index: 130;
+}
+
+.moon-bridge-lake-glow-lower-02 {
+  z-index: 140;
+}
+
+.moon-bridge-lake-glow-lower-03 {
+  z-index: 150;
+}
+
+
+/*
+  橋前方圍欄：
+  用來遮住角色下半身，
+  製造角色真的站在橋上的感覺。
+*/
+.moon-bridge-railing-front {
+  z-index: 650;
+}
+
+/*
+  最前方枝垂櫻。
+*/
+.moon-bridge-fg-shidarezakura {
+  z-index: 920;
+}
+
+
+
+/* =========================
+   Moon Bridge Lake Glow
+========================= */
+
+.moon-bridge-lake-glow-01 {
+  z-index: 100;
+}
+
+.moon-bridge-lake-glow-02 {
+  z-index: 110;
+}
+
+.moon-bridge-lake-glow-03 {
+  z-index: 120;
+}
+
+
+/* =========================
+   Moon Bridge Character Moonlight
+========================= */
+
+/*
+  只在：
+  - 夜晚
+  - 賞月橋
+  才啟用。
+
+  ::after 會複製角色當前 sprite，
+  所以透明區仍然透明，
+  不會出現 650×650 的藍色方塊。
+*/
+body.night-mode
+#gardenScreen.moon-bridge-active
+#chifuyuWalkTest
+> [data-garden-sprite-mode]::after,
+
+body.night-mode
+#gardenScreen.moon-bridge-active
+#chinatsuWalkTest
+> [data-garden-sprite-mode]::after {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  /*
+    直接繼承原 sprite：
+    圖片、大小、目前動畫幀位置全部同步。
+  */
+  background-image: inherit;
+  background-size: inherit;
+  background-position: inherit;
+  background-repeat: inherit;
+
+  /*
+    月光非常淡。
+    真正控制「染多少」主要是 opacity。
+  */
+opacity: 0.23;
+
+filter:
+  brightness(1)
+  saturate(10)
+  sepia(1)
+  hue-rotate(185deg);
+
+-webkit-mask-image:
+  linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 1) 38%,
+    rgba(0, 0, 0, 0.65) 48%,
+    rgba(0, 0, 0, 0.18) 60%,
+    rgba(0, 0, 0, 0) 72%
+  );
+
+mask-image:
+  linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 1) 38%,
+    rgba(0, 0, 0, 0.65) 48%,
+    rgba(0, 0, 0, 0.18) 60%,
+    rgba(0, 0, 0, 0) 72%
+  );
+
+
+}
+
+
+/* =========================
+   Moon Bridge Lake Glow Motion
+========================= */
+
+/* =========================
+   Moon Bridge Lake Glow
+   慢速：顯現 → 淡出
+========================= */
+
+
+/*
+  一張湖光的生命週期：
+
+  0%   透明，原位
+  12%  完全顯現，稍微下移
+  28%  保持明亮，繼續慢慢下移
+  40%  淡出完成，移動到最下方
+  之後透明並復位
+
+  整體 9 秒，
+  三張湖光每 3 秒錯開。
+*/
+
+
+@keyframes moonBridgeLakeFlow {
+  /* 尚未出現 */
+  0% {
+    opacity: 0;
+
+    transform:
+      translateY(0px)
+      scale(1);
+  }
+
+  /* 緩慢顯現 */
+  12% {
+    opacity: 1;
+
+    transform:
+      translateY(6px)
+      scale(1.012);
+  }
+
+  /* 已顯現，但仍然繼續慢慢往下 */
+  28% {
+    opacity: 1;
+
+    transform:
+      translateY(14px)
+      scale(1.026);
+  }
+
+  /* 一邊繼續下移，一邊淡出 */
+  40% {
+    opacity: 0;
+
+    transform:
+      translateY(22px)
+      scale(1.04);
+  }
+
+  /*
+    已完全透明，
+    馬上偷偷復位。
+  */
+  41% {
+    opacity: 0;
+
+    transform:
+      translateY(0px)
+      scale(1);
+  }
+
+  100% {
+    opacity: 0;
+
+    transform:
+      translateY(0px)
+      scale(1);
+  }
+}
+
+
+
+/* =========================
+   上方三層湖光
+========================= */
+
+.moon-bridge-lake-glow-01 {
+  animation:
+    moonBridgeLakeFlow
+    9s linear 0s infinite;
+}
+
+.moon-bridge-lake-glow-02 {
+  animation:
+    moonBridgeLakeFlow
+    9s linear 3s infinite;
+}
+
+.moon-bridge-lake-glow-03 {
+  animation:
+    moonBridgeLakeFlow
+    9s linear 6s infinite;
+}
+
+
+/* =========================
+   Moon Bridge Lower Lake Glow
+   慢速：顯現 → 淡出
+========================= */
+
+/* =========================
+   Moon Bridge Lower Lake Glow
+   稍微降低透明度
+========================= */
+
+@keyframes moonBridgeLakeLowerFlow {
+
+  /* 透明，原位 */
+  0% {
+    opacity: 0;
+
+    transform:
+      translateY(700px)
+      scale(1);
+  }
+
+  /* 緩慢顯現 */
+  12% {
+    opacity: 0.58;
+
+    transform:
+      translateY(706px)
+      scale(1.016);
+  }
+
+  /* 保持顯現，同時繼續下移 */
+  28% {
+    opacity: 0.58;
+
+    transform:
+      translateY(714px)
+      scale(1.035);
+  }
+
+  /* 慢慢淡出，同時繼續往下 */
+  40% {
+    opacity: 0;
+
+    transform:
+      translateY(722px)
+      scale(1.05);
+  }
+
+  /* 已不可見，偷偷復位 */
+  41% {
+    opacity: 0;
+
+    transform:
+      translateY(700px)
+      scale(1);
+  }
+
+  100% {
+    opacity: 0;
+
+    transform:
+      translateY(700px)
+      scale(1);
+  }
+}
+
+.moon-bridge-lake-glow-lower-01 {
+  animation:
+    moonBridgeLakeLowerFlow
+    9s linear -1.5s infinite;
+}
+
+.moon-bridge-lake-glow-lower-02 {
+  animation:
+    moonBridgeLakeLowerFlow
+    9s linear 1.5s infinite;
+}
+
+.moon-bridge-lake-glow-lower-03 {
+  animation:
+    moonBridgeLakeLowerFlow
+    9s linear 4.5s infinite;
+}
+
+
+
+.moon-bridge-lake-glow-01,
+.moon-bridge-lake-glow-02,
+.moon-bridge-lake-glow-03,
+.moon-bridge-lake-glow-lower-01,
+.moon-bridge-lake-glow-lower-02,
+.moon-bridge-lake-glow-lower-03 {
+  transform-origin: center center;
+will-change: transform, opacity;
+
+}
+
+
+/* =========================
+   Moon Bridge Clouds
+========================= */
+
+#gardenScene .moon-bridge-cloud {
+  position: absolute;
+
+  left: 0;
+  top: 0;
+
+  /* JS 每次生成時會覆寫 */
+  width: 540px;
+  height: auto;
+
+  z-index: 50;
+
+  pointer-events: none;
+  user-select: none;
+
+  opacity: 0;
+
+  transform:
+    translateX(1200px);
+
+  will-change:
+    transform,
+    opacity;
+}
+
+
+#gardenScene
+.moon-bridge-cloud.is-moving {
+  animation-name:
+    moonBridgeCloudDrift;
+
+  animation-timing-function:
+    linear;
+
+  animation-fill-mode:
+    forwards;
+}
+
+
+@keyframes moonBridgeCloudDrift {
+  0% {
+    transform:
+      translateX(1200px);
+
+    opacity: 0;
+  }
+
+  8% {
+    opacity: 1;
+  }
+
+  90% {
+    opacity: 1;
+  }
+
+  100% {
+    transform:
+      translateX(-760px);
+
+    opacity: 0;
+  }
+}
+
+
+
 
 
 
