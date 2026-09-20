@@ -3398,6 +3398,24 @@ mask-image:
   );
 
 
+/* =========================
+   Moon Bridge Moonlight
+   Performance Test OFF
+========================= */
+
+body.night-mode
+#gardenScreen.moon-bridge-active
+#chifuyuWalkTest
+> [data-garden-sprite-mode]::after,
+
+body.night-mode
+#gardenScreen.moon-bridge-active
+#chinatsuWalkTest
+> [data-garden-sprite-mode]::after {
+  content: none !important;
+}
+
+
 }
 
 
@@ -3426,60 +3444,35 @@ mask-image:
 
 
 @keyframes moonBridgeLakeFlow {
-  /* 尚未出現 */
   0% {
     opacity: 0;
-
     transform:
-      translateY(0px)
-      scale(1);
+      translateY(0px);
   }
 
-  /* 緩慢顯現 */
   12% {
     opacity: 1;
-
     transform:
-      translateY(6px)
-      scale(1.012);
+      translateY(6px);
   }
 
-  /* 已顯現，但仍然繼續慢慢往下 */
   28% {
     opacity: 1;
-
     transform:
-      translateY(14px)
-      scale(1.026);
+      translateY(14px);
   }
 
-  /* 一邊繼續下移，一邊淡出 */
   40% {
     opacity: 0;
-
     transform:
-      translateY(22px)
-      scale(1.04);
+      translateY(22px);
   }
 
-  /*
-    已完全透明，
-    馬上偷偷復位。
-  */
-  41% {
-    opacity: 0;
-
-    transform:
-      translateY(0px)
-      scale(1);
-  }
-
+  41%,
   100% {
     opacity: 0;
-
     transform:
-      translateY(0px)
-      scale(1);
+      translateY(0px);
   }
 }
 
@@ -3519,58 +3512,35 @@ mask-image:
 ========================= */
 
 @keyframes moonBridgeLakeLowerFlow {
-
-  /* 透明，原位 */
   0% {
     opacity: 0;
-
     transform:
-      translateY(700px)
-      scale(1);
+      translateY(700px);
   }
 
-  /* 緩慢顯現 */
   12% {
     opacity: 0.58;
-
     transform:
-      translateY(706px)
-      scale(1.016);
+      translateY(706px);
   }
 
-  /* 保持顯現，同時繼續下移 */
   28% {
     opacity: 0.58;
-
     transform:
-      translateY(714px)
-      scale(1.035);
+      translateY(714px);
   }
 
-  /* 慢慢淡出，同時繼續往下 */
   40% {
     opacity: 0;
-
     transform:
-      translateY(722px)
-      scale(1.05);
+      translateY(722px);
   }
 
-  /* 已不可見，偷偷復位 */
-  41% {
-    opacity: 0;
-
-    transform:
-      translateY(700px)
-      scale(1);
-  }
-
+  41%,
   100% {
     opacity: 0;
-
     transform:
-      translateY(700px)
-      scale(1);
+      translateY(700px);
   }
 }
 
@@ -3605,15 +3575,6 @@ will-change: transform, opacity;
 
 }
 
-/* Test 1：先停湖光 */
-.moon-bridge-lake-glow-01,
-.moon-bridge-lake-glow-02,
-.moon-bridge-lake-glow-03,
-.moon-bridge-lake-glow-lower-01,
-.moon-bridge-lake-glow-lower-02,
-.moon-bridge-lake-glow-lower-03 {
-  animation: none !important;
-}
 
 /* =========================
    Moon Bridge Clouds
