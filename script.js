@@ -1146,22 +1146,48 @@ const GARDEN_SCENE_LAYER_ASSETS = [
 const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
   {
     selector:
-      ".moon-bridge-bg",
+      ".moon-bridge-sky",
 
     /*
-      賞月橋目前只有夜晚版。
-
-      day 暫時也使用夜景，
-      避免白天進入時變成空白場景。
-
-      之後真的完成白天版，
-      再單獨替換 day 即可。
+      白天版尚未完成前，
+      先暫時沿用夜間天空。
     */
     day:
-      "images/garden/moon-bridge/moon-bridge-bg-night.png",
+      "images/garden/moon-bridge/moon-bridge-sky-night.jpg",
 
     night:
-      "images/garden/moon-bridge/moon-bridge-bg-night.png",
+      "images/garden/moon-bridge/moon-bridge-sky-night.jpg",
+  },
+
+
+  {
+    selector:
+      ".moon-bridge-moon",
+
+    /*
+      月亮只在夜晚存在。
+    */
+    day:
+      null,
+
+    night:
+      "images/garden/moon-bridge/moon-bridge-moon-night.png",
+  },
+
+
+  {
+    selector:
+      ".moon-bridge-lake",
+
+    /*
+      白天版尚未完成前，
+      先暫時沿用夜間湖面。
+    */
+    day:
+      "images/garden/moon-bridge/moon-bridge-lake-night.png",
+
+    night:
+      "images/garden/moon-bridge/moon-bridge-lake-night.png",
   },
 
 
@@ -1307,6 +1333,459 @@ const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
       "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-night.png",
   },
 ];
+
+
+/* =========================
+   Moon Bridge Moon Test Clock
+========================= */
+
+/*
+  null：
+  使用玩家真實時間。
+
+  測試時：
+  儲存一天中的分鐘數。
+*/
+let moonBridgeMoonTestMinutes =
+  null;
+
+
+function getMoonBridgeMoonTimeMinutes() {
+  if (
+    moonBridgeMoonTestMinutes !==
+    null
+  ) {
+    return moonBridgeMoonTestMinutes;
+  }
+
+
+  const now =
+    new Date();
+
+
+  return (
+    now.getHours() * 60 +
+    now.getMinutes()
+  );
+}
+
+
+window.setMoonBridgeMoonTestTime =
+  function (timeText) {
+    const match =
+      String(timeText).match(
+        /^(\d{1,2}):(\d{2})$/
+      );
+
+
+    if (!match) {
+      console.warn(
+        "[Moon Bridge] Please use HH:MM, for example 21:30"
+      );
+
+      return;
+    }
+
+
+    const hour =
+      Number(match[1]);
+
+    const minute =
+      Number(match[2]);
+
+
+    if (
+      hour < 0 ||
+      hour > 23 ||
+      minute < 0 ||
+      minute > 59
+    ) {
+      console.warn(
+        "[Moon Bridge] Invalid time:",
+        timeText
+      );
+
+      return;
+    }
+
+
+    moonBridgeMoonTestMinutes =
+      hour * 60 + minute;
+
+
+    console.log(
+      `[Moon Bridge] Moon test time → ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
+    );
+
+
+    if (
+      typeof updateMoonBridgeMoonPosition ===
+      "function"
+    ) {
+      updateMoonBridgeMoonPosition();
+    }
+  };
+
+
+window.clearMoonBridgeMoonTestTime =
+  function () {
+    moonBridgeMoonTestMinutes =
+      null;
+
+
+    console.log(
+      "[Moon Bridge] Moon test time OFF → real time"
+    );
+
+
+    if (
+      typeof updateMoonBridgeMoonPosition ===
+      "function"
+    ) {
+      updateMoonBridgeMoonPosition();
+    }
+  };
+
+
+/* =========================
+   Moon Bridge Moon Position
+========================= */
+
+const MOON_BRIDGE_MOON_NIGHT_SRC =
+  "images/garden/moon-bridge/moon-bridge-moon-night.png";
+
+/*
+  350 × 350 月亮的移動範圍。
+
+  18:00：
+  左側、較低。
+
+  00:00：
+  中央、最高。
+
+  06:00：
+  右側、較低。
+*/
+const MOON_BRIDGE_MOON_START_X =
+  670;
+
+const MOON_BRIDGE_MOON_END_X =
+  60;
+
+const MOON_BRIDGE_MOON_LOW_Y =
+  650;
+
+const MOON_BRIDGE_MOON_HIGH_Y =
+  120;
+
+
+
+
+
+/* =========================
+   Moon Bridge Upper Lake Glow
+========================= */
+
+function updateMoonBridgeUpperLakeGlow() {
+  const minutes =
+    getMoonBridgeMoonTimeMinutes();
+
+
+  /*
+    上方湖光顯示時間：
+
+    22:00 ～ 01:59
+  */
+  const shouldShow =
+    gardenViewSceneId ===
+      "moonBridge" &&
+    (
+      minutes >= 22 * 60 ||
+      minutes < 2 * 60
+    );
+
+
+  const glowEls =
+    gardenScreen?.querySelectorAll(
+      [
+        ".moon-bridge-lake-glow-01",
+        ".moon-bridge-lake-glow-02",
+        ".moon-bridge-lake-glow-03",
+      ].join(",")
+    );
+
+
+  if (!glowEls) {
+    return;
+  }
+
+
+  for (const el of glowEls) {
+    if (shouldShow) {
+
+      /*
+        只有這個時段，
+        才真正掛上動畫。
+      */
+      el.classList.add(
+        "is-active"
+      );
+
+      el.style.display =
+        "block";
+
+    } else {
+
+      /*
+        非湖光時段：
+
+        - 移除動畫 class
+        - 完全不渲染
+      */
+      el.classList.remove(
+        "is-active"
+      );
+
+      el.style.display =
+        "none";
+    }
+  }
+}
+
+
+
+
+
+
+/*
+  根據目前時間計算月亮位置。
+
+  不放進每幀 loop。
+*/
+function updateMoonBridgeMoonPosition() {
+  const moonEl =
+    gardenScreen?.querySelector(
+      ".moon-bridge-moon"
+    );
+
+  if (!moonEl) {
+    return;
+  }
+
+
+  /*
+    玩家目前沒有觀看賞月橋，
+    月亮直接隱藏即可。
+  */
+  if (
+    gardenViewSceneId !==
+    "moonBridge"
+  ) {
+    moonEl.style.display =
+      "none";
+
+updateMoonBridgeUpperLakeGlow();
+
+    return;
+  }
+
+
+  const minutes =
+    getMoonBridgeMoonTimeMinutes();
+
+
+  /*
+    夜晚定義：
+    18:00 ～ 05:59
+  */
+  const isNight =
+    minutes >= 18 * 60 ||
+    minutes < 6 * 60;
+
+
+  if (!isNight) {
+    moonEl.style.display =
+      "none";
+updateMoonBridgeUpperLakeGlow();
+
+
+    return;
+  }
+
+
+  /*
+    轉成：
+
+    18:00 → 0 分鐘
+    00:00 → 360 分鐘
+    06:00 → 720 分鐘
+  */
+  let elapsedNightMinutes;
+
+  if (
+    minutes >=
+    18 * 60
+  ) {
+    elapsedNightMinutes =
+      minutes - 18 * 60;
+  } else {
+    elapsedNightMinutes =
+      minutes +
+      24 * 60 -
+      18 * 60;
+  }
+
+
+  /*
+    progress：
+
+    18:00 → 0
+    00:00 → 0.5
+    06:00 → 1
+  */
+  const progress =
+    elapsedNightMinutes /
+    (12 * 60);
+
+
+  /*
+    X：
+    左 → 右
+    線性移動。
+  */
+  const x =
+    MOON_BRIDGE_MOON_START_X +
+    (
+      MOON_BRIDGE_MOON_END_X -
+      MOON_BRIDGE_MOON_START_X
+    ) *
+      progress;
+
+
+  /*
+    Y：
+    用 sin() 做拋物線感的弧線。
+
+    progress 0：
+    sin(0) = 0
+    → 最低
+
+    progress 0.5：
+    sin(π/2) = 1
+    → 最高
+
+    progress 1：
+    sin(π) = 0
+    → 最低
+  */
+  const arc =
+    Math.sin(
+      Math.PI *
+      progress
+    );
+
+
+  const y =
+    MOON_BRIDGE_MOON_LOW_Y -
+    (
+      MOON_BRIDGE_MOON_LOW_Y -
+      MOON_BRIDGE_MOON_HIGH_Y
+    ) *
+      arc;
+
+
+  /*
+    測試模式在真實白天也能直接看月亮。
+
+    因為 Scene Mode 的 day
+    原本會把月亮 src 留空，
+    所以這裡保險補上夜間素材。
+  */
+  if (
+    moonEl.getAttribute(
+      "src"
+    ) !==
+    MOON_BRIDGE_MOON_NIGHT_SRC
+  ) {
+    moonEl.src =
+      MOON_BRIDGE_MOON_NIGHT_SRC;
+  }
+
+
+  moonEl.style.left =
+    `${x.toFixed(1)}px`;
+
+  moonEl.style.top =
+    `${y.toFixed(1)}px`;
+
+  moonEl.style.display =
+    "block";
+
+
+
+/*
+  月亮位置更新時，
+  一併更新上方湖光顯示狀態。
+*/
+updateMoonBridgeUpperLakeGlow();
+
+
+
+
+  console.log(
+    "[Moon Bridge Moon]",
+    {
+      minutes,
+      progress:
+        Number(
+          progress.toFixed(3)
+        ),
+      x:
+        Math.round(x),
+      y:
+        Math.round(y),
+    }
+  );
+}
+
+
+
+
+/*
+  月亮不需要每幀更新。
+
+  一分鐘檢查一次就足夠，
+  效能負擔可以忽略。
+*/
+setInterval(() => {
+  if (
+    document.hidden
+  ) {
+    return;
+  }
+
+  if (
+    !gardenScreen ||
+    gardenScreen.classList.contains(
+      "hidden"
+    )
+  ) {
+    return;
+  }
+
+  if (
+    gardenViewSceneId !==
+    "moonBridge"
+  ) {
+    return;
+  }
+
+  updateMoonBridgeMoonPosition();
+
+}, 60 * 1000);
+
+
+
 
 
 const GARDEN_SCENE_ASSETS_BY_MODE = {
@@ -16829,6 +17308,23 @@ function initGardenScreen() {
   }
 
 
+/*
+  回到 Garden 時，
+  重新依現在時間刷新月亮。
+*/
+updateMoonBridgeMoonPosition();
+
+
+if (
+  gardenViewSceneId ===
+    "moonBridge"
+) {
+  startMoonBridgeClouds();
+} else {
+  stopMoonBridgeClouds();
+}
+
+
   /*
     場景自己的動畫屬於 Player View，
     所以重新進 Garden 時要恢復。
@@ -17845,6 +18341,10 @@ entrances: {
     Moon Bridge
     賞月橋
     =========================
+
+
+
+
   */
   if (
     sceneId ===
@@ -18337,8 +18837,16 @@ async function switchGardenScene(
     圖片套到現有 DOM。
   */
   applyGardenSceneMode(
-    sceneMode
-  );
+  sceneMode
+);
+
+
+/*
+  切換 Player View 後，
+  同步刷新月亮位置。
+*/
+updateMoonBridgeMoonPosition();
+
 
 if (
   gardenViewSceneId ===
@@ -18443,3 +18951,5 @@ if (
 
   return true;
 }
+
+

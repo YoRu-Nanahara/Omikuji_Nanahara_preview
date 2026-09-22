@@ -3265,9 +3265,51 @@ body.night-mode #gardenScreen #chinatsuWalkShadow {
    Moon Bridge Scene Layers
 ========================= */
 
-/* 最底層夜景 */
-.moon-bridge-bg {
+/* =========================
+   Moon Bridge Far Background
+========================= */
+
+/* 最遠景天空 */
+.moon-bridge-sky {
   z-index: 0;
+}
+
+
+/*
+  月亮：
+  350 × 350
+
+  目前位置只是測試值，
+  之後會由時間系統控制 top。
+*/
+.moon-bridge-moon {
+  position: absolute;
+
+    left: 60px;
+  top: 650px;
+
+  width: 350px;
+  height: 350px;
+
+  object-fit: contain;
+
+  z-index: 20;
+
+  display: block;
+
+  pointer-events: none;
+  user-select: none;
+}
+
+
+/*
+  湖面位於月亮前方。
+
+  圖片上半部應保持透明，
+  只有湖面本身會遮住月亮。
+*/
+.moon-bridge-lake {
+  z-index: 80;
 }
 
 /*
@@ -3391,19 +3433,37 @@ body.night-mode #gardenScreen #chinatsuWalkShadow {
    上方三層湖光
 ========================= */
 
-.moon-bridge-lake-glow-01 {
+/* =========================
+   Moon Bridge Upper Lake Glow
+   只有啟用時才真正執行動畫
+========================= */
+
+.moon-bridge-lake-glow-01,
+.moon-bridge-lake-glow-02,
+.moon-bridge-lake-glow-03 {
+  animation: none;
+  opacity: 0;
+}
+
+
+/*
+  JS 只會在 22:00 ～ 02:00
+  加上 is-active。
+*/
+
+.moon-bridge-lake-glow-01.is-active {
   animation:
     moonBridgeLakeFlow
     9s linear 0s infinite;
 }
 
-.moon-bridge-lake-glow-02 {
+.moon-bridge-lake-glow-02.is-active {
   animation:
     moonBridgeLakeFlow
     9s linear 3s infinite;
 }
 
-.moon-bridge-lake-glow-03 {
+.moon-bridge-lake-glow-03.is-active {
   animation:
     moonBridgeLakeFlow
     9s linear 6s infinite;
