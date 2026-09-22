@@ -1046,30 +1046,59 @@ function getGardenAnimationAsset(
   character,
   mode
 ) {
-  const safeMode =
-    mode === "talk"
-      ? "talk"
-      : mode === "walk"
-        ? "walk"
-        : "idle";
+  /*
+    先經過 Registry fallback。
 
-  const list =
-    GARDEN_ACTIVE_CHARACTER_ASSETS_BY_MODE[
-      safeMode
-    ];
+    例如：
+    tea 不存在
+    → idle
 
-  const characterIndex =
-    character === "chifuyu"
-      ? 0
-      : 1;
+    未來 tea 存在
+    → tea
+  */
+  const resolvedMode =
+    resolveGardenCharacterAnimationFallback(
+      character,
+      mode
+    );
+
+
+  if (!resolvedMode) {
+    return null;
+  }
+
+
+  const anim =
+    getGardenCharacterAnimationDefinition(
+      character,
+      resolvedMode
+    );
+
+
+  if (
+    !anim ||
+    !anim.src ||
+    !Number.isFinite(
+      anim.logicalSize
+    )
+  ) {
+    console.warn(
+      `[Garden Animation] missing asset definition: ${character}/${resolvedMode}`
+    );
+
+    return null;
+  }
+
 
   return {
-    src: list[characterIndex],
+    mode:
+      resolvedMode,
+
+    src:
+      anim.src,
 
     logicalSize:
-      safeMode === "talk"
-        ? GARDEN_TALK_LOGICAL_SHEET_SIZE
-        : GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+      anim.logicalSize,
   };
 }
 
@@ -2392,9 +2421,9 @@ async function ensureGardenSceneModeReady(
         iPad 一張一張，
         其他裝置兩張一批。
       */
-      GARDEN_IPAD_SAFE_MODE
-        ? 1
-        : 2,
+     GARDEN_IPAD_SAFE_MODE
+  ? 3
+  : 3,
 
       {
         /*
@@ -6522,6 +6551,10 @@ pauseGardenBackgroundPreload();
 
 const gardenInitialMode =
   planGardenInitialMode();
+
+let actualInitialMode =
+  "wander";
+
 // 點進庭院時，立刻切換音訊
     // 這樣手機比較不會因為 autoplay 限制擋掉新 BGM
     enterGardenAudioMode();
@@ -6567,20 +6600,33 @@ const gardenInitialMode =
       clearTimeout(timeoutId);
     }
   }
+
+
+/*
+  素材已準備好，而且拉門現在仍完全關閉。
+
+  在這裡就完成：
+  - 角色位置
+  - Idle / Talk 模式
+  - sprite layer opacity
+  - Garden world 初始化
+
+  不再等畫面露出後才初始化角色。
+*/
+if (
+  typeof initGardenScreen ===
+  "function"
+) {
+  actualInitialMode =
+    initGardenScreen() ||
+    "wander";
+}
+
+  
 },
 
-        () => {
-  let actualInitialMode = "wander";
-
-  if (
-    typeof initGardenScreen ===
-    "function"
-  ) {
-    actualInitialMode =
-      initGardenScreen() ||
-      "wander";
-  }
-
+ () => {
+ 
 updateGardenSceneNav();
 
   startGardenUiAutoHide();
@@ -10325,15 +10371,80 @@ function setGardenCharacterActivity(
       character
     ];
 
+
   if (!worldState) {
     return false;
   }
 
+
+  const previousActivity =
+    worldState.activity;
+
+
+  /*
+    =========================
+    Animation Override Lifecycle
+    =========================
+
+    只有「真正換 Activity」時
+    才解除舊 Override。
+
+    例如：
+
+    TEA
+      sitDown
+      ↓
+      sitIdle
+
+    TEA 還沒有結束時，
+    Override 可以繼續存在。
+
+    但：
+
+    TEA → WANDER
+
+    就必須把 sitIdle 清掉，
+    讓新的 Activity 重新取得
+    Animation Resolver 控制權。
+  */
+  if (
+  previousActivity !==
+  activity
+) {
+  /*
+    ① 舊 Activity 留下的 Override
+    不得進入新 Activity。
+  */
+  clearGardenCharacterAnimationOverride(
+    character
+  );
+
+
+  /*
+    ② 清掉舊 Activity 的：
+
+    - Sequence Runtime
+    - Sequence Requests
+    - 普通 Activity Requests
+
+    全部依 ownership 處理。
+  */
+  if (previousActivity) {
+    cancelGardenCharacterAnimationSequencesByActivity(
+      character,
+      previousActivity
+    );
+  }
+}
+
+
   worldState.activity =
     activity;
 
+
   worldState.activityData =
     activityData;
+
 
   return true;
 }
@@ -11427,25 +11538,215 @@ const CHINATSU_TALK_FRAME_MS =
   GARDEN_TALK_FRAME_MS;
 
 
-const CHIFUYU_ANIMS = {
-  walk: {
-    sheetClass: CHIFUYU_WALK_SHEET_CLASS,
-    frameMs: CHIFUYU_WALK_FRAME_MS,
-    positions: CHIFUYU_FRAME_POSITIONS,
-  },
+/* =========================
+   Garden Animation Definition
 
-  idle: {
-    sheetClass: CHIFUYU_IDLE_SHEET_CLASS,
-    frameMs: CHIFUYU_IDLE_FRAME_MS,
-    positions: CHIFUYU_IDLE_FRAME_POSITIONS,
-  },
+   每個動畫的統一資料格式。
 
-talk: {
-  sheetClass: CHIFUYU_TALK_SHEET_CLASS,
-  frameMs: CHIFUYU_TALK_FRAME_MS,
-  positions: CHIFUYU_TALK_FRAME_POSITIONS,
-},
-};
+   現階段真正參與播放的仍是：
+   - sheetClass
+   - frameMs
+   - positions
+
+   其他 metadata 先建立規格，
+   供未來 Activity / Priority /
+   Preload / One-shot 系統使用。
+========================= */
+
+function defineGardenAnimation(
+  config
+) {
+  if (!config) {
+    console.warn(
+      "[Garden Animation] missing animation definition"
+    );
+
+    return null;
+  }
+
+
+  const {
+    sheetClass,
+    frameMs,
+    positions,
+
+    /*
+      spritesheet 素材資訊
+    */
+    src,
+    logicalSize,
+
+    type = "generic",
+
+    playback = "loop",
+
+    interruptible = true,
+
+    movementAllowed = false,
+
+    preloadTier = "onDemand",
+
+    holdLastFrame = false,
+  } = config;
+
+
+  /*
+    目前播放引擎必要欄位。
+  */
+  if (
+    !sheetClass ||
+    !Number.isFinite(frameMs) ||
+    frameMs <= 0 ||
+    !Array.isArray(positions) ||
+    positions.length === 0 ||
+    !src ||
+    !Number.isFinite(logicalSize) ||
+    logicalSize <= 0
+  ) {
+    console.warn(
+      "[Garden Animation] invalid animation definition:",
+      config
+    );
+
+    return null;
+  }
+
+
+  return Object.freeze({
+    sheetClass,
+    frameMs,
+    positions,
+
+    src,
+    logicalSize,
+
+    type,
+    playback,
+    interruptible,
+    movementAllowed,
+    preloadTier,
+    holdLastFrame,
+  });
+}
+
+
+
+
+const CHIFUYU_ANIMS =
+  Object.freeze({
+    walk:
+      defineGardenAnimation({
+        sheetClass:
+          CHIFUYU_WALK_SHEET_CLASS,
+
+        frameMs:
+          CHIFUYU_WALK_FRAME_MS,
+
+        positions:
+          CHIFUYU_FRAME_POSITIONS,
+
+          src:
+  CHIFUYU_WALK_SHEET_SRC,
+
+logicalSize:
+  GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+
+
+        type:
+          "locomotion",
+
+        playback:
+          "loop",
+
+        interruptible:
+          true,
+
+        movementAllowed:
+          true,
+
+        preloadTier:
+          "core",
+
+        holdLastFrame:
+          false,
+      }),
+
+
+    idle:
+      defineGardenAnimation({
+        sheetClass:
+          CHIFUYU_IDLE_SHEET_CLASS,
+
+        frameMs:
+          CHIFUYU_IDLE_FRAME_MS,
+
+        positions:
+          CHIFUYU_IDLE_FRAME_POSITIONS,
+
+src:
+  CHIFUYU_IDLE_SHEET_SRC,
+
+logicalSize:
+  GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+
+
+        type:
+          "idle",
+
+        playback:
+          "loop",
+
+        interruptible:
+          true,
+
+        movementAllowed:
+          false,
+
+        preloadTier:
+          "core",
+
+        holdLastFrame:
+          false,
+      }),
+
+
+    talk:
+      defineGardenAnimation({
+        sheetClass:
+          CHIFUYU_TALK_SHEET_CLASS,
+
+        frameMs:
+          CHIFUYU_TALK_FRAME_MS,
+
+        positions:
+          CHIFUYU_TALK_FRAME_POSITIONS,
+
+          src:
+  CHIFUYU_TALK_SHEET_SRC,
+
+logicalSize:
+  GARDEN_TALK_LOGICAL_SHEET_SIZE,
+
+
+        type:
+          "social",
+
+        playback:
+          "loop",
+
+        interruptible:
+          true,
+
+        movementAllowed:
+          false,
+
+        preloadTier:
+          "onDemand",
+
+        holdLastFrame:
+          false,
+      }),
+  });
 
 /* =========================
    Chifuyu Three-Layer Sprite Test
@@ -11456,11 +11757,8 @@ talk: {
    模式切換只改 opacity。
 ========================= */
 
-const chifuyuSpriteLayers = {
-  idle: null,
-  walk: null,
-  talk: null,
-};
+const chifuyuSpriteLayers =
+  Object.create(null);
 
 let chifuyuSpriteLayersReady = false;
 
@@ -11474,18 +11772,24 @@ function ensureChifuyuSpriteLayers() {
     return false;
   }
 
-  /*
-    原本 #chifuyuWalkTest 自己就是 sprite。
-    現在把它改成純容器。
 
-    wrapper 完全不碰，
-    所以位置 / 翻面 / 景深仍維持原樣。
+  /*
+    原本 #chifuyuWalkTest
+    從 sprite 本體改成純容器。
+
+    wrapper 不碰：
+    - 位置
+    - 翻面
+    - 景深
+
+    全部維持原本行為。
   */
   chifuyuWalkTest.classList.remove(
     CHIFUYU_WALK_SHEET_CLASS,
     CHIFUYU_IDLE_SHEET_CLASS,
     CHIFUYU_TALK_SHEET_CLASS
   );
+
 
   chifuyuWalkTest.style.backgroundImage =
     "none";
@@ -11505,140 +11809,243 @@ function ensureChifuyuSpriteLayers() {
   chifuyuWalkTest.style.height =
     "650px";
 
-  /*
-    上一輪 Idle-only 測試留下的標記
-    對三層模式已經沒有用途。
-  */
+
   delete chifuyuWalkTest.dataset
     .gardenFrozenVisual;
 
 
-  for (const mode of [
-    "idle",
-    "walk",
-    "talk",
-  ]) {
-    const anim =
-      CHIFUYU_ANIMS[mode];
+  /*
+    注意：
+    這裡不再建立 idle / walk / talk。
 
-    const asset =
-      getGardenAnimationAsset(
-        "chifuyu",
-        mode
-      );
+    只完成 container 初始化。
 
-    const layer =
-      document.createElement("div");
+    真正的動畫 layer
+    由 getChifuyuSpriteLayer(mode)
+    第一次需要時才建立。
+  */
+  chifuyuSpriteLayersReady =
+    true;
 
-    layer.dataset.gardenSpriteMode =
-      mode;
-
-    /*
-      每一層從出生開始就綁定自己的圖片。
-      後面再也不修改 background-image。
-    */
-    layer.style.position =
-      "absolute";
-
-    layer.style.left =
-      "0";
-
-    layer.style.top =
-      "0";
-
-    layer.style.width =
-      "650px";
-
-    layer.style.height =
-      "650px";
-
-    layer.style.pointerEvents =
-      "none";
-
-   const warmupKey =
-  getGardenAnimationWarmupKey(
-    "chifuyu",
-    mode
-  );
-
-layer.style.backgroundImage =
-  gardenAnimationWarmupState[
-    warmupKey
-  ]
-    ? `url("${asset.src}")`
-    : "none";
-
-    layer.style.backgroundSize =
-      `${asset.logicalSize}px ` +
-      `${asset.logicalSize}px`;
-
-    layer.style.backgroundRepeat =
-      "no-repeat";
-
-    layer.style.backgroundPosition =
-      anim.positions[0];
-
-    /*
-      不用 display:none，
-      三層始終存在。
-    */
-    layer.style.opacity =
-      "0";
-
-    layer.style.transition =
-      "none";
-
-    /*
-      沿用原本相對於角色本體的定位。
-    */
-    layer.style.transform =
-      "none";
-
-    layer.style.transformOrigin =
-      "center bottom";
-
-    chifuyuWalkTest.appendChild(
-      layer
-    );
-
-    chifuyuSpriteLayers[mode] =
-      layer;
-  }
-
-  chifuyuSpriteLayersReady = true;
 
   return true;
 }
 
-
-function getChifuyuSpriteLayer(mode) {
-  if (!ensureChifuyuSpriteLayers()) {
+function createChifuyuSpriteLayer(
+  mode
+) {
+  if (
+    !ensureChifuyuSpriteLayers()
+  ) {
     return null;
   }
 
-  return (
-    chifuyuSpriteLayers[mode] ||
-    chifuyuSpriteLayers.idle
+
+  /*
+    已經建立過就直接回傳。
+  */
+  if (
+    chifuyuSpriteLayers[mode]
+  ) {
+    return chifuyuSpriteLayers[
+      mode
+    ];
+  }
+
+
+  const anim =
+    CHIFUYU_ANIMS[mode];
+
+
+  /*
+    沒有 Animation Definition，
+    不建立假的 layer。
+  */
+  if (!anim) {
+    return null;
+  }
+
+
+  const asset =
+    getGardenAnimationAsset(
+      "chifuyu",
+      mode
+    );
+
+
+  if (!asset) {
+    return null;
+  }
+
+
+  const layer =
+    document.createElement(
+      "div"
+    );
+
+
+  layer.dataset.gardenSpriteMode =
+    mode;
+
+
+  layer.style.position =
+    "absolute";
+
+  layer.style.left =
+    "0";
+
+  layer.style.top =
+    "0";
+
+  layer.style.width =
+    "650px";
+
+  layer.style.height =
+    "650px";
+
+  layer.style.pointerEvents =
+    "none";
+
+
+  const warmupKey =
+    getGardenAnimationWarmupKey(
+      "chifuyu",
+      mode
+    );
+
+
+  /*
+    只有素材已 warmup 才掛圖片。
+
+    如果尚未完成，
+    bindGardenSpriteLayerImage()
+    之後會補上。
+
+    同一個 layer 一旦取得圖片，
+    後續不會再切換成其他 spritesheet。
+  */
+  layer.style.backgroundImage =
+    gardenAnimationWarmupState[
+      warmupKey
+    ]
+      ? `url("${asset.src}")`
+      : "none";
+
+
+  layer.style.backgroundSize =
+    `${asset.logicalSize}px ` +
+    `${asset.logicalSize}px`;
+
+  layer.style.backgroundRepeat =
+    "no-repeat";
+
+  layer.style.backgroundPosition =
+    anim.positions[0];
+
+
+  /*
+    layer 永遠存在，
+    顯示切換只使用 opacity。
+  */
+  layer.style.opacity =
+    "0";
+
+  layer.style.transition =
+    "none";
+
+  layer.style.transform =
+    "none";
+
+  layer.style.transformOrigin =
+    "center bottom";
+
+
+  chifuyuWalkTest.appendChild(
+    layer
+  );
+
+
+  chifuyuSpriteLayers[mode] =
+    layer;
+
+
+  return layer;
+}
+
+
+function getChifuyuSpriteLayer(
+  mode
+) {
+  if (
+    !ensureChifuyuSpriteLayers()
+  ) {
+    return null;
+  }
+
+
+  /*
+    已存在直接使用。
+  */
+  if (
+    chifuyuSpriteLayers[mode]
+  ) {
+    return chifuyuSpriteLayers[
+      mode
+    ];
+  }
+
+
+  /*
+    第一次真正需要這個 mode，
+    才建立它自己的固定 layer。
+  */
+  return createChifuyuSpriteLayer(
+    mode
   );
 }
 
 
-function showChifuyuSpriteLayer(mode) {
-  if (!ensureChifuyuSpriteLayers()) {
+function showChifuyuSpriteLayer(
+  mode
+) {
+  if (
+    !ensureChifuyuSpriteLayers()
+  ) {
     return;
   }
 
-  for (const layerMode of [
-    "idle",
-    "walk",
-    "talk",
-  ]) {
-    const layer =
-      chifuyuSpriteLayers[
-        layerMode
-      ];
 
+  /*
+    確保這次真正需要的 layer
+    已經存在。
+  */
+  const targetLayer =
+    getChifuyuSpriteLayer(
+      mode
+    );
+
+
+  if (!targetLayer) {
+    return;
+  }
+
+
+  /*
+    不再知道有哪些動畫名稱。
+
+    只遍歷目前真正建立過的 layer。
+  */
+  for (
+    const [
+      layerMode,
+      layer
+    ] of
+    Object.entries(
+      chifuyuSpriteLayers
+    )
+  ) {
     if (!layer) continue;
+
 
     layer.style.opacity =
       layerMode === mode
@@ -11647,15 +12054,22 @@ function showChifuyuSpriteLayer(mode) {
   }
 }
 
-const gardenAnimationWarmupState = {
-  chifuyuIdle: false,
-  chifuyuWalk: false,
-  chifuyuTalk: false,
+/*
+  已完成 warmup 的動畫狀態。
 
-  chinatsuIdle: false,
-  chinatsuWalk: false,
-  chinatsuTalk: false,
-};
+  不再預先寫死：
+  idle / walk / talk。
+
+  未來例如：
+  chifuyuTea
+  chinatsuRead
+  sanaePray
+
+  都可以在 warmup 完成時
+  自動建立自己的 key。
+*/
+const gardenAnimationWarmupState =
+  Object.create(null);
 
 /*
   warmup 元素暫時保留。
@@ -11710,21 +12124,58 @@ function getGardenAnimationWarmupKey(
   character,
   mode
 ) {
-  if (character === "chifuyu") {
-    if (mode === "walk") return "chifuyuWalk";
-    if (mode === "talk") return "chifuyuTalk";
-
-    return "chifuyuIdle";
+  if (
+    !character ||
+    !mode
+  ) {
+    return "";
   }
 
-  if (character === "chinatsu") {
-    if (mode === "walk") return "chinatsuWalk";
-    if (mode === "talk") return "chinatsuTalk";
 
-    return "chinatsuIdle";
+  const safeCharacter =
+    String(character).trim();
+
+  const safeMode =
+    String(mode).trim();
+
+
+  if (
+    !safeCharacter ||
+    !safeMode
+  ) {
+    return "";
   }
 
-  return "";
+
+  /*
+    保留目前既有 key 格式：
+
+    chifuyu + idle
+    → chifuyuIdle
+
+    chifuyu + walk
+    → chifuyuWalk
+
+    chinatsu + talk
+    → chinatsuTalk
+
+    未來：
+
+    chifuyu + tea
+    → chifuyuTea
+
+    chinatsu + swordPractice
+    → chinatsuSwordPractice
+  */
+  const normalizedMode =
+    safeMode.charAt(0).toUpperCase() +
+    safeMode.slice(1);
+
+
+  return (
+    safeCharacter +
+    normalizedMode
+  );
 }
 
 let gardenCriticalAnimationWarmupPromise =
@@ -12080,6 +12531,17 @@ function requestGardenAnimationWarmup(
       mode
     );
 
+if (!asset) {
+  console.warn(
+    `[Garden Animation] warmup asset unavailable: ${character}/${mode}`
+  );
+
+  return Promise.resolve(
+    false
+  );
+}
+
+
   const run = () =>
     warmupGardenAnimationSheet(
       key,
@@ -12395,6 +12857,8 @@ const chifuyuWalkTestState = {
   frameTimer: 0,
   animLoopCount: 0,
 
+  animFinished: false,
+
   moveSpeed: 150,
 
   path: [],
@@ -12407,20 +12871,58 @@ function setChifuyuAnimationMode(
   mode,
   force = false
 ) {
-  if (!chifuyuWalkTest) return;
+  if (!chifuyuWalkTest) {
+    return;
+  }
 
+
+  /*
+    不再寫死：
+    talk / walk / idle。
+
+    統一交給 Animation Registry
+    判斷這個角色是否真的擁有
+    requested mode。
+
+    如果不存在，
+    Registry 會安全 fallback。
+  */
   const safeMode =
-    mode === "talk"
-      ? "talk"
-      : mode === "walk"
-        ? "walk"
-        : "idle";
+    resolveGardenCharacterAnimationFallback(
+      "chifuyu",
+      mode
+    );
+
+
+  if (!safeMode) {
+    return;
+  }
+
 
   const anim =
-    CHIFUYU_ANIMS[safeMode];
+    CHIFUYU_ANIMS[
+      safeMode
+    ];
+
+
+  /*
+    雙重保險：
+    Registry 理論上已經確認過，
+    但底層 setter 不應假設資料
+    永遠完整。
+  */
+  if (!anim) {
+    console.warn(
+      `[Garden Animation] missing Chifuyu definition: ${safeMode}`
+    );
+
+    return;
+  }
+
 
   const state =
     chifuyuWalkTestState;
+
 
   const warmupKey =
     getGardenAnimationWarmupKey(
@@ -12428,9 +12930,15 @@ function setChifuyuAnimationMode(
       safeMode
     );
 
+
   /*
-    該模式還沒完成 warmup：
-    先維持目前畫面。
+    該動畫尚未 warmup：
+
+    先保持目前畫面，
+    同時要求新動畫準備。
+
+    下一幀再次進來時，
+    warmup 完成後才正式切換。
   */
   if (
     !gardenAnimationWarmupState[
@@ -12446,49 +12954,77 @@ function setChifuyuAnimationMode(
     return;
   }
 
+
   if (
     !ensureChifuyuSpriteLayers()
   ) {
     return;
   }
 
-bindGardenSpriteLayerImage(
-  "chifuyu",
-  safeMode
-);
+
+  /*
+    Step 9A 的動態 Layer Manager
+    會在第一次真正需要這個動畫時
+    建立它自己的固定 layer。
+  */
+  bindGardenSpriteLayerImage(
+    "chifuyu",
+    safeMode
+  );
 
 
+  /*
+    已經在同一動畫，
+    就不要重設 frame clock。
+  */
   if (
     !force &&
-    state.animMode === safeMode
+    state.animMode ===
+      safeMode
   ) {
     return;
   }
 
-  state.animMode =
-    safeMode;
 
-  state.frameIndex = 0;
-  state.frameTimer = 0;
-  state.animLoopCount = 0;
+  state.animMode =
+  safeMode;
+
+state.frameIndex =
+  0;
+
+state.frameTimer =
+  0;
+
+state.animLoopCount =
+  0;
+
+state.animFinished =
+  false;
+
 
   const layer =
     getChifuyuSpriteLayer(
       safeMode
     );
 
+
   if (layer) {
     layer.style.backgroundPosition =
       anim.positions[0];
   }
 
+
   /*
-    只切 layer 可見性，
-    永遠不再 runtime 更換 background-image。
+    只切 layer opacity。
+
+    不 runtime 更換同一 layer
+    的 background-image，
+    保留 Safari 防閃爍策略。
   */
   showChifuyuSpriteLayer(
     safeMode
   );
+
 
   releaseGardenAnimationWarmup(
     warmupKey
@@ -12500,10 +13036,14 @@ bindGardenSpriteLayerImage(
 function updateChifuyuAnimationFrame(
   deltaMs
 ) {
-  if (!chifuyuWalkTest) return;
+  if (!chifuyuWalkTest) {
+    return;
+  }
+
 
   const state =
     chifuyuWalkTestState;
+
 
   const anim =
     CHIFUYU_ANIMS[
@@ -12511,17 +13051,33 @@ function updateChifuyuAnimationFrame(
     ] ||
     CHIFUYU_ANIMS.idle;
 
+
   const layer =
     getChifuyuSpriteLayer(
       state.animMode
     );
 
-  if (!layer) return;
 
+  if (
+    !anim ||
+    !layer
+  ) {
+    return;
+  }
+
+
+  /*
+    =========================
+    Talk 專用完成等待
+    =========================
+
+    這段保留原本聊天機制。
+  */
   if (
     gardenChatState.mode ===
       "chat" &&
-    state.animMode === "talk" &&
+    state.animMode ===
+      "talk" &&
     isGardenTalkReadyToEndForCharacter(
       "chifuyu"
     )
@@ -12535,19 +13091,124 @@ function updateChifuyuAnimationFrame(
     return;
   }
 
-  state.frameTimer += deltaMs;
+
+  /*
+    =========================
+    已完成的 One-shot
+    =========================
+
+    播放一次的動畫完成之後，
+    就不要再繼續推進 frame。
+  */
+  if (
+    anim.playback ===
+      "once" &&
+    state.animFinished
+  ) {
+    return;
+  }
+
+
+  state.frameTimer +=
+    deltaMs;
+
 
   while (
-    state.frameTimer >= anim.frameMs
+    state.frameTimer >=
+    anim.frameMs
   ) {
     state.frameTimer -=
       anim.frameMs;
 
+
+    /*
+      =========================
+      One-shot Animation
+      =========================
+    */
+    if (
+      anim.playback ===
+        "once"
+    ) {
+      const lastFrameIndex =
+        anim.positions.length - 1;
+
+
+      /*
+        還沒到最後一格：
+        正常往下一格前進。
+      */
+      if (
+        state.frameIndex <
+        lastFrameIndex
+      ) {
+        state.frameIndex +=
+          1;
+
+
+        layer.style.backgroundPosition =
+          anim.positions[
+            state.frameIndex
+          ];
+
+
+        continue;
+      }
+
+
+      /*
+        最後一格也完整顯示完畢。
+
+        正式標記：
+        這個 One-shot 動畫完成了。
+      */
+      state.animFinished =
+        true;
+
+      state.animLoopCount =
+        1;
+
+      state.frameTimer =
+        0;
+
+
+      /*
+        holdLastFrame = true
+        → 留在最後一格。
+
+        false
+        → 回到第一格後停止。
+      */
+      if (
+        !anim.holdLastFrame
+      ) {
+        state.frameIndex =
+          0;
+
+
+        layer.style.backgroundPosition =
+          anim.positions[0];
+      }
+
+
+      return;
+    }
+
+
+    /*
+      =========================
+      Loop Animation
+      =========================
+
+      現有 Idle / Walk / Talk
+      都會走這裡。
+    */
     const nextFrameIndex =
       (
         state.frameIndex + 1
       ) %
       anim.positions.length;
+
 
     if (
       nextFrameIndex === 0 &&
@@ -12560,14 +13221,25 @@ function updateChifuyuAnimationFrame(
         ) + 1;
     }
 
+
     state.frameIndex =
       nextFrameIndex;
+
 
     layer.style.backgroundPosition =
       anim.positions[
         state.frameIndex
       ];
 
+
+    /*
+      =========================
+      Talk 專用 Loop 完成判斷
+      =========================
+
+      這段也是原本聊天機制，
+      不改行為。
+    */
     if (
       gardenChatState.mode ===
         "chat" &&
@@ -12588,11 +13260,17 @@ function updateChifuyuAnimationFrame(
         "chifuyu"
       );
 
-      state.frameIndex = 0;
-      state.frameTimer = 0;
+
+      state.frameIndex =
+        0;
+
+      state.frameTimer =
+        0;
+
 
       layer.style.backgroundPosition =
         anim.positions[0];
+
 
       return;
     }
@@ -13452,35 +14130,125 @@ const CHINATSU_WALK_SHEET_CLASS = "chinatsu-walk-sheet";
 const CHINATSU_IDLE_SHEET_CLASS = "chinatsu-idle-sheet";
 const CHINATSU_TALK_SHEET_CLASS = "chinatsu-talk-sheet";
 
-const CHINATSU_ANIMS = {
-  walk: {
-    sheetClass: CHINATSU_WALK_SHEET_CLASS,
-    frameMs: CHINATSU_WALK_FRAME_MS,
-    positions: CHIFUYU_FRAME_POSITIONS,
-  },
+const CHINATSU_ANIMS =
+  Object.freeze({
+    walk:
+      defineGardenAnimation({
+        sheetClass:
+          CHINATSU_WALK_SHEET_CLASS,
 
-  idle: {
-    sheetClass: CHINATSU_IDLE_SHEET_CLASS,
-    frameMs: CHINATSU_IDLE_FRAME_MS,
-    positions: CHIFUYU_IDLE_FRAME_POSITIONS,
-  },
+        frameMs:
+          CHINATSU_WALK_FRAME_MS,
 
-  talk: {
-  sheetClass: CHINATSU_TALK_SHEET_CLASS,
-  frameMs: CHINATSU_TALK_FRAME_MS,
-  positions: CHINATSU_TALK_FRAME_POSITIONS,
-},
-};
+        positions:
+          CHIFUYU_FRAME_POSITIONS,
+src:
+  CHINATSU_WALK_SHEET_SRC,
+
+logicalSize:
+  GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+
+        type:
+          "locomotion",
+
+        playback:
+          "loop",
+
+        interruptible:
+          true,
+
+        movementAllowed:
+          true,
+
+        preloadTier:
+          "core",
+
+        holdLastFrame:
+          false,
+      }),
+
+
+    idle:
+      defineGardenAnimation({
+        sheetClass:
+          CHINATSU_IDLE_SHEET_CLASS,
+
+        frameMs:
+          CHINATSU_IDLE_FRAME_MS,
+
+        positions:
+          CHIFUYU_IDLE_FRAME_POSITIONS,
+
+src:
+  CHINATSU_IDLE_SHEET_SRC,
+
+logicalSize:
+  GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+
+
+        type:
+          "idle",
+
+        playback:
+          "loop",
+
+        interruptible:
+          true,
+
+        movementAllowed:
+          false,
+
+        preloadTier:
+          "core",
+
+        holdLastFrame:
+          false,
+      }),
+
+
+    talk:
+      defineGardenAnimation({
+        sheetClass:
+          CHINATSU_TALK_SHEET_CLASS,
+
+        frameMs:
+          CHINATSU_TALK_FRAME_MS,
+
+        positions:
+          CHINATSU_TALK_FRAME_POSITIONS,
+
+          src:
+  CHINATSU_TALK_SHEET_SRC,
+
+logicalSize:
+  GARDEN_TALK_LOGICAL_SHEET_SIZE,
+
+        type:
+          "social",
+
+        playback:
+          "loop",
+
+        interruptible:
+          true,
+
+        movementAllowed:
+          false,
+
+        preloadTier:
+          "onDemand",
+
+        holdLastFrame:
+          false,
+      }),
+  });
 
 /* =========================
    Chinatsu Three-Layer Sprite
 ========================= */
 
-const chinatsuSpriteLayers = {
-  idle: null,
-  walk: null,
-  talk: null,
-};
+const chinatsuSpriteLayers =
+  Object.create(null);
 
 let chinatsuSpriteLayersReady = false;
 
@@ -13494,12 +14262,16 @@ function ensureChinatsuSpriteLayers() {
     return false;
   }
 
-  // 原本 sprite 本體改成純容器
+
+  /*
+    原本 sprite 本體改成純容器。
+  */
   chinatsuWalkTest.classList.remove(
     CHINATSU_WALK_SHEET_CLASS,
     CHINATSU_IDLE_SHEET_CLASS,
     CHINATSU_TALK_SHEET_CLASS
   );
+
 
   chinatsuWalkTest.style.backgroundImage =
     "none";
@@ -13519,126 +14291,204 @@ function ensureChinatsuSpriteLayers() {
   chinatsuWalkTest.style.height =
     "650px";
 
+
   delete chinatsuWalkTest.dataset
     .gardenFrozenVisual;
 
 
-  for (const mode of [
-    "idle",
-    "walk",
-    "talk",
-  ]) {
-    const anim =
-      CHINATSU_ANIMS[mode];
+  /*
+    只初始化 container。
 
-    const asset =
-      getGardenAnimationAsset(
-        "chinatsu",
-        mode
-      );
+    動畫 layer
+    第一次真正需要時才建立。
+  */
+  chinatsuSpriteLayersReady =
+    true;
 
-    const layer =
-      document.createElement("div");
-
-    layer.dataset.gardenSpriteMode =
-      mode;
-
-    layer.style.position =
-      "absolute";
-
-    layer.style.left =
-      "0";
-
-    layer.style.top =
-      "0";
-
-    layer.style.width =
-      "650px";
-
-    layer.style.height =
-      "650px";
-
-    layer.style.pointerEvents =
-      "none";
-
-    // 每一層永遠綁自己的 spritesheet
-    const warmupKey =
-  getGardenAnimationWarmupKey(
-    "chinatsu",
-    mode
-  );
-
-layer.style.backgroundImage =
-  gardenAnimationWarmupState[
-    warmupKey
-  ]
-    ? `url("${asset.src}")`
-    : "none";
-
-    layer.style.backgroundSize =
-      `${asset.logicalSize}px ` +
-      `${asset.logicalSize}px`;
-
-    layer.style.backgroundRepeat =
-      "no-repeat";
-
-    layer.style.backgroundPosition =
-      anim.positions[0];
-
-    layer.style.opacity =
-      "0";
-
-    layer.style.transition =
-      "none";
-
-    layer.style.transform =
-      "none";
-
-    layer.style.transformOrigin =
-      "center bottom";
-
-    chinatsuWalkTest.appendChild(
-      layer
-    );
-
-    chinatsuSpriteLayers[mode] =
-      layer;
-  }
-
-  chinatsuSpriteLayersReady = true;
 
   return true;
 }
 
 
-function getChinatsuSpriteLayer(mode) {
-  if (!ensureChinatsuSpriteLayers()) {
+function createChinatsuSpriteLayer(
+  mode
+) {
+  if (
+    !ensureChinatsuSpriteLayers()
+  ) {
     return null;
   }
 
-  return (
-    chinatsuSpriteLayers[mode] ||
-    chinatsuSpriteLayers.idle
+
+  if (
+    chinatsuSpriteLayers[mode]
+  ) {
+    return chinatsuSpriteLayers[
+      mode
+    ];
+  }
+
+
+  const anim =
+    CHINATSU_ANIMS[mode];
+
+
+  if (!anim) {
+    return null;
+  }
+
+
+  const asset =
+    getGardenAnimationAsset(
+      "chinatsu",
+      mode
+    );
+
+
+  if (!asset) {
+    return null;
+  }
+
+
+  const layer =
+    document.createElement(
+      "div"
+    );
+
+
+  layer.dataset.gardenSpriteMode =
+    mode;
+
+
+  layer.style.position =
+    "absolute";
+
+  layer.style.left =
+    "0";
+
+  layer.style.top =
+    "0";
+
+  layer.style.width =
+    "650px";
+
+  layer.style.height =
+    "650px";
+
+  layer.style.pointerEvents =
+    "none";
+
+
+  const warmupKey =
+    getGardenAnimationWarmupKey(
+      "chinatsu",
+      mode
+    );
+
+
+  layer.style.backgroundImage =
+    gardenAnimationWarmupState[
+      warmupKey
+    ]
+      ? `url("${asset.src}")`
+      : "none";
+
+
+  layer.style.backgroundSize =
+    `${asset.logicalSize}px ` +
+    `${asset.logicalSize}px`;
+
+  layer.style.backgroundRepeat =
+    "no-repeat";
+
+  layer.style.backgroundPosition =
+    anim.positions[0];
+
+
+  layer.style.opacity =
+    "0";
+
+  layer.style.transition =
+    "none";
+
+  layer.style.transform =
+    "none";
+
+  layer.style.transformOrigin =
+    "center bottom";
+
+
+  chinatsuWalkTest.appendChild(
+    layer
+  );
+
+
+  chinatsuSpriteLayers[mode] =
+    layer;
+
+
+  return layer;
+}
+
+
+
+function getChinatsuSpriteLayer(
+  mode
+) {
+  if (
+    !ensureChinatsuSpriteLayers()
+  ) {
+    return null;
+  }
+
+
+  if (
+    chinatsuSpriteLayers[mode]
+  ) {
+    return chinatsuSpriteLayers[
+      mode
+    ];
+  }
+
+
+  return createChinatsuSpriteLayer(
+    mode
   );
 }
 
 
-function showChinatsuSpriteLayer(mode) {
-  if (!ensureChinatsuSpriteLayers()) {
+function showChinatsuSpriteLayer(
+  mode
+) {
+  if (
+    !ensureChinatsuSpriteLayers()
+  ) {
     return;
   }
 
-  for (const layerMode of [
-    "idle",
-    "walk",
-    "talk",
-  ]) {
-    const layer =
-      chinatsuSpriteLayers[
-        layerMode
-      ];
 
+  const targetLayer =
+    getChinatsuSpriteLayer(
+      mode
+    );
+
+
+  if (!targetLayer) {
+    return;
+  }
+
+
+  for (
+    const [
+      layerMode,
+      layer
+    ] of
+    Object.entries(
+      chinatsuSpriteLayers
+    )
+  ) {
     if (!layer) continue;
+
 
     layer.style.opacity =
       layerMode === mode
@@ -13674,6 +14524,7 @@ const chinatsuWalkTestState = {
   frameIndex: 0,
   frameTimer: 0,
   animLoopCount: 0,
+  animFinished: false,
 
   moveSpeed: 145,
 
@@ -13716,26 +14567,55 @@ function setChinatsuAnimationMode(
   mode,
   force = false
 ) {
-  if (!chinatsuWalkTest) return;
+  if (!chinatsuWalkTest) {
+    return;
+  }
 
+
+  /*
+    不再限制動畫名稱。
+
+    統一由 Registry 決定
+    requested mode 是否存在，
+    並處理 fallback。
+  */
   const safeMode =
-    mode === "talk"
-      ? "talk"
-      : mode === "walk"
-        ? "walk"
-        : "idle";
+    resolveGardenCharacterAnimationFallback(
+      "chinatsu",
+      mode
+    );
+
+
+  if (!safeMode) {
+    return;
+  }
+
 
   const anim =
-    CHINATSU_ANIMS[safeMode];
+    CHINATSU_ANIMS[
+      safeMode
+    ];
+
+
+  if (!anim) {
+    console.warn(
+      `[Garden Animation] missing Chinatsu definition: ${safeMode}`
+    );
+
+    return;
+  }
+
 
   const state =
     chinatsuWalkTestState;
+
 
   const warmupKey =
     getGardenAnimationWarmupKey(
       "chinatsu",
       safeMode
     );
+
 
   if (
     !gardenAnimationWarmupState[
@@ -13751,45 +14631,61 @@ function setChinatsuAnimationMode(
     return;
   }
 
+
   if (
     !ensureChinatsuSpriteLayers()
   ) {
     return;
   }
 
-bindGardenSpriteLayerImage(
-  "chinatsu",
-  safeMode
-);
+
+  bindGardenSpriteLayerImage(
+    "chinatsu",
+    safeMode
+  );
 
 
   if (
     !force &&
-    state.animMode === safeMode
+    state.animMode ===
+      safeMode
   ) {
     return;
   }
 
-  state.animMode =
-    safeMode;
 
-  state.frameIndex = 0;
-  state.frameTimer = 0;
-  state.animLoopCount = 0;
+  state.animMode =
+  safeMode;
+
+state.frameIndex =
+  0;
+
+state.frameTimer =
+  0;
+
+state.animLoopCount =
+  0;
+
+state.animFinished =
+  false;
+
 
   const layer =
     getChinatsuSpriteLayer(
       safeMode
     );
 
+
   if (layer) {
     layer.style.backgroundPosition =
       anim.positions[0];
   }
 
+
   showChinatsuSpriteLayer(
     safeMode
   );
+
 
   releaseGardenAnimationWarmup(
     warmupKey
@@ -13798,10 +14694,14 @@ bindGardenSpriteLayerImage(
 function updateChinatsuAnimationFrame(
   deltaMs
 ) {
-  if (!chinatsuWalkTest) return;
+  if (!chinatsuWalkTest) {
+    return;
+  }
+
 
   const state =
     chinatsuWalkTestState;
+
 
   const anim =
     CHINATSU_ANIMS[
@@ -13809,17 +14709,33 @@ function updateChinatsuAnimationFrame(
     ] ||
     CHINATSU_ANIMS.idle;
 
+
   const layer =
     getChinatsuSpriteLayer(
       state.animMode
     );
 
-  if (!layer) return;
 
+  if (
+    !anim ||
+    !layer
+  ) {
+    return;
+  }
+
+
+  /*
+    =========================
+    Talk 專用完成等待
+    =========================
+
+    保留原本姐妹聊天機制。
+  */
   if (
     gardenChatState.mode ===
       "chat" &&
-    state.animMode === "talk" &&
+    state.animMode ===
+      "talk" &&
     isGardenTalkReadyToEndForCharacter(
       "chinatsu"
     )
@@ -13833,19 +14749,118 @@ function updateChinatsuAnimationFrame(
     return;
   }
 
-  state.frameTimer += deltaMs;
+
+  /*
+    =========================
+    已完成的 One-shot
+    =========================
+  */
+  if (
+    anim.playback ===
+      "once" &&
+    state.animFinished
+  ) {
+    return;
+  }
+
+
+  state.frameTimer +=
+    deltaMs;
+
 
   while (
-    state.frameTimer >= anim.frameMs
+    state.frameTimer >=
+    anim.frameMs
   ) {
     state.frameTimer -=
       anim.frameMs;
 
+
+    /*
+      =========================
+      One-shot Animation
+      =========================
+    */
+    if (
+      anim.playback ===
+        "once"
+    ) {
+      const lastFrameIndex =
+        anim.positions.length - 1;
+
+
+      /*
+        還沒到最後一格，
+        繼續往下一格。
+      */
+      if (
+        state.frameIndex <
+        lastFrameIndex
+      ) {
+        state.frameIndex +=
+          1;
+
+
+        layer.style.backgroundPosition =
+          anim.positions[
+            state.frameIndex
+          ];
+
+
+        continue;
+      }
+
+
+      /*
+        最後一格已經完整播放完。
+      */
+      state.animFinished =
+        true;
+
+      state.animLoopCount =
+        1;
+
+      state.frameTimer =
+        0;
+
+
+      /*
+        true：
+        停在最後一格。
+
+        false：
+        回第一格後停止。
+      */
+      if (
+        !anim.holdLastFrame
+      ) {
+        state.frameIndex =
+          0;
+
+
+        layer.style.backgroundPosition =
+          anim.positions[0];
+      }
+
+
+      return;
+    }
+
+
+    /*
+      =========================
+      Loop Animation
+      =========================
+
+      現有 Idle / Walk / Talk
+      都仍然走這裡。
+    */
     const nextFrameIndex =
       (
         state.frameIndex + 1
       ) %
       anim.positions.length;
+
 
     if (
       nextFrameIndex === 0 &&
@@ -13858,14 +14873,24 @@ function updateChinatsuAnimationFrame(
         ) + 1;
     }
 
+
     state.frameIndex =
       nextFrameIndex;
+
 
     layer.style.backgroundPosition =
       anim.positions[
         state.frameIndex
       ];
 
+
+    /*
+      =========================
+      Talk 專用 Loop 完成判斷
+      =========================
+
+      原有聊天結束方式保留。
+    */
     if (
       gardenChatState.mode ===
         "chat" &&
@@ -13886,16 +14911,4208 @@ function updateChinatsuAnimationFrame(
         "chinatsu"
       );
 
-      state.frameIndex = 0;
-      state.frameTimer = 0;
+
+      state.frameIndex =
+        0;
+
+      state.frameTimer =
+        0;
+
 
       layer.style.backgroundPosition =
         anim.positions[0];
+
 
       return;
     }
   }
 }
+
+
+/* =========================
+   Garden Character Animation Registry
+
+   角色動畫統一註冊層。
+
+   注意：
+   這一層目前只負責「登記」與
+   提供統一動畫入口。
+
+   不負責：
+   - spritesheet 載入
+   - warmup
+   - sprite layer
+   - travel
+   - scene
+   - movement
+   - character visibility
+
+   以上全部仍由原系統處理。
+========================= */
+
+const GARDEN_CHARACTER_ANIMATION_REGISTRY =
+  new Map();
+
+
+function registerGardenCharacterAnimation(
+  characterId,
+  config
+) {
+  if (!characterId) {
+    console.warn(
+      "[Garden Animation] missing characterId"
+    );
+
+    return false;
+  }
+
+
+  if (!config) {
+    console.warn(
+      `[Garden Animation] missing config: ${characterId}`
+    );
+
+    return false;
+  }
+
+
+  if (!config.animations) {
+    console.warn(
+      `[Garden Animation] missing animations: ${characterId}`
+    );
+
+    return false;
+  }
+
+
+  if (!config.state) {
+    console.warn(
+      `[Garden Animation] missing state: ${characterId}`
+    );
+
+    return false;
+  }
+
+
+  if (
+    typeof config.setMode !==
+    "function"
+  ) {
+    console.warn(
+      `[Garden Animation] missing setMode(): ${characterId}`
+    );
+
+    return false;
+  }
+
+
+  if (
+    typeof config.updateFrame !==
+    "function"
+  ) {
+    console.warn(
+      `[Garden Animation] missing updateFrame(): ${characterId}`
+    );
+
+    return false;
+  }
+
+
+  GARDEN_CHARACTER_ANIMATION_REGISTRY.set(
+    characterId,
+    {
+      id:
+        characterId,
+
+      animations:
+        config.animations,
+
+      state:
+        config.state,
+
+      setMode:
+        config.setMode,
+
+      updateFrame:
+        config.updateFrame,
+    }
+  );
+
+
+  console.log(
+    `[Garden Animation] registered: ${characterId}`,
+    Object.keys(
+      config.animations
+    )
+  );
+
+
+  return true;
+}
+
+
+function getGardenCharacterAnimationRuntime(
+  characterId
+) {
+  return (
+    GARDEN_CHARACTER_ANIMATION_REGISTRY.get(
+      characterId
+    ) ||
+    null
+  );
+}
+
+/* =========================
+   Garden Animation Runtime Status
+========================= */
+
+/*
+  取得角色目前真正正在播放的動畫名稱。
+
+  例如：
+  "idle"
+  "walk"
+  "talk"
+  未來也可以是：
+  "tea"
+  "sitDown"
+  "swordPractice"
+*/
+function getGardenCharacterCurrentAnimation(
+  characterId
+) {
+  const runtime =
+    getGardenCharacterAnimationRuntime(
+      characterId
+    );
+
+
+  if (!runtime) {
+    return null;
+  }
+
+
+  return (
+    runtime.state?.animMode ||
+    null
+  );
+}
+
+
+/*
+  查詢角色目前動畫是否已完成。
+
+  主要給 playback:"once"
+  的動畫使用。
+
+  Loop 動畫正常情況下
+  animFinished 會一直是 false。
+*/
+function isGardenCharacterAnimationFinished(
+  characterId,
+  expectedMode = null
+) {
+  const runtime =
+    getGardenCharacterAnimationRuntime(
+      characterId
+    );
+
+
+  if (!runtime) {
+    return false;
+  }
+
+
+  const state =
+    runtime.state;
+
+
+  if (!state) {
+    return false;
+  }
+
+
+  /*
+    如果有指定 expectedMode，
+    必須確認現在仍然是那個動畫。
+
+    這可以避免：
+
+    sitDown 已完成
+    → 系統切成 sitIdle
+    → 舊邏輯下一幀又誤判
+      sitDown 還完成著。
+  */
+  if (
+    expectedMode !== null &&
+    state.animMode !==
+      expectedMode
+  ) {
+    return false;
+  }
+
+
+  return (
+    state.animFinished ===
+    true
+  );
+}
+
+/* =========================
+   Garden Animation Metadata Status
+========================= */
+
+/*
+  取得角色「目前正在播放」的
+  Animation Definition。
+
+  未來其他系統不要直接去讀：
+
+  CHIFUYU_ANIMS[state.animMode]
+  CHINATSU_ANIMS[state.animMode]
+
+  統一從 Registry 查。
+*/
+function getGardenCharacterCurrentAnimationDefinition(
+  characterId
+) {
+  const currentMode =
+    getGardenCharacterCurrentAnimation(
+      characterId
+    );
+
+
+  if (!currentMode) {
+    return null;
+  }
+
+
+  return (
+    getGardenCharacterAnimationDefinition(
+      characterId,
+      currentMode
+    ) ||
+    null
+  );
+}
+
+
+/*
+  目前動畫是否允許被其他動畫打斷。
+*/
+function isGardenCharacterCurrentAnimationInterruptible(
+  characterId
+) {
+  const anim =
+    getGardenCharacterCurrentAnimationDefinition(
+      characterId
+    );
+
+
+  /*
+    找不到 Definition 時保守處理：
+    不允許未知動畫被直接打斷。
+  */
+  if (!anim) {
+    return false;
+  }
+
+
+  return (
+    anim.interruptible ===
+    true
+  );
+}
+/*
+  判斷角色現在是否允許
+  切換到另一個 Animation。
+
+  規則：
+
+  1. 還沒有動畫
+     → 可以
+
+  2. 目標就是目前動畫
+     → 可以
+
+  3. force = true
+     → 可以
+
+  4. One-shot 已經播放完成
+     → 可以進入下一個動畫
+
+  5. 其他情況
+     → 看目前動畫的 interruptible
+*/
+function canGardenCharacterSwitchAnimation(
+  characterId,
+  nextMode,
+  force = false
+) {
+  const runtime =
+    getGardenCharacterAnimationRuntime(
+      characterId
+    );
+
+
+  if (!runtime) {
+    return false;
+  }
+
+
+  const state =
+    runtime.state;
+
+
+  if (!state) {
+    return false;
+  }
+
+
+  const currentMode =
+    state.animMode || null;
+
+
+  /*
+    初始化階段還沒有動畫。
+  */
+  if (!currentMode) {
+    return true;
+  }
+
+
+  /*
+    每幀 Resolver 都可能要求同一個模式。
+
+    同動畫不算「中斷」。
+  */
+  if (
+    currentMode ===
+    nextMode
+  ) {
+    return true;
+  }
+
+
+  /*
+    明確強制切換。
+
+    例如目前 Chat 系統一些
+    必須立即成立的切換。
+  */
+  if (force) {
+    return true;
+  }
+
+
+  /*
+    One-shot 已經正式播放完，
+    即使本身 interruptible:false，
+    也必須允許進入下一個動畫。
+
+    否則：
+
+    sitDown finished
+    → sitIdle
+
+    會永遠卡在 sitDown。
+  */
+  if (
+    state.animFinished ===
+    true
+  ) {
+    return true;
+  }
+
+
+  /*
+    尚未完成時，
+    才正式讀取目前動畫的
+    interruptible。
+  */
+  return (
+    isGardenCharacterCurrentAnimationInterruptible(
+      characterId
+    )
+  );
+}
+
+/*
+  目前動畫播放期間，
+  是否允許角色進行位置移動。
+*/
+function isGardenCharacterMovementAllowed(
+  characterId
+) {
+  const anim =
+    getGardenCharacterCurrentAnimationDefinition(
+      characterId
+    );
+
+
+  if (!anim) {
+    return false;
+  }
+
+
+  return (
+    anim.movementAllowed ===
+    true
+  );
+}
+
+/*
+  判斷角色目前是否可以
+  真正推進地圖位置。
+
+  和單純讀 movementAllowed 不同：
+
+  Idle → Walk 的起步必須允許，
+  否則角色會因為 Idle 本身
+  movementAllowed:false 而永遠走不了。
+*/
+function canGardenCharacterAdvanceMovement(
+  characterId
+) {
+  const runtime =
+    getGardenCharacterAnimationRuntime(
+      characterId
+    );
+
+
+  if (!runtime) {
+    return false;
+  }
+
+
+  const state =
+    runtime.state;
+
+
+  if (!state) {
+    return false;
+  }
+
+
+  /*
+    沒有 path，
+    本來就沒有位置可以推進。
+  */
+  if (
+    !state.path ||
+    state.path.length === 0
+  ) {
+    return false;
+  }
+
+
+  const currentMode =
+    state.animMode ||
+    null;
+
+
+  /*
+    =========================
+    1. Override Movement Rule
+    =========================
+  */
+  const overrideMode =
+    getGardenCharacterAnimationOverride(
+      characterId
+    );
+
+
+  if (overrideMode) {
+    const overrideAnim =
+      getGardenCharacterAnimationDefinition(
+        characterId,
+        overrideMode
+      );
+
+
+    if (!overrideAnim) {
+      clearGardenCharacterAnimationOverride(
+        characterId
+      );
+
+    } else {
+      /*
+        如果 Override 已經能接管動畫，
+        Movement 立刻依 Override 判斷。
+
+        如果目前是不可中斷 One-shot，
+        Override 還不能接管，
+        就繼續尊重目前動畫。
+      */
+      const canTakeControl =
+        !currentMode ||
+        currentMode ===
+          overrideMode ||
+        canGardenCharacterSwitchAnimation(
+          characterId,
+          overrideMode,
+          false
+        );
+
+
+      if (canTakeControl) {
+        return (
+          overrideAnim
+            .movementAllowed ===
+          true
+        );
+      }
+    }
+  }
+
+
+  /*
+    =========================
+    2. Priority Request Movement Rule
+    =========================
+  */
+  const request =
+    getGardenCharacterTopAnimationRequest(
+      characterId
+    );
+
+
+  if (request) {
+    const requestAnim =
+      getGardenCharacterAnimationDefinition(
+        characterId,
+        request.mode
+      );
+
+
+    if (!requestAnim) {
+      clearGardenCharacterAnimationRequest(
+        characterId,
+        request.source
+      );
+
+    } else {
+      /*
+        Request 必須真的有能力
+        取得 Animation 控制權，
+        才能改變 Movement 權限。
+
+        例如：
+
+        sitDown
+        interruptible:false
+
+        此時普通 walk request
+        即使存在，也不能讓角色
+        一邊坐下、一邊開始滑動。
+      */
+      const canTakeControl =
+        !currentMode ||
+        currentMode ===
+          request.mode ||
+        canGardenCharacterSwitchAnimation(
+          characterId,
+          request.mode,
+          request.force === true
+        );
+
+
+      if (canTakeControl) {
+        return (
+          requestAnim
+            .movementAllowed ===
+          true
+        );
+      }
+    }
+  }
+
+
+  /*
+    =========================
+    3. Current Animation
+    =========================
+  */
+  const currentAnim =
+    getGardenCharacterCurrentAnimationDefinition(
+      characterId
+    );
+
+
+  /*
+    初始化瞬間。
+
+    已經有 path 的話，
+    允許先啟動 Movement。
+  */
+  if (!currentAnim) {
+    return true;
+  }
+
+
+  if (
+    currentAnim.movementAllowed ===
+    true
+  ) {
+    return true;
+  }
+
+
+  /*
+    Idle → Walk 起步例外。
+
+    Idle 自己不能邊播放邊滑動，
+    但只要已經取得 path，
+    必須允許第一幀起步。
+
+    下一輪 Resolver 就會因：
+    state.isMoving === true
+
+    切成 Walk。
+  */
+  if (
+    currentAnim.type ===
+    "idle"
+  ) {
+    return true;
+  }
+
+
+  return false;
+}
+
+/* =========================
+   Garden Animation Completion Transitions
+========================= */
+
+/*
+  動畫播放完成後的轉場規則。
+
+  key：
+  characterId:fromMode
+
+  value：
+  {
+    toMode
+  }
+
+  例如未來：
+
+  chifuyu:sitDown
+  →
+  sitIdle
+
+  chifuyu:standUp
+  →
+  idle
+*/
+const GARDEN_ANIMATION_COMPLETION_TRANSITIONS =
+  new Map();
+
+
+function getGardenAnimationCompletionTransitionKey(
+  characterId,
+  fromMode
+) {
+  if (
+    !characterId ||
+    !fromMode
+  ) {
+    return "";
+  }
+
+
+  return (
+    `${characterId}:${fromMode}`
+  );
+}
+
+
+/*
+  登記：
+
+  某角色的某個動畫播放完後，
+  下一個動畫應該是什麼。
+*/
+function registerGardenAnimationCompletionTransition(
+  characterId,
+  fromMode,
+  toMode
+) {
+  const key =
+    getGardenAnimationCompletionTransitionKey(
+      characterId,
+      fromMode
+    );
+
+
+  if (
+    !key ||
+    !toMode
+  ) {
+    console.warn(
+      "[Garden Animation] invalid completion transition:",
+      {
+        characterId,
+        fromMode,
+        toMode,
+      }
+    );
+
+    return false;
+  }
+
+
+  GARDEN_ANIMATION_COMPLETION_TRANSITIONS.set(
+    key,
+    {
+      characterId,
+      fromMode,
+      toMode,
+    }
+  );
+
+
+  return true;
+}
+
+
+/*
+  查詢某個動畫完成後，
+  是否有指定下一個動畫。
+*/
+function getGardenAnimationCompletionTransition(
+  characterId,
+  fromMode
+) {
+  const key =
+    getGardenAnimationCompletionTransitionKey(
+      characterId,
+      fromMode
+    );
+
+
+  if (!key) {
+    return null;
+  }
+
+
+  return (
+    GARDEN_ANIMATION_COMPLETION_TRANSITIONS.get(
+      key
+    ) ||
+    null
+  );
+}
+
+
+/*
+  查看角色「目前」是否已經完成一個
+  有 Transition 規則的動畫。
+
+  注意：
+
+  這裡只回傳資料，
+  現在還不真正切換動畫。
+*/
+function getGardenPendingAnimationCompletionTransition(
+  characterId
+) {
+  const currentMode =
+    getGardenCharacterCurrentAnimation(
+      characterId
+    );
+
+
+  if (!currentMode) {
+    return null;
+  }
+
+
+  if (
+    !isGardenCharacterAnimationFinished(
+      characterId,
+      currentMode
+    )
+  ) {
+    return null;
+  }
+
+
+  return (
+    getGardenAnimationCompletionTransition(
+      characterId,
+      currentMode
+    )
+  );
+}
+
+/* =========================
+   Garden Animation Override
+========================= */
+
+/*
+  暫時覆蓋 Activity Resolver
+  所決定的動畫。
+
+  用途例如：
+
+  sitDown
+  → sitIdle
+
+  在 sitIdle 活動尚未結束前，
+  Resolver 不應該下一幀又把角色
+  打回一般 idle / walk。
+*/
+const gardenCharacterAnimationOverrides =
+  new Map();
+
+
+function getGardenCharacterAnimationOverride(
+  characterId
+) {
+  if (!characterId) {
+    return null;
+  }
+
+
+  return (
+    gardenCharacterAnimationOverrides.get(
+      characterId
+    ) ||
+    null
+  );
+}
+
+
+/*
+  設定動畫 Override。
+
+  注意：
+  Override 只接受角色真正存在的動畫，
+  不在這裡做 fallback。
+
+  這樣拼錯動畫名稱時，
+  不會偷偷變成 idle。
+*/
+function setGardenCharacterAnimationOverride(
+  characterId,
+  mode
+) {
+  if (
+    !characterId ||
+    !mode
+  ) {
+    return false;
+  }
+
+
+  if (
+    !hasGardenCharacterAnimation(
+      characterId,
+      mode
+    )
+  ) {
+    console.warn(
+      `[Garden Animation] cannot override "${characterId}" → "${mode}": animation not registered.`
+    );
+
+    return false;
+  }
+
+
+  gardenCharacterAnimationOverrides.set(
+    characterId,
+    mode
+  );
+
+
+  return true;
+}
+
+
+/*
+  清除 Override。
+
+  清掉後，
+  下一幀重新交還 Activity Resolver：
+  CHAT / TRAVEL / WANDER 等系統決定動畫。
+*/
+function clearGardenCharacterAnimationOverride(
+  characterId
+) {
+  if (!characterId) {
+    return false;
+  }
+
+
+  gardenCharacterAnimationOverrides.delete(
+    characterId
+  );
+
+
+  return true;
+}
+
+/* =========================
+   Garden Animation Requests
+========================= */
+
+/*
+  動畫 Request 優先權。
+
+  數字越大，優先權越高。
+
+  BASELINE
+  → 普通 Idle / Walk 等基礎行為
+
+  ACTIVITY
+  → Tea / Read / Pray 等正式 Activity
+
+  SEQUENCE
+  → Activity 內部的動畫序列
+
+  CRITICAL
+  → 未來真正需要立即搶控制權的特殊狀況
+*/
+const GARDEN_ANIMATION_REQUEST_PRIORITY =
+  Object.freeze({
+    BASELINE: 0,
+    ACTIVITY: 100,
+    SEQUENCE: 200,
+    CRITICAL: 300,
+  });
+
+
+/*
+  characterId
+    ↓
+  Map(
+    sourceId
+      ↓
+    request
+  )
+
+  例如：
+
+  chifuyu
+    activity:tea
+    sequence:sit
+*/
+const gardenCharacterAnimationRequests =
+  new Map();
+
+
+let gardenAnimationRequestOrder =
+  0;
+
+
+/*
+  取得某角色的 Request Map。
+
+  create = true 時，
+  不存在就自動建立。
+*/
+function getGardenCharacterAnimationRequestMap(
+  characterId,
+  create = false
+) {
+  if (!characterId) {
+    return null;
+  }
+
+
+  let requestMap =
+    gardenCharacterAnimationRequests.get(
+      characterId
+    );
+
+
+  if (
+    !requestMap &&
+    create
+  ) {
+    requestMap =
+      new Map();
+
+
+    gardenCharacterAnimationRequests.set(
+      characterId,
+      requestMap
+    );
+  }
+
+
+  return (
+    requestMap ||
+    null
+  );
+}
+
+
+/*
+  登記一個 Animation Request。
+*/
+function requestGardenCharacterAnimation(
+  characterId,
+  mode,
+  options = {}
+) {
+ const {
+  source =
+    "default",
+
+  owner =
+    null,
+
+  sequence =
+    null,
+
+  priority =
+    GARDEN_ANIMATION_REQUEST_PRIORITY
+      .ACTIVITY,
+
+  force =
+    false,
+} = options;
+
+
+  if (
+    !characterId ||
+    !mode ||
+    !source
+  ) {
+    return false;
+  }
+
+
+  /*
+    Request 不做 fallback。
+
+    動畫不存在就直接拒絕，
+    避免拼錯名稱後偷偷變 Idle。
+  */
+  if (
+    !hasGardenCharacterAnimation(
+      characterId,
+      mode
+    )
+  ) {
+    console.warn(
+      `[Garden Animation] request rejected: ${characterId}/${mode}`
+    );
+
+    return false;
+  }
+
+
+  const safePriority =
+    Number.isFinite(priority)
+      ? priority
+      : GARDEN_ANIMATION_REQUEST_PRIORITY
+          .ACTIVITY;
+
+
+  const requestMap =
+    getGardenCharacterAnimationRequestMap(
+      characterId,
+      true
+    );
+
+
+  gardenAnimationRequestOrder +=
+    1;
+
+
+  requestMap.set(
+  source,
+  {
+    characterId,
+
+    mode,
+
+    source,
+
+    owner:
+      owner
+        ? String(owner)
+        : null,
+
+sequence:
+  sequence
+    ? String(sequence)
+    : null,
+
+    priority:
+      safePriority,
+
+    force:
+      force === true,
+
+    order:
+      gardenAnimationRequestOrder,
+  }
+);
+
+
+  return true;
+}
+
+
+/*
+  清除指定來源的 Request。
+
+  例如：
+  clear activity:tea
+
+  但不影響其他系統的 request。
+*/
+function clearGardenCharacterAnimationRequest(
+  characterId,
+  source
+) {
+  const requestMap =
+    getGardenCharacterAnimationRequestMap(
+      characterId
+    );
+
+
+  if (
+    !requestMap ||
+    !source
+  ) {
+    return false;
+  }
+
+
+  const deleted =
+    requestMap.delete(
+      source
+    );
+
+
+  /*
+    角色已經完全沒有 Request，
+    順便清掉外層 Map。
+  */
+  if (
+    requestMap.size === 0
+  ) {
+    gardenCharacterAnimationRequests.delete(
+      characterId
+    );
+  }
+
+
+  return deleted;
+}
+
+/*
+  清掉某角色所有屬於指定 Owner
+  的 Animation Requests。
+
+  回傳實際刪除數量。
+*/
+function clearGardenCharacterAnimationRequestsByOwner(
+  characterId,
+  owner
+) {
+  if (
+    !characterId ||
+    !owner
+  ) {
+    return 0;
+  }
+
+
+  const requestMap =
+    getGardenCharacterAnimationRequestMap(
+      characterId
+    );
+
+
+  if (!requestMap) {
+    return 0;
+  }
+
+
+  const safeOwner =
+    String(owner);
+
+
+  let deletedCount =
+    0;
+
+
+  for (
+    const [
+      source,
+      request
+    ] of
+    requestMap
+  ) {
+    if (
+      request?.owner !==
+      safeOwner
+    ) {
+      continue;
+    }
+
+
+    requestMap.delete(
+      source
+    );
+
+
+    deletedCount +=
+      1;
+  }
+
+
+  /*
+    全部清空後，
+    外層角色 Map 也一起移除。
+  */
+  if (
+    requestMap.size === 0
+  ) {
+    gardenCharacterAnimationRequests.delete(
+      characterId
+    );
+  }
+
+
+  return deletedCount;
+}
+
+/*
+  Activity 專用 Owner Key。
+
+  未來：
+
+  tea
+  → activity:tea
+
+  read
+  → activity:read
+
+  pray
+  → activity:pray
+*/
+function getGardenActivityAnimationRequestOwner(
+  activity
+) {
+  if (!activity) {
+    return null;
+  }
+
+
+  return (
+    `activity:${activity}`
+  );
+}
+
+
+/*
+  Activity 之下的 Sequence Key。
+
+  例如：
+
+  activity = tea
+  sequenceId = sit
+
+  ↓
+
+  activity:tea/sequence:sit
+*/
+function getGardenActivityAnimationSequenceKey(
+  activity,
+  sequenceId
+) {
+  if (
+    !activity ||
+    !sequenceId
+  ) {
+    return null;
+  }
+
+
+  const activityOwner =
+    getGardenActivityAnimationRequestOwner(
+      activity
+    );
+
+
+  if (!activityOwner) {
+    return null;
+  }
+
+
+  return (
+    `${activityOwner}/sequence:${sequenceId}`
+  );
+}
+
+
+/*
+  只清除指定 Sequence 的 Requests。
+
+  不影響：
+
+  - 同 Activity 的其他 Sequence
+  - 同 Activity 的普通 Request
+  - 其他 Activity
+  - Critical / Event Request
+*/
+function clearGardenCharacterAnimationRequestsBySequence(
+  characterId,
+  sequenceKey
+) {
+  if (
+    !characterId ||
+    !sequenceKey
+  ) {
+    return 0;
+  }
+
+
+  const requestMap =
+    getGardenCharacterAnimationRequestMap(
+      characterId
+    );
+
+
+  if (!requestMap) {
+    return 0;
+  }
+
+
+  const safeSequence =
+    String(sequenceKey);
+
+
+  let deletedCount =
+    0;
+
+
+  for (
+    const [
+      source,
+      request
+    ] of
+    requestMap
+  ) {
+    if (
+      request?.sequence !==
+      safeSequence
+    ) {
+      continue;
+    }
+
+
+    requestMap.delete(
+      source
+    );
+
+
+    deletedCount +=
+      1;
+  }
+
+
+  if (
+    requestMap.size === 0
+  ) {
+    gardenCharacterAnimationRequests.delete(
+      characterId
+    );
+  }
+
+
+  return deletedCount;
+}
+
+/*
+  Activity Sequence 專用動畫要求。
+
+  同一個 Sequence 永遠使用
+  同一個 source。
+
+  所以：
+
+  sitDown
+    ↓
+  sitIdle
+    ↓
+  standUp
+
+  不會留下三個 Request，
+  而是同一筆 Request 不斷更新。
+*/
+function requestGardenCharacterActivitySequenceAnimation(
+  characterId,
+  activity,
+  sequenceId,
+  mode,
+  options = {}
+) {
+  if (
+    !characterId ||
+    !activity ||
+    !sequenceId ||
+    !mode
+  ) {
+    return false;
+  }
+
+
+  const activityOwner =
+    getGardenActivityAnimationRequestOwner(
+      activity
+    );
+
+
+  const sequenceKey =
+    getGardenActivityAnimationSequenceKey(
+      activity,
+      sequenceId
+    );
+
+
+  if (
+    !activityOwner ||
+    !sequenceKey
+  ) {
+    return false;
+  }
+
+
+  /*
+    預設使用固定 Sequence Key
+    當 source。
+
+    這是刻意的：
+
+    sitDown
+    sitIdle
+    standUp
+
+    都覆寫同一筆資料。
+  */
+  const source =
+    options.source ||
+    sequenceKey;
+
+
+  return (
+    requestGardenCharacterAnimation(
+      characterId,
+      mode,
+      {
+        ...options,
+
+        source,
+
+        owner:
+          activityOwner,
+
+        sequence:
+          sequenceKey,
+
+        priority:
+          Number.isFinite(
+            options.priority
+          )
+            ? options.priority
+            : GARDEN_ANIMATION_REQUEST_PRIORITY
+                .SEQUENCE,
+      }
+    )
+  );
+}
+
+
+function clearGardenCharacterActivityAnimationSequence(
+  characterId,
+  activity,
+  sequenceId
+) {
+  const sequenceKey =
+    getGardenActivityAnimationSequenceKey(
+      activity,
+      sequenceId
+    );
+
+
+  if (!sequenceKey) {
+    return 0;
+  }
+
+
+  return (
+    clearGardenCharacterAnimationRequestsBySequence(
+      characterId,
+      sequenceKey
+    )
+  );
+}
+
+
+
+
+/* =========================
+   Garden Animation Sequence Phases
+========================= */
+
+const GARDEN_ANIMATION_SEQUENCE_PHASE =
+  Object.freeze({
+    ENTER: "enter",
+    HOLD: "hold",
+    EXIT: "exit",
+  });
+
+
+/*
+  如果 Step 有明確指定 phase，
+  就使用指定值。
+
+  沒指定時自動判斷：
+
+  單一步驟
+    → hold
+
+  第一步
+    → enter
+
+  最後一步
+    → exit
+
+  中間步驟
+    → hold
+*/
+function resolveGardenAnimationSequenceStepPhase(
+  step,
+  index,
+  totalSteps
+) {
+  const explicitPhase =
+    step?.phase;
+
+
+  if (
+    explicitPhase ===
+      GARDEN_ANIMATION_SEQUENCE_PHASE.ENTER ||
+    explicitPhase ===
+      GARDEN_ANIMATION_SEQUENCE_PHASE.HOLD ||
+    explicitPhase ===
+      GARDEN_ANIMATION_SEQUENCE_PHASE.EXIT
+  ) {
+    return explicitPhase;
+  }
+
+
+  if (
+    totalSteps <= 1
+  ) {
+    return (
+      GARDEN_ANIMATION_SEQUENCE_PHASE
+        .HOLD
+    );
+  }
+
+
+  if (index === 0) {
+    return (
+      GARDEN_ANIMATION_SEQUENCE_PHASE
+        .ENTER
+    );
+  }
+
+
+  if (
+    index ===
+    totalSteps - 1
+  ) {
+    return (
+      GARDEN_ANIMATION_SEQUENCE_PHASE
+        .EXIT
+    );
+  }
+
+
+  return (
+    GARDEN_ANIMATION_SEQUENCE_PHASE
+      .HOLD
+  );
+}
+
+
+
+
+
+/* =========================
+   Garden Animation Sequence Controller
+========================= */
+/*
+  儲存目前正在執行的 Sequence。
+
+  key:
+    characterId|activity|sequenceId
+*/
+const gardenCharacterAnimationSequences =
+  new Map();
+
+
+function getGardenCharacterAnimationSequenceKey(
+  characterId,
+  activity,
+  sequenceId
+) {
+  if (
+    !characterId ||
+    !activity ||
+    !sequenceId
+  ) {
+    return "";
+  }
+
+
+  return (
+    `${characterId}|${activity}|${sequenceId}`
+  );
+}
+
+
+/*
+  取得 Sequence Runtime。
+*/
+function getGardenCharacterAnimationSequence(
+  characterId,
+  activity,
+  sequenceId
+) {
+  const key =
+    getGardenCharacterAnimationSequenceKey(
+      characterId,
+      activity,
+      sequenceId
+    );
+
+
+  if (!key) {
+    return null;
+  }
+
+
+  return (
+    gardenCharacterAnimationSequences.get(
+      key
+    ) ||
+    null
+  );
+}
+
+
+/*
+  =========================
+  Garden Animation Sequence Events
+  =========================
+*/
+
+/*
+  建立給外部 Controller 使用的
+  Sequence Event Snapshot。
+
+  不直接把 sequence Runtime
+  本體傳出去，避免外部誤改。
+*/
+function createGardenCharacterAnimationSequenceEvent(
+  sequence,
+  eventType,
+  reason = null
+) {
+  if (!sequence) {
+    return null;
+  }
+
+
+  const currentStep =
+    sequence.steps[
+      sequence.index
+    ] ||
+    null;
+
+
+  return {
+    type:
+      eventType,
+
+    reason,
+
+    characterId:
+      sequence.characterId,
+
+    activity:
+      sequence.activity,
+
+    sequenceId:
+      sequence.sequenceId,
+
+    index:
+      sequence.index,
+
+    stepCount:
+      sequence.steps.length,
+
+    mode:
+      currentStep?.mode ||
+      null,
+
+    phase:
+      currentStep?.phase ||
+      null,
+
+    advance:
+      currentStep?.advance ||
+      null,
+
+    force:
+      currentStep?.force ===
+      true,
+
+    startedAt:
+      sequence.startedAt,
+
+    phaseStartedAt:
+      sequence.phaseStartedAt,
+  };
+}
+
+/*
+  安全執行 Sequence Callback。
+
+  Callback 自己出錯時，
+  不允許把 Garden 主循環炸掉。
+*/
+function emitGardenCharacterAnimationSequenceEvent(
+  sequence,
+  callbackName,
+  eventType,
+  reason = null
+) {
+  if (!sequence) {
+    return false;
+  }
+
+
+  const callback =
+    sequence.callbacks?.[
+      callbackName
+    ];
+
+
+  if (
+    typeof callback !==
+    "function"
+  ) {
+    return false;
+  }
+
+
+  const event =
+    createGardenCharacterAnimationSequenceEvent(
+      sequence,
+      eventType,
+      reason
+    );
+
+
+  try {
+    callback(event);
+  } catch (err) {
+    console.error(
+      `[Garden Animation] Sequence ${eventType} callback failed:`,
+      err
+    );
+  }
+
+
+  return true;
+}
+
+
+/*
+  啟動一串 Animation Sequence。
+
+  steps 格式：
+
+  [
+    {
+      mode: "sitDown",
+      advance: "complete"
+    },
+
+    {
+      mode: "sitIdle",
+      advance: "manual"
+    },
+
+    {
+      mode: "standUp",
+      advance: "complete"
+    }
+  ]
+
+  advance:
+
+  "complete"
+    → 動畫 finished 後自動下一步
+
+  "manual"
+    → 停在這一步，
+      等外部 Controller 要求前進
+*/
+function startGardenCharacterAnimationSequence(
+  characterId,
+  activity,
+  sequenceId,
+  steps,
+  options = {}
+) {
+  if (
+    !characterId ||
+    !activity ||
+    !sequenceId ||
+    !Array.isArray(steps) ||
+    steps.length === 0
+  ) {
+    return false;
+  }
+
+
+  /*
+    每一步的動畫都必須存在。
+
+    Sequence 不做 fallback，
+    避免配置錯誤後偷偷播 Idle。
+  */
+  for (const step of steps) {
+    if (
+      !step ||
+      !step.mode ||
+      !hasGardenCharacterAnimation(
+        characterId,
+        step.mode
+      )
+    ) {
+      console.warn(
+        "[Garden Animation] invalid sequence step:",
+        {
+          characterId,
+          activity,
+          sequenceId,
+          step,
+        }
+      );
+
+      return false;
+    }
+  }
+
+
+  const key =
+    getGardenCharacterAnimationSequenceKey(
+      characterId,
+      activity,
+      sequenceId
+    );
+
+
+  const sequence = {
+    key,
+
+    characterId,
+
+    activity,
+
+    sequenceId,
+
+   steps:
+  steps.map(
+    (
+      step,
+      index,
+      allSteps
+    ) => ({
+      mode:
+        step.mode,
+
+      phase:
+        resolveGardenAnimationSequenceStepPhase(
+          step,
+          index,
+          allSteps.length
+        ),
+
+      advance:
+        step.advance ===
+          "complete"
+          ? "complete"
+          : "manual",
+
+      force:
+        step.force === true,
+    })
+  ),
+
+    index:
+      0,
+
+    finished:
+      false,
+
+    startedAt:
+  performance.now(),
+
+phaseStartedAt:
+  performance.now(),
+
+
+callbacks: {
+  onStepEnter:
+    typeof options.onStepEnter ===
+      "function"
+      ? options.onStepEnter
+      : null,
+
+  onComplete:
+    typeof options.onComplete ===
+      "function"
+      ? options.onComplete
+      : null,
+
+  onCancel:
+    typeof options.onCancel ===
+      "function"
+      ? options.onCancel
+      : null,
+},
+
+
+priority:
+      Number.isFinite(
+        options.priority
+      )
+        ? options.priority
+        : GARDEN_ANIMATION_REQUEST_PRIORITY
+            .SEQUENCE,
+  };
+
+
+  gardenCharacterAnimationSequences.set(
+    key,
+    sequence
+  );
+
+
+  /*
+    立即送出第一步。
+  */
+  const firstStep =
+    sequence.steps[0];
+
+
+  const requested =
+    requestGardenCharacterActivitySequenceAnimation(
+      characterId,
+      activity,
+      sequenceId,
+      firstStep.mode,
+      {
+        priority:
+          sequence.priority,
+
+        force:
+          firstStep.force,
+      }
+    );
+
+
+  if (!requested) {
+  gardenCharacterAnimationSequences.delete(
+    key
+  );
+
+  return false;
+}
+
+
+/*
+  第一個 Step 已成功建立 Request，
+  現在才通知外部。
+*/
+emitGardenCharacterAnimationSequenceEvent(
+  sequence,
+  "onStepEnter",
+  "stepEnter"
+);
+
+
+return true;
+}
+
+function getGardenCharacterAnimationSequenceCurrentStep(
+  characterId,
+  activity,
+  sequenceId
+) {
+  const sequence =
+    getGardenCharacterAnimationSequence(
+      characterId,
+      activity,
+      sequenceId
+    );
+
+
+  if (
+    !sequence ||
+    sequence.finished
+  ) {
+    return null;
+  }
+
+
+  return (
+    sequence.steps[
+      sequence.index
+    ] ||
+    null
+  );
+}
+
+
+/*
+  取得 Sequence 目前 Phase。
+
+  回傳：
+
+  "enter"
+  "hold"
+  "exit"
+
+  Sequence 不存在時：
+  null
+*/
+function getGardenCharacterAnimationSequencePhase(
+  characterId,
+  activity,
+  sequenceId
+) {
+  const currentStep =
+    getGardenCharacterAnimationSequenceCurrentStep(
+      characterId,
+      activity,
+      sequenceId
+    );
+
+
+  return (
+    currentStep?.phase ||
+    null
+  );
+}
+
+
+/*
+  判斷 Sequence 是否正在指定 Phase。
+*/
+function isGardenCharacterAnimationSequencePhase(
+  characterId,
+  activity,
+  sequenceId,
+  expectedPhase
+) {
+  if (!expectedPhase) {
+    return false;
+  }
+
+
+  return (
+    getGardenCharacterAnimationSequencePhase(
+      characterId,
+      activity,
+      sequenceId
+    ) ===
+    expectedPhase
+  );
+}
+
+
+/*
+  給高階 Activity Controller
+  一次取得完整 Sequence 狀態。
+
+  外部系統之後盡量不要直接讀：
+
+  sequence.index
+  sequence.steps[...]
+
+  統一使用這個 API。
+*/
+function getGardenCharacterAnimationSequenceStatus(
+  characterId,
+  activity,
+  sequenceId
+) {
+  const sequence =
+    getGardenCharacterAnimationSequence(
+      characterId,
+      activity,
+      sequenceId
+    );
+
+
+  if (
+    !sequence ||
+    sequence.finished
+  ) {
+    return null;
+  }
+
+
+  const currentStep =
+    sequence.steps[
+      sequence.index
+    ];
+
+
+  if (!currentStep) {
+    return null;
+  }
+
+
+  return {
+    characterId:
+      sequence.characterId,
+
+    activity:
+      sequence.activity,
+
+    sequenceId:
+      sequence.sequenceId,
+
+    index:
+      sequence.index,
+
+    stepCount:
+      sequence.steps.length,
+
+    mode:
+      currentStep.mode,
+
+    phase:
+      currentStep.phase,
+
+    advance:
+      currentStep.advance,
+
+    force:
+      currentStep.force,
+
+    startedAt:
+      sequence.startedAt,
+
+    phaseStartedAt:
+      sequence.phaseStartedAt,
+
+    phaseElapsedMs:
+      Math.max(
+        0,
+        performance.now() -
+          sequence.phaseStartedAt
+      ),
+  };
+}
+
+
+
+function advanceGardenCharacterAnimationSequence(
+  characterId,
+  activity,
+  sequenceId
+) {
+  const sequence =
+    getGardenCharacterAnimationSequence(
+      characterId,
+      activity,
+      sequenceId
+    );
+
+
+  if (
+    !sequence ||
+    sequence.finished
+  ) {
+    return false;
+  }
+
+
+  const nextIndex =
+    sequence.index + 1;
+
+
+  /*
+    =========================
+    Sequence 完成
+    =========================
+  */
+  if (
+    nextIndex >=
+    sequence.steps.length
+  ) {
+    sequence.finished =
+      true;
+
+
+    clearGardenCharacterActivityAnimationSequence(
+      characterId,
+      activity,
+      sequenceId
+    );
+
+
+    gardenCharacterAnimationSequences.delete(
+      sequence.key
+    );
+
+
+    emitGardenCharacterAnimationSequenceEvent(
+      sequence,
+      "onComplete",
+      "complete"
+    );
+
+
+    return true;
+  }
+
+
+  /*
+    =========================
+    嘗試進入下一 Step
+    =========================
+  */
+  const nextStep =
+    sequence.steps[
+      nextIndex
+    ];
+
+
+  const requested =
+    requestGardenCharacterActivitySequenceAnimation(
+      characterId,
+      activity,
+      sequenceId,
+      nextStep.mode,
+      {
+        priority:
+          sequence.priority,
+
+        force:
+          nextStep.force,
+      }
+    );
+
+
+  /*
+    Request 沒成功，
+    不允許 Runtime 偷偷前進。
+  */
+  if (!requested) {
+    return false;
+  }
+
+
+  /*
+    Request 成功後才正式進入下一步。
+  */
+  sequence.index =
+    nextIndex;
+
+
+  sequence.phaseStartedAt =
+    performance.now();
+
+
+  emitGardenCharacterAnimationSequenceEvent(
+    sequence,
+    "onStepEnter",
+    "stepEnter"
+  );
+
+
+  return true;
+}
+
+
+/*
+  每幀檢查：
+
+  advance:"complete"
+  的 Sequence Step
+
+  是否已經播放完成。
+*/
+function updateGardenCharacterAnimationSequences(
+  characterId
+) {
+  if (!characterId) {
+    return;
+  }
+
+
+  const sequences =
+    Array.from(
+      gardenCharacterAnimationSequences.values()
+    );
+
+
+  for (const sequence of sequences) {
+    if (
+      sequence.characterId !==
+        characterId ||
+      sequence.finished
+    ) {
+      continue;
+    }
+
+
+    const currentStep =
+      sequence.steps[
+        sequence.index
+      ];
+
+
+    if (!currentStep) {
+      continue;
+    }
+
+
+    /*
+      manual Step 不自動前進。
+    */
+    if (
+      currentStep.advance !==
+      "complete"
+    ) {
+      continue;
+    }
+
+
+    /*
+      必須確認目前真的正在播放
+      Sequence 要求的這個 mode。
+
+      避免其他高優先系統暫時搶走控制權時，
+      Sequence 在背景偷偷前進。
+    */
+    if (
+      getGardenCharacterCurrentAnimation(
+        characterId
+      ) !==
+      currentStep.mode
+    ) {
+      continue;
+    }
+
+
+    if (
+      !isGardenCharacterAnimationFinished(
+        characterId,
+        currentStep.mode
+      )
+    ) {
+      continue;
+    }
+
+
+    advanceGardenCharacterAnimationSequence(
+      sequence.characterId,
+      sequence.activity,
+      sequence.sequenceId
+    );
+  }
+}
+
+/*
+  主動取消一個 Animation Sequence。
+
+  與自然完成不同：
+
+  自然完成
+    → Sequence 自己跑完
+
+  cancel
+    → Activity / Event 中途終止它
+*/
+function cancelGardenCharacterAnimationSequence(
+  characterId,
+  activity,
+  sequenceId
+) {
+  const sequence =
+    getGardenCharacterAnimationSequence(
+      characterId,
+      activity,
+      sequenceId
+    );
+
+
+  if (!sequence) {
+    return false;
+  }
+
+
+  /*
+    先清掉 Sequence Request。
+  */
+  clearGardenCharacterActivityAnimationSequence(
+    characterId,
+    activity,
+    sequenceId
+  );
+
+
+  /*
+    再移除 Runtime。
+  */
+  gardenCharacterAnimationSequences.delete(
+    sequence.key
+  );
+
+
+  /*
+    最後通知外部：
+
+    這是手動取消。
+  */
+  emitGardenCharacterAnimationSequenceEvent(
+    sequence,
+    "onCancel",
+    "cancel",
+    "manual"
+  );
+
+
+  return true;
+}
+
+/*
+  Activity 結束時使用。
+
+  清掉：
+
+  1. 此 Activity 擁有的所有 Sequence Runtime
+  2. 此 Activity 擁有的所有 Animation Requests
+
+  回傳實際取消的 Sequence 數量。
+*/
+function cancelGardenCharacterAnimationSequencesByActivity(
+  characterId,
+  activity
+) {
+  if (
+    !characterId ||
+    !activity
+  ) {
+    return 0;
+  }
+
+
+  let cancelledCount =
+    0;
+
+
+  /*
+    使用快照。
+
+    因為迴圈途中會 delete Map，
+    不直接遍歷原 Map 比較安全。
+  */
+  const sequences =
+    Array.from(
+      gardenCharacterAnimationSequences.values()
+    );
+
+
+  for (const sequence of sequences) {
+    if (
+      sequence.characterId !==
+        characterId ||
+      sequence.activity !==
+        activity
+    ) {
+      continue;
+    }
+
+
+  gardenCharacterAnimationSequences.delete(
+  sequence.key
+);
+
+
+/*
+  Activity 被切走，
+  Sequence 屬於被動取消。
+*/
+emitGardenCharacterAnimationSequenceEvent(
+  sequence,
+  "onCancel",
+  "cancel",
+  "activityChanged"
+);
+
+
+cancelledCount +=
+  1;
+  }
+
+
+  /*
+    Sequence Request 的 owner
+    本來就是：
+
+    activity:xxx
+
+    所以這裡一次把舊 Activity
+    擁有的所有 Request 都清掉。
+
+    包含：
+    - Sequence Request
+    - 普通 Activity Request
+  */
+  const owner =
+    getGardenActivityAnimationRequestOwner(
+      activity
+    );
+
+
+  if (owner) {
+    clearGardenCharacterAnimationRequestsByOwner(
+      characterId,
+      owner
+    );
+  }
+
+
+  return cancelledCount;
+}
+
+
+
+
+
+/*
+  Activity 建立 Animation Request
+  時統一使用這個入口。
+
+  這樣 Request 自動帶上：
+
+  owner = activity:xxx
+*/
+function requestGardenCharacterActivityAnimation(
+  characterId,
+  activity,
+  mode,
+  options = {}
+) {
+  if (
+    !characterId ||
+    !activity ||
+    !mode
+  ) {
+    return false;
+  }
+
+
+  const source =
+    options.source ||
+    `activity:${activity}`;
+
+
+  return (
+    requestGardenCharacterAnimation(
+      characterId,
+      mode,
+      {
+        ...options,
+
+        source,
+
+        owner:
+          getGardenActivityAnimationRequestOwner(
+            activity
+          ),
+
+        priority:
+          Number.isFinite(
+            options.priority
+          )
+            ? options.priority
+            : GARDEN_ANIMATION_REQUEST_PRIORITY
+                .ACTIVITY,
+      }
+    )
+  );
+}
+
+/* =========================
+   Garden Activity ↔ Sequence Bridge
+========================= */
+
+/*
+  將：
+
+  characterId
+  activity
+  sequenceId
+
+  綁成一個高階控制物件。
+
+  Activity Controller 不需要
+  每次重複傳三個參數。
+*/
+function createGardenCharacterActivityAnimationSequenceBridge(
+  characterId,
+  activity,
+  sequenceId
+) {
+  if (
+    !characterId ||
+    !activity ||
+    !sequenceId
+  ) {
+    return null;
+  }
+
+
+  /*
+    Bridge 綁定建立當下的 Activity。
+
+    如果角色之後已經離開該 Activity，
+    舊 Bridge 不允許重新 start，
+    避免幽靈 Activity 復活。
+  */
+  function isOwnerActivityCurrent() {
+    return (
+      getGardenCharacterActivity(
+        characterId
+      ) ===
+      activity
+    );
+  }
+
+
+  return Object.freeze({
+    characterId,
+    activity,
+    sequenceId,
+
+
+    /*
+      啟動 Sequence。
+    */
+    start(
+      steps,
+      options = {}
+    ) {
+      if (
+        !isOwnerActivityCurrent()
+      ) {
+        return false;
+      }
+
+
+      return (
+        startGardenCharacterAnimationSequence(
+          characterId,
+          activity,
+          sequenceId,
+          steps,
+          options
+        )
+      );
+    },
+
+
+    /*
+      手動推進 Sequence。
+    */
+    advance() {
+      return (
+        advanceGardenCharacterAnimationSequence(
+          characterId,
+          activity,
+          sequenceId
+        )
+      );
+    },
+
+
+    /*
+      主動取消 Sequence。
+    */
+    cancel() {
+      return (
+        cancelGardenCharacterAnimationSequence(
+          characterId,
+          activity,
+          sequenceId
+        )
+      );
+    },
+
+
+    /*
+      Sequence 是否仍存在。
+    */
+    isActive() {
+      return (
+        getGardenCharacterAnimationSequence(
+          characterId,
+          activity,
+          sequenceId
+        ) !==
+        null
+      );
+    },
+
+
+    /*
+      目前 Step。
+    */
+    step() {
+      return (
+        getGardenCharacterAnimationSequenceCurrentStep(
+          characterId,
+          activity,
+          sequenceId
+        )
+      );
+    },
+
+
+    /*
+      enter / hold / exit
+    */
+    phase() {
+      return (
+        getGardenCharacterAnimationSequencePhase(
+          characterId,
+          activity,
+          sequenceId
+        )
+      );
+    },
+
+
+    /*
+      完整公開狀態。
+    */
+    status() {
+      return (
+        getGardenCharacterAnimationSequenceStatus(
+          characterId,
+          activity,
+          sequenceId
+        )
+      );
+    },
+  });
+}
+
+/*
+  不必手動傳 activity。
+
+  建立當下自動讀取角色
+  目前真正的 Activity。
+*/
+function createGardenCharacterCurrentActivityAnimationSequenceBridge(
+  characterId,
+  sequenceId
+) {
+  if (
+    !characterId ||
+    !sequenceId
+  ) {
+    return null;
+  }
+
+
+  const activity =
+    getGardenCharacterActivity(
+      characterId
+    );
+
+
+  if (!activity) {
+    return null;
+  }
+
+
+  return (
+    createGardenCharacterActivityAnimationSequenceBridge(
+      characterId,
+      activity,
+      sequenceId
+    )
+  );
+}
+
+/* =========================
+   Garden Activity Animation
+   Sequence Definition Registry
+========================= */
+
+/*
+  儲存：
+
+  Activity
+    ↓
+  Sequence ID
+    ↓
+  Animation Steps
+
+  例如：
+
+  tea
+    └─ sit
+       ├─ sitDown
+       ├─ sitIdle
+       └─ standUp
+*/
+const gardenActivityAnimationSequenceDefinitions =
+  new Map();
+
+
+function getGardenActivityAnimationSequenceDefinitionKey(
+  activity,
+  sequenceId
+) {
+  if (
+    !activity ||
+    !sequenceId
+  ) {
+    return "";
+  }
+
+
+  return (
+    `${activity}|${sequenceId}`
+  );
+}
+
+/*
+  將外部 Definition
+  轉成安全、固定格式。
+
+  Registry 儲存的是資料，
+  不儲存 Runtime Callback。
+*/
+function normalizeGardenActivityAnimationSequenceDefinition(
+  definition
+) {
+  if (
+    !definition ||
+    !Array.isArray(
+      definition.steps
+    ) ||
+    definition.steps.length === 0
+  ) {
+    return null;
+  }
+
+
+  const normalizedSteps =
+    [];
+
+
+  for (
+    const step of
+    definition.steps
+  ) {
+    if (
+      !step ||
+      !step.mode
+    ) {
+      return null;
+    }
+
+
+    /*
+      phase 可以不指定。
+
+      null 的情況，
+      startGardenCharacterAnimationSequence()
+      會使用原本的自動推導：
+
+      first  → enter
+      middle → hold
+      last   → exit
+    */
+    let phase =
+      null;
+
+
+    if (
+      step.phase ===
+        GARDEN_ANIMATION_SEQUENCE_PHASE
+          .ENTER ||
+      step.phase ===
+        GARDEN_ANIMATION_SEQUENCE_PHASE
+          .HOLD ||
+      step.phase ===
+        GARDEN_ANIMATION_SEQUENCE_PHASE
+          .EXIT
+    ) {
+      phase =
+        step.phase;
+    }
+
+
+    normalizedSteps.push(
+      Object.freeze({
+        mode:
+          String(
+            step.mode
+          ),
+
+        phase,
+
+        advance:
+          step.advance ===
+            "complete"
+            ? "complete"
+            : "manual",
+
+        force:
+          step.force === true,
+      })
+    );
+  }
+
+
+  return Object.freeze({
+    steps:
+      Object.freeze(
+        normalizedSteps
+      ),
+
+    priority:
+      Number.isFinite(
+        definition.priority
+      )
+        ? definition.priority
+        : null,
+  });
+}
+
+function registerGardenActivityAnimationSequenceDefinition(
+  activity,
+  sequenceId,
+  definition,
+  options = {}
+) {
+  const key =
+    getGardenActivityAnimationSequenceDefinitionKey(
+      activity,
+      sequenceId
+    );
+
+
+  if (!key) {
+    return false;
+  }
+
+
+  const normalizedDefinition =
+    normalizeGardenActivityAnimationSequenceDefinition(
+      definition
+    );
+
+
+  if (!normalizedDefinition) {
+    console.warn(
+      "[Garden Animation] invalid Activity Sequence definition:",
+      {
+        activity,
+        sequenceId,
+        definition,
+      }
+    );
+
+    return false;
+  }
+
+
+  /*
+    正式資料預設不允許
+    不小心重複覆寫。
+
+    Debug / 開發測試可使用：
+    { replace: true }
+  */
+  if (
+    gardenActivityAnimationSequenceDefinitions.has(
+      key
+    ) &&
+    options.replace !==
+      true
+  ) {
+    console.warn(
+      "[Garden Animation] Activity Sequence definition already exists:",
+      key
+    );
+
+    return false;
+  }
+
+
+  gardenActivityAnimationSequenceDefinitions.set(
+    key,
+    normalizedDefinition
+  );
+
+
+  return true;
+}
+
+
+function getGardenActivityAnimationSequenceDefinition(
+  activity,
+  sequenceId
+) {
+  const key =
+    getGardenActivityAnimationSequenceDefinitionKey(
+      activity,
+      sequenceId
+    );
+
+
+  if (!key) {
+    return null;
+  }
+
+
+  return (
+    gardenActivityAnimationSequenceDefinitions.get(
+      key
+    ) ||
+    null
+  );
+}
+
+
+function hasGardenActivityAnimationSequenceDefinition(
+  activity,
+  sequenceId
+) {
+  return (
+    getGardenActivityAnimationSequenceDefinition(
+      activity,
+      sequenceId
+    ) !==
+    null
+  );
+}
+
+function unregisterGardenActivityAnimationSequenceDefinition(
+  activity,
+  sequenceId
+) {
+  const key =
+    getGardenActivityAnimationSequenceDefinitionKey(
+      activity,
+      sequenceId
+    );
+
+
+  if (!key) {
+    return false;
+  }
+
+
+  return (
+    gardenActivityAnimationSequenceDefinitions.delete(
+      key
+    )
+  );
+}
+
+/*
+  使用 Registry 裡的 Definition
+  啟動角色 Sequence。
+*/
+function startGardenCharacterActivityAnimationSequenceFromDefinition(
+  characterId,
+  activity,
+  sequenceId,
+  runtimeOptions = {}
+) {
+  const definition =
+    getGardenActivityAnimationSequenceDefinition(
+      activity,
+      sequenceId
+    );
+
+
+  if (!definition) {
+    console.warn(
+      "[Garden Animation] missing Activity Sequence definition:",
+      {
+        characterId,
+        activity,
+        sequenceId,
+      }
+    );
+
+    return false;
+  }
+
+
+  const bridge =
+    createGardenCharacterActivityAnimationSequenceBridge(
+      characterId,
+      activity,
+      sequenceId
+    );
+
+
+  if (!bridge) {
+    return false;
+  }
+
+
+  const startOptions = {
+    ...runtimeOptions,
+  };
+
+
+  /*
+    Runtime 沒另外指定 priority
+    才使用 Definition 預設值。
+  */
+  if (
+    !Number.isFinite(
+      startOptions.priority
+    ) &&
+    Number.isFinite(
+      definition.priority
+    )
+  ) {
+    startOptions.priority =
+      definition.priority;
+  }
+
+
+  return (
+    bridge.start(
+      definition.steps,
+      startOptions
+    )
+  );
+}
+
+function startGardenCharacterCurrentActivityAnimationSequenceFromDefinition(
+  characterId,
+  sequenceId,
+  runtimeOptions = {}
+) {
+  const activity =
+    getGardenCharacterActivity(
+      characterId
+    );
+
+
+  if (!activity) {
+    return false;
+  }
+
+
+  return (
+    startGardenCharacterActivityAnimationSequenceFromDefinition(
+      characterId,
+      activity,
+      sequenceId,
+      runtimeOptions
+    )
+  );
+}
+
+/* =========================
+   Garden Activity Animation Controller
+========================= */
+
+/*
+  高階 Activity 不需要直接接觸：
+
+  - Definition Registry
+  - Sequence API
+  - Bridge 細節
+
+  統一透過 Controller 操作。
+*/
+function createGardenCharacterActivityAnimationController(
+  characterId,
+  activity,
+  sequenceId
+) {
+  if (
+    !characterId ||
+    !activity ||
+    !sequenceId
+  ) {
+    return null;
+  }
+
+
+  const bridge =
+    createGardenCharacterActivityAnimationSequenceBridge(
+      characterId,
+      activity,
+      sequenceId
+    );
+
+
+  if (!bridge) {
+    return null;
+  }
+
+
+  /*
+    Controller 本身不保存
+    Sequence Runtime。
+
+    真正 Runtime 仍然只有
+    Sequence Controller 擁有。
+
+    這樣 Activity 改變時，
+    原本的 Ownership Cleanup
+    仍然是唯一真相來源。
+  */
+  return Object.freeze({
+    characterId,
+    activity,
+    sequenceId,
+
+
+    /*
+      使用 Registry Definition
+      啟動這個 Controller。
+    */
+    start(
+      runtimeOptions = {}
+    ) {
+      /*
+        舊 Activity Controller
+        不准重新啟動。
+      */
+      if (
+        getGardenCharacterActivity(
+          characterId
+        ) !==
+        activity
+      ) {
+        return false;
+      }
+
+
+      /*
+        同一串 Sequence
+        已經存在時不重複 Start。
+      */
+      if (
+        bridge.isActive()
+      ) {
+        return false;
+      }
+
+
+      return (
+        startGardenCharacterActivityAnimationSequenceFromDefinition(
+          characterId,
+          activity,
+          sequenceId,
+          runtimeOptions
+        )
+      );
+    },
+
+
+    /*
+      手動推進。
+
+      未來例如：
+
+      sitIdle
+      ↓
+      Tea 決定結束
+      ↓
+      advance()
+      ↓
+      standUp
+    */
+    advance() {
+      return (
+        bridge.advance()
+      );
+    },
+
+
+    /*
+      主動取消。
+    */
+    cancel() {
+      return (
+        bridge.cancel()
+      );
+    },
+
+
+    /*
+      是否仍在執行。
+    */
+    isActive() {
+      return (
+        bridge.isActive()
+      );
+    },
+
+
+    step() {
+      return (
+        bridge.step()
+      );
+    },
+
+
+    phase() {
+      return (
+        bridge.phase()
+      );
+    },
+
+
+    status() {
+      return (
+        bridge.status()
+      );
+    },
+  });
+}
+
+
+/*
+  自動綁定角色目前 Activity。
+
+  正式 Activity Controller
+  大部分會使用這個入口。
+*/
+function createGardenCharacterCurrentActivityAnimationController(
+  characterId,
+  sequenceId
+) {
+  if (
+    !characterId ||
+    !sequenceId
+  ) {
+    return null;
+  }
+
+
+  const activity =
+    getGardenCharacterActivity(
+      characterId
+    );
+
+
+  if (!activity) {
+    return null;
+  }
+
+
+  return (
+    createGardenCharacterActivityAnimationController(
+      characterId,
+      activity,
+      sequenceId
+    )
+  );
+}
+
+/* =========================
+   Garden Animation Debug Snapshot
+========================= */
+
+function getGardenCharacterAnimationDebugSnapshot(
+  characterId
+) {
+  if (!characterId) {
+    return null;
+  }
+
+
+  const requestMap =
+    getGardenCharacterAnimationRequestMap(
+      characterId
+    );
+
+
+  const sequences =
+    Array.from(
+      gardenCharacterAnimationSequences.values()
+    ).filter(
+      (sequence) =>
+        sequence.characterId ===
+        characterId
+    );
+
+
+  return {
+    characterId,
+
+    activity:
+      getGardenCharacterActivity(
+        characterId
+      ),
+
+    requestCount:
+      requestMap?.size || 0,
+
+    sequenceCount:
+      sequences.length,
+
+    requests:
+      requestMap
+        ? Array.from(
+            requestMap.values()
+          ).map(
+            (request) => ({
+              source:
+                request.source,
+
+              owner:
+                request.owner,
+
+              sequence:
+                request.sequence,
+
+              mode:
+                request.mode,
+
+              priority:
+                request.priority,
+            })
+          )
+        : [],
+
+    sequences:
+      sequences.map(
+        (sequence) => ({
+          activity:
+            sequence.activity,
+
+          sequenceId:
+            sequence.sequenceId,
+
+          index:
+            sequence.index,
+
+          phase:
+            sequence.steps[
+              sequence.index
+            ]?.phase || null,
+
+          mode:
+            sequence.steps[
+              sequence.index
+            ]?.mode || null,
+        })
+      ),
+  };
+}
+
+
+/*
+  清掉某角色全部 Animation Request。
+
+  正式功能之後不會隨便使用，
+  主要給初始化 / debug / reset。
+*/
+function clearAllGardenCharacterAnimationRequests(
+  characterId
+) {
+  if (!characterId) {
+    return false;
+  }
+
+
+  return (
+    gardenCharacterAnimationRequests.delete(
+      characterId
+    )
+  );
+}
+
+
+/*
+  取得目前優先權最高的 Request。
+
+  規則：
+
+  1. priority 高的優先
+  2. priority 相同時，
+     後送出的 Request 優先
+*/
+function getGardenCharacterTopAnimationRequest(
+  characterId
+) {
+  const requestMap =
+    getGardenCharacterAnimationRequestMap(
+      characterId
+    );
+
+
+  if (
+    !requestMap ||
+    requestMap.size === 0
+  ) {
+    return null;
+  }
+
+
+  let bestRequest =
+    null;
+
+
+  for (
+    const request of
+    requestMap.values()
+  ) {
+    if (!bestRequest) {
+      bestRequest =
+        request;
+
+      continue;
+    }
+
+
+    if (
+      request.priority >
+      bestRequest.priority
+    ) {
+      bestRequest =
+        request;
+
+      continue;
+    }
+
+
+    if (
+      request.priority ===
+        bestRequest.priority &&
+      request.order >
+        bestRequest.order
+    ) {
+      bestRequest =
+        request;
+    }
+  }
+
+
+  return (
+    bestRequest
+      ? { ...bestRequest }
+      : null
+  );
+}
+
+/*
+  =========================
+  Garden Animation Command Resolver
+  =========================
+
+  最終控制順序：
+
+  1. Completion / Sequence Override
+  2. Priority Animation Request
+  3. 原本 Activity Resolver
+
+  最後不只回傳 mode，
+  也一起帶出 force。
+*/
+function resolveGardenCharacterAnimationCommand(
+  characterId,
+  animationRuntime
+) {
+  if (
+    !characterId ||
+    !animationRuntime
+  ) {
+    return {
+      mode: "idle",
+      force: false,
+      source: "fallback",
+      priority: null,
+    };
+  }
+
+
+  /*
+    =========================
+    1. Override
+    =========================
+
+    Completion Transition
+    產生的 Override 優先最高。
+  */
+  const overrideMode =
+    getGardenCharacterAnimationOverride(
+      characterId
+    );
+
+
+  if (overrideMode) {
+    if (
+      hasGardenCharacterAnimation(
+        characterId,
+        overrideMode
+      )
+    ) {
+      return {
+        mode: overrideMode,
+        force: false,
+        source: "override",
+        priority: null,
+      };
+    }
+
+
+    /*
+      Definition 已經不存在時，
+      清掉壞掉的 Override。
+    */
+    clearGardenCharacterAnimationOverride(
+      characterId
+    );
+  }
+
+
+  /*
+    =========================
+    2. Priority Request
+    =========================
+  */
+  const request =
+    getGardenCharacterTopAnimationRequest(
+      characterId
+    );
+
+
+  if (request) {
+    if (
+      hasGardenCharacterAnimation(
+        characterId,
+        request.mode
+      )
+    ) {
+      return {
+        mode:
+          request.mode,
+
+        force:
+          request.force === true,
+
+        source:
+          request.source,
+
+        priority:
+          request.priority,
+      };
+    }
+
+
+    /*
+      理論上 request() 時已經檢查過，
+      這裡只是防 Definition 日後被移除。
+    */
+    clearGardenCharacterAnimationRequest(
+      characterId,
+      request.source
+    );
+  }
+
+
+  /*
+    =========================
+    3. Baseline Activity Resolver
+    =========================
+  */
+  return {
+    mode:
+      resolveGardenCharacterAnimationMode(
+        characterId,
+        animationRuntime
+      ),
+
+    force:
+      false,
+
+    source:
+      "activity",
+
+    priority:
+      GARDEN_ANIMATION_REQUEST_PRIORITY
+        .BASELINE,
+  };
+}
+
+/*
+  嘗試處理角色目前已完成的
+  One-shot Animation Transition。
+
+  例如：
+
+  sitDown finished
+      ↓
+  transition:
+  sitDown → sitIdle
+      ↓
+  set override = sitIdle
+*/
+function applyGardenAnimationCompletionTransition(
+  characterId
+) {
+  const transition =
+    getGardenPendingAnimationCompletionTransition(
+      characterId
+    );
+
+
+  /*
+    沒有完成動畫，
+    或這個動畫沒有登記 transition。
+  */
+  if (!transition) {
+    return false;
+  }
+
+
+  const {
+    fromMode,
+    toMode,
+  } = transition;
+
+
+  /*
+    保險：
+    下一個動畫必須真的存在。
+
+    不使用 fallback，
+    避免拼錯動畫名稱卻偷偷變 Idle。
+  */
+  if (
+    !hasGardenCharacterAnimation(
+      characterId,
+      toMode
+    )
+  ) {
+    console.warn(
+      `[Garden Animation] completion target missing: ${characterId} ${fromMode} → ${toMode}`
+    );
+
+    return false;
+  }
+
+
+  /*
+    避免錯誤設定：
+
+    sitDown → sitDown
+
+    否則 finished 狀態可能造成
+    無意義的循環處理。
+  */
+  if (
+    fromMode ===
+    toMode
+  ) {
+    console.warn(
+      `[Garden Animation] completion transition cannot target itself: ${characterId}/${fromMode}`
+    );
+
+    return false;
+  }
+
+
+  /*
+    不在這一幀直接強制換 layer。
+
+    只設定 Override。
+
+    下一幀正常經過：
+
+    Resolver
+      ↓
+    Override
+      ↓
+    setAnimationMode()
+
+    這樣所有 warmup / layer / setter
+    流程仍然只走原本的統一入口。
+  */
+  const applied =
+    setGardenCharacterAnimationOverride(
+      characterId,
+      toMode
+    );
+
+
+  if (!applied) {
+    return false;
+  }
+
+
+  return true;
+}
+
+
+
+/* =========================
+   Garden Animation Capability
+========================= */
+
+function getGardenCharacterAnimationDefinition(
+  characterId,
+  mode
+) {
+  const runtime =
+    getGardenCharacterAnimationRuntime(
+      characterId
+    );
+
+
+  if (
+    !runtime ||
+    !mode
+  ) {
+    return null;
+  }
+
+
+  const animations =
+    runtime.animations;
+
+
+  if (
+    !animations ||
+    !Object.prototype.hasOwnProperty.call(
+      animations,
+      mode
+    )
+  ) {
+    return null;
+  }
+
+
+  return animations[mode];
+}
+
+
+function hasGardenCharacterAnimation(
+  characterId,
+  mode
+) {
+  return (
+    getGardenCharacterAnimationDefinition(
+      characterId,
+      mode
+    ) !== null
+  );
+}
+
+
+/*
+  Resolver 要求的動畫不存在時，
+  決定安全退回哪一個動畫。
+*/
+function resolveGardenCharacterAnimationFallback(
+  characterId,
+  requestedMode
+) {
+  const runtime =
+    getGardenCharacterAnimationRuntime(
+      characterId
+    );
+
+
+  if (!runtime) {
+    return null;
+  }
+
+
+  /*
+    要求的動畫本來就存在，
+    直接使用。
+  */
+  if (
+    hasGardenCharacterAnimation(
+      characterId,
+      requestedMode
+    )
+  ) {
+    return requestedMode;
+  }
+
+
+  /*
+    正在移動時，
+    優先退回 Walk。
+  */
+  if (
+    runtime.state?.isMoving &&
+    hasGardenCharacterAnimation(
+      characterId,
+      "walk"
+    )
+  ) {
+    return "walk";
+  }
+
+
+  /*
+    沒移動時，
+    優先退回 Idle。
+  */
+  if (
+    hasGardenCharacterAnimation(
+      characterId,
+      "idle"
+    )
+  ) {
+    return "idle";
+  }
+
+
+  /*
+    極端保險：
+    如果連 Idle 都沒有，
+    使用這個角色登記的第一個動畫。
+  */
+  const availableModes =
+    Object.keys(
+      runtime.animations || {}
+    );
+
+
+  return (
+    availableModes[0] ||
+    null
+  );
+}
+
+
+const gardenAnimationFallbackWarnings =
+  new Set();
+
+
+function warnGardenAnimationFallbackOnce(
+  characterId,
+  requestedMode,
+  fallbackMode
+) {
+  const key =
+    `${characterId}:${requestedMode}:${fallbackMode}`;
+
+
+  if (
+    gardenAnimationFallbackWarnings.has(
+      key
+    )
+  ) {
+    return;
+  }
+
+
+  gardenAnimationFallbackWarnings.add(
+    key
+  );
+
+
+  console.warn(
+    `[Garden Animation] "${characterId}" has no "${requestedMode}" animation. Fallback → "${fallbackMode}".`
+  );
+}
+
+
+
+
+function setGardenCharacterAnimationMode(
+  characterId,
+  mode,
+  force = false
+) {
+  const runtime =
+    getGardenCharacterAnimationRuntime(
+      characterId
+    );
+
+
+  if (!runtime) {
+    console.warn(
+      `[Garden Animation] character not registered: ${characterId}`
+    );
+
+    return false;
+  }
+
+
+  const resolvedMode =
+    resolveGardenCharacterAnimationFallback(
+      characterId,
+      mode
+    );
+
+
+  /*
+    角色甚至沒有任何可用動畫。
+  */
+  if (!resolvedMode) {
+    console.warn(
+      `[Garden Animation] no usable animation: ${characterId}`
+    );
+
+    return false;
+  }
+
+
+  /*
+    要求的動畫不存在時，
+    記錄一次 fallback。
+  */
+  if (
+    resolvedMode !==
+    mode
+  ) {
+    warnGardenAnimationFallbackOnce(
+      characterId,
+      mode,
+      resolvedMode
+    );
+  }
+
+
+  /*
+    =========================
+    Interruptibility Gate
+    =========================
+
+    Resolver 想換動畫，
+    不代表一定可以立刻換。
+
+    如果目前動畫不可中斷，
+    就保持目前動畫繼續播放。
+  */
+  if (
+    !canGardenCharacterSwitchAnimation(
+      characterId,
+      resolvedMode,
+      force
+    )
+  ) {
+    return false;
+  }
+
+
+  runtime.setMode(
+    resolvedMode,
+    force
+  );
+
+
+  return true;
+}
+
+
+function updateGardenCharacterAnimationFrame(
+  characterId,
+  deltaMs
+) {
+  const runtime =
+    getGardenCharacterAnimationRuntime(
+      characterId
+    );
+
+
+  if (!runtime) {
+    return false;
+  }
+
+
+  runtime.updateFrame(
+    deltaMs
+  );
+
+
+  return true;
+}
+
+
+/* =========================
+   Existing Garden Characters
+========================= */
+
+registerGardenCharacterAnimation(
+  "chifuyu",
+  {
+    animations:
+      CHIFUYU_ANIMS,
+
+    state:
+      chifuyuWalkTestState,
+
+    setMode:
+      setChifuyuAnimationMode,
+
+    updateFrame:
+      updateChifuyuAnimationFrame,
+  }
+);
+
+
+registerGardenCharacterAnimation(
+  "chinatsu",
+  {
+    animations:
+      CHINATSU_ANIMS,
+
+    state:
+      chinatsuWalkTestState,
+
+    setMode:
+      setChinatsuAnimationMode,
+
+    updateFrame:
+      updateChinatsuAnimationFrame,
+  }
+);
+
+
+
+
+
+
+
 
 function getChinatsuMoveSpeedByY(y) {
   const farY = 470;
@@ -13910,16 +19127,39 @@ function getChinatsuMoveSpeedByY(y) {
 }
 
 function updateChinatsuWalkPosition(deltaMs) {
-  const state = chinatsuWalkTestState;
+  const state =
+    chinatsuWalkTestState;
 
-  if (!state.path || state.path.length === 0) {
-    state.isMoving = false;
+
+  if (
+    !state.path ||
+    state.path.length === 0
+  ) {
+    state.isMoving =
+      false;
+
     return;
   }
 
-  state.isMoving = true;
 
-  const target = state.path[0];
+  if (
+    !canGardenCharacterAdvanceMovement(
+      "chinatsu"
+    )
+  ) {
+    state.isMoving =
+      false;
+
+    return;
+  }
+
+
+  state.isMoving =
+    true;
+
+
+  const target =
+    state.path[0];
 
   const dx = target.x - state.x;
   const dy = target.y - state.y;
@@ -16129,8 +21369,17 @@ gardenChatState.currentSpotName = "";
   chinatsuWalkTestState.path = [];
   chinatsuWalkTestState.isMoving = false;
 
-  setChifuyuAnimationMode("idle", true);
-  setChinatsuAnimationMode("idle", true);
+ setGardenCharacterAnimationMode(
+  "chifuyu",
+  "idle",
+  true
+);
+
+setGardenCharacterAnimationMode(
+  "chinatsu",
+  "idle",
+  true
+);
 
   chifuyuAutoWalkState.wasMoving = false;
   chinatsuAutoWalkState.wasMoving = false;
@@ -16317,34 +21566,45 @@ if (
       .chinatsuTalk;
 
   if (
-    !chifuyuReady ||
-    !chinatsuReady
-  ) {
-    /*
-      warmup 還沒完成就繼續等。
-      兩人此時維持 Idle，
-      不會出現一個先講、一個還沒講。
-    */
-    return;
-  }
-
-
-  gardenChatState.mode = "chat";
-
-  resetGardenTalkEndFlags();
-
+  !chifuyuReady ||
+  !chinatsuReady
+) {
   /*
-    同一幀發出 Talk 切換。
+    warmup 還沒完成就繼續等。
+    兩人此時維持 Idle，
+    不會出現一個先講、一個還沒講。
   */
-  setChifuyuAnimationMode(
-    "talk",
-    true
-  );
+  return;
+}
 
-  setChinatsuAnimationMode(
-    "talk",
-    true
-  );
+
+/*
+  Talk 素材都已經準備完成。
+
+  正式把聊天狀態從
+  chatPreparing 推進到 chat。
+*/
+gardenChatState.mode =
+  "chat";
+
+resetGardenTalkEndFlags();
+
+
+/*
+  同一幀透過 Animation Registry
+  讓兩人正式進入 Talk。
+*/
+setGardenCharacterAnimationMode(
+  "chifuyu",
+  "talk",
+  true
+);
+
+setGardenCharacterAnimationMode(
+  "chinatsu",
+  "talk",
+  true
+);
 
   /*
     兩人的 Talk 時鐘歸零。
@@ -17112,6 +22372,27 @@ function updateChifuyuWalkPosition(deltaMs) {
     return;
   }
 
+    /*
+    Animation Movement Gate
+
+    path 保留，
+    但動畫不允許移動時，
+    暫停實際位置推進。
+
+    等限制解除後，
+    可以從原 path 繼續。
+  */
+  if (
+    !canGardenCharacterAdvanceMovement(
+      "chifuyu"
+    )
+  ) {
+    state.isMoving =
+      false;
+
+    return;
+  }
+
   state.isMoving = true;
 
 
@@ -17292,7 +22573,183 @@ function isGardenChatDistanceValid(pointA, pointB, options = {}) {
   return true;
 }
 
+/* =========================
+   Garden Character Animation Resolver
 
+   World State / Activity
+   ↓
+   Animation Mode
+
+   目前正式支援：
+   - idle
+   - walk
+   - talk
+
+   未來 read / tea / pray / swordPractice
+   等 Activity 動畫也會從這裡接入。
+========================= */
+
+function resolveGardenCharacterAnimationMode(
+  characterId,
+  animationRuntime
+) {
+  if (
+    !characterId ||
+    !animationRuntime
+  ) {
+    return "idle";
+  }
+
+
+  const moveState =
+    animationRuntime.state;
+
+  /*
+    =========================
+    Animation Override
+    =========================
+
+    Completion Transition /
+    Activity Sequence
+    明確指定動畫時，
+    優先於一般 Activity Resolver。
+  */
+  const overrideMode =
+    getGardenCharacterAnimationOverride(
+      characterId
+    );
+
+
+  if (overrideMode) {
+
+    /*
+      正常情況下 setOverride()
+      已經檢查過動畫存在。
+
+      這裡再保險一次：
+      如果 Definition 日後被移除，
+      不讓角色卡在無效 Override。
+    */
+    if (
+      hasGardenCharacterAnimation(
+        characterId,
+        overrideMode
+      )
+    ) {
+      return overrideMode;
+    }
+
+
+    clearGardenCharacterAnimationOverride(
+      characterId
+    );
+  }
+
+
+  const activity =
+    typeof getGardenCharacterActivity ===
+      "function"
+      ? getGardenCharacterActivity(
+          characterId
+        )
+      : null;
+
+
+  /*
+    =========================
+    Chat
+    =========================
+
+    CHAT activity 不代表現在一定
+    已經進入 Talk 動畫。
+
+    approachChat：
+    角色正在走去聊天位置
+    → walk
+
+    chatPreparing：
+    等待 Talk sheet warmup
+    → idle
+
+    chat：
+    正式聊天
+    → talk
+  */
+  if (
+    activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .CHAT
+  ) {
+    if (
+      gardenChatState.mode ===
+      "chat"
+    ) {
+      return "talk";
+    }
+
+
+    if (
+      moveState?.isMoving
+    ) {
+      return "walk";
+    }
+
+
+    return "idle";
+  }
+
+
+  /*
+    =========================
+    Travel
+    =========================
+
+    目前 Travel 還是使用一般 Walk。
+
+    transit 階段角色通常不可見，
+    所以即使這裡回 idle，
+    也不影響畫面。
+  */
+  if (
+    activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .TRAVEL
+  ) {
+    return moveState?.isMoving
+      ? "walk"
+      : "idle";
+  }
+
+
+  /*
+    =========================
+    Wander
+    =========================
+  */
+  if (
+    activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER
+  ) {
+    return moveState?.isMoving
+      ? "walk"
+      : "idle";
+  }
+
+
+  /*
+    =========================
+    Fallback
+    =========================
+
+    未來如果新增 Activity，
+    但還沒建立對應動畫規則，
+    至少仍能安全退回 Walk / Idle。
+  */
+  return moveState?.isMoving
+    ? "walk"
+    : "idle";
+}
 
 
 function chifuyuWalkMoveLoop(now) {
@@ -17389,27 +22846,60 @@ if (
   }
 }
 
-  // 千冬動畫
-  if (isGardenChatting()) {
-    setChifuyuAnimationMode("talk");
-  } else if (chifuyuWalkTestState.isMoving) {
-    setChifuyuAnimationMode("walk");
-  } else {
-    setChifuyuAnimationMode("idle");
-  }
+/* =========================
+   Garden Character Animation Update
 
-  // 千夏動畫
-  if (isGardenChatting()) {
-    setChinatsuAnimationMode("talk");
-  } else if (chinatsuWalkTestState.isMoving) {
-    setChinatsuAnimationMode("walk");
-  } else {
-    setChinatsuAnimationMode("idle");
-  }
+   所有已註冊角色統一從
+   Animation Registry 更新。
 
-  // 推進動畫幀，這段不能拿掉
-  updateChifuyuAnimationFrame(deltaMs);
-  updateChinatsuAnimationFrame(deltaMs);
+   目前行為保持：
+   Chat  → talk
+   Moving → walk
+   Other → idle
+========================= */
+
+for (
+  const [
+    characterId,
+    animationRuntime
+  ] of
+  GARDEN_CHARACTER_ANIMATION_REGISTRY
+) {
+  const animationCommand =
+  resolveGardenCharacterAnimationCommand(
+    characterId,
+    animationRuntime
+  );
+
+
+setGardenCharacterAnimationMode(
+  characterId,
+  animationCommand.mode,
+  animationCommand.force
+);
+
+
+    updateGardenCharacterAnimationFrame(
+  characterId,
+  deltaMs
+);
+
+
+/*
+  Sequence 要在 Frame Update 後檢查。
+
+  因為 animFinished
+  就是在 Frame Update 中成立。
+*/
+updateGardenCharacterAnimationSequences(
+  characterId
+);
+
+
+applyGardenAnimationCompletionTransition(
+  characterId
+);
+}
 
   // 聊天動畫跑完後，這裡再判斷是否該收尾。
   // 這樣可以保留「回到下一輪第 0 幀後再切回 idle」的效果。
@@ -17579,21 +23069,21 @@ function initGardenScreen() {
       }
 
 
-      setChifuyuAnimationMode(
-        "idle",
-        true
-      );
+      setGardenCharacterAnimationMode(
+  "chifuyu",
+  "idle",
+  true
+);
 
+setGardenCharacterAnimationMode(
+  "chinatsu",
+  "idle",
+  true
+);
 
-      setChinatsuAnimationMode(
-        "idle",
-        true
-      );
+resetChifuyuAutoWalk();
 
-
-      resetChifuyuAutoWalk();
-
-      resetChinatsuAutoWalk();
+resetChinatsuAutoWalk();
     }
 
 
@@ -19062,23 +24552,33 @@ function getGardenSceneAssetsByMode(
     return [];
   }
 
-
   const safeMode =
     mode === "night"
       ? "night"
       : "day";
 
-
   const sceneLayers =
     scene.sceneLayers || [];
 
+  /*
+    同一張圖片可能被多個 layer 共用。
 
-  return sceneLayers
-    .map(
-      (item) =>
-        item[safeMode]
-    )
-    .filter(Boolean);
+    例如 Moon Bridge：
+    upper glow / lower glow
+    會共用同一組 PNG。
+
+    preload 時只需要處理一次。
+  */
+  return [
+    ...new Set(
+      sceneLayers
+        .map(
+          (item) =>
+            item[safeMode]
+        )
+        .filter(Boolean)
+    ),
+  ];
 }
 
 
@@ -19244,18 +24744,19 @@ if (
 
 
     /*
-      場景切換後先回 Idle。
-    */
-    setChifuyuAnimationMode(
-      "idle",
-      true
-    );
+  場景切換後先回 Idle。
+*/
+setGardenCharacterAnimationMode(
+  "chifuyu",
+  "idle",
+  true
+);
 
-    setChinatsuAnimationMode(
-      "idle",
-      true
-    );
-
+setGardenCharacterAnimationMode(
+  "chinatsu",
+  "idle",
+  true
+);
 
     /*
       重新啟動自動散步排程。

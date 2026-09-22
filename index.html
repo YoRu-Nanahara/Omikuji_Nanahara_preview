@@ -134,17 +134,15 @@
   <div id="gardenScene">
     <!-- 背景底圖 -->
     <img
-      class="garden-layer garden-bg"
-      src="images/garden/courtyard/courtyard-bg-day.jpg"
-      alt=""
-    >
+  class="garden-layer garden-bg"
+  alt=""
+>
 
     <!-- 遠景場景圖層：不是遮擋物 -->
     <img
-      class="garden-layer garden-fg-far-area"
-      src="images/garden/courtyard/courtyard-fg-far-area.png"
-      alt=""
-    >
+  class="garden-layer garden-fg-far-area"
+  alt=""
+>
 
 
 <!-- =========================
@@ -278,17 +276,15 @@
 
     <!-- 建築遮擋圖層：遮住 far layer 的角色 -->
     <img
-      class="garden-layer garden-fg-building-occluder"
-      src="images/garden/courtyard/courtyard-fg-building-occluder.png"
-      alt=""
-    >
+  class="garden-layer garden-fg-building-occluder"
+  alt=""
+>
 
     <!-- 建築走廊前緣 -->
-    <img
-      class="garden-layer garden-fg-building-front-edge"
-      src="images/garden/courtyard/courtyard-fg-building-front-edge.png"
-      alt=""
-    >
+<img
+  class="garden-layer garden-fg-building-front-edge"
+  alt=""
+>
 
 
 
@@ -313,45 +309,39 @@
 
     <!-- 枯山水前緣 -->
     <img
-      class="garden-layer garden-obj-karesansui-front"
-      src="images/garden/courtyard/courtyard-obj-karesansui-front.png"
-      alt=""
-    >
+  class="garden-layer garden-obj-karesansui-front"
+  alt=""
+>
 
     <!-- 左下燈籠 -->
-    <img
-      class="garden-layer garden-fg-lantern-left"
-      src="images/garden/courtyard/courtyard-fg-lantern-left.png"
-      alt=""
-    >
+   <img
+  class="garden-layer garden-fg-lantern-left"
+  alt=""
+>
 
     <!-- 右上建築轉角 -->
-    <img
-      class="garden-layer garden-fg-building-corner"
-      src="images/garden/courtyard/courtyard-fg-building-corner.png"
-      alt=""
-    >
+   <img
+  class="garden-layer garden-fg-building-corner"
+  alt=""
+>
 
     <!-- 右上轉角前方角色層 -->
     <div id="gardenCharCornerFrontLayer" class="garden-character-layer"></div>
 
     <!-- 左上櫻花前景 -->
-   <img
+  <img
   class="garden-layer garden-fg-sakura-top garden-sakura-top-base-full"
-  src="images/garden/courtyard/courtyard-fg-sakura-top.png"
   alt=""
 >
 
 <div class="garden-sakura-shadow-loop">
   <img
     class="garden-sakura-shadow-frame garden-sakura-top-shadow-a"
-    src="images/garden/courtyard/courtyard-fg-sakura-shadow-01.png"
     alt=""
   >
 
   <img
     class="garden-sakura-shadow-frame garden-sakura-top-shadow-b"
-    src="images/garden/courtyard/courtyard-fg-sakura-shadow-02.png"
     alt=""
   >
 </div>
@@ -591,8 +581,18 @@
 <audio id="drawSound" src="audio/draw.mp3" preload="auto"></audio>
 
 <!-- Wind Game 音效 -->
-<audio id="windGameBgm" src="audio/wind-bgm.mp3" loop preload="auto"></audio>
-<audio id="windSlashSound" src="audio/wind-slash-se.wav" preload="auto"></audio>
+<audio
+  id="windGameBgm"
+  src="audio/wind-bgm.mp3"
+  loop
+  preload="none"
+></audio>
+
+<audio
+  id="windSlashSound"
+  src="audio/wind-slash-se.wav"
+  preload="none"
+></audio>
 
 <!-- ✅ Omamori 截圖舞台：只用來生成圖片，不干擾主畫面 -->
 <div id="omamoriCaptureStage" class="capture-hidden" aria-hidden="true">
