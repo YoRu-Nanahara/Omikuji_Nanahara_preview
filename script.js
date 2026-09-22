@@ -6548,6 +6548,27 @@ if (btnGarden) {
 */
 pauseGardenBackgroundPreload();
 
+/*
+  在 planGardenInitialMode()
+  之前先恢復 World Clock。
+
+  下一步加入 Reconciliation 後，
+  角色世界會先推算到「現在」，
+  再決定進場要顯示什麼動畫。
+*/
+const gardenResumeResult =
+  resumeGardenWorld(
+    "gardenEnter"
+  );
+
+
+if (gardenResumeResult) {
+  console.log(
+    "[Garden World] resumed:",
+    gardenResumeResult
+  );
+}
+
 
 const gardenInitialMode =
   planGardenInitialMode();
@@ -7375,7 +7396,31 @@ function backToMenuFrom(screenEl) {
 
 if (screenEl === gardenScreen) {
 
-  stopGardenUiAutoHide();
+  /*
+    從使用者按下 Menu 的這一刻
+    就開始計算世界離開時間。
+
+    不等拉門動畫播完。
+  */
+  suspendGardenWorld(
+  "menu"
+);
+
+
+/*
+  Garden 世界從這一刻
+  已停止 Runtime 更新。
+
+  因此現在保存的 Snapshot
+  就是離開 Garden 時的
+  最後可靠世界狀態。
+*/
+saveGardenWorldState(
+  "menu"
+);
+
+
+stopGardenUiAutoHide();
 
   stopMoonBridgeClouds();
 
@@ -10231,6 +10276,65 @@ const COURTYARD_MOON_BRIDGE_EXIT_TARGETS = {
 const GARDEN_CHARACTER_TRAVEL_TRANSIT_MS =
   1500;
 
+
+  /*
+  =========================
+  Garden Travel World Timeline
+  =========================
+
+  performance.now()
+  → 畫面正在執行時的即時計時
+
+  getGardenWorldNow()
+  → 可跨 Menu / 背景 / Reload
+     的絕對世界時間
+*/
+function createGardenCharacterTravelTimeline() {
+  const now =
+    getGardenWorldNow();
+
+
+  return {
+    /*
+      整趟 Travel 正式開始時間。
+    */
+    startedAt:
+      now,
+
+
+    /*
+      目前 phase 開始時間。
+    */
+    phaseStartedAt:
+      now,
+
+
+    /*
+      真正離開原場景、
+      進入 transit 的時間。
+    */
+    transitStartedAt:
+      null,
+
+
+    /*
+      理論上抵達目的地入口的時間。
+
+      walkingToExit 階段還不知道，
+      所以一開始是 null。
+    */
+    expectedArrivalAt:
+      null,
+
+
+    /*
+      已正式進入目的地 Scene
+      時才填入。
+    */
+    arrivedAt:
+      null,
+  };
+}
 
 /*
   賞月橋左側入口。
@@ -13687,12 +13791,31 @@ function startGardenCharacterTravelEntrance(
   ]);
 
 
-  travel.phase =
-    "walkingFromEntrance";
+ travel.phase =
+  "walkingFromEntrance";
 
 
-  updateGardenCharacterVisibility();
+const arrivedAt =
+  getGardenWorldNow();
 
+
+travel.phaseStartedAt =
+  arrivedAt;
+
+
+/*
+  從這一刻開始，
+  worldState.sceneId 已經是目的地。
+
+  所以 arrivedAt 的定義是：
+  「正式進入目的地世界狀態」
+  而不是入口動畫完全走完。
+*/
+travel.arrivedAt =
+  arrivedAt;
+
+
+updateGardenCharacterVisibility();
 
   console.log(
     `[Garden Travel] ${character} entering ${travel.toSceneId}`
@@ -13702,6 +13825,72 @@ function startGardenCharacterTravelEntrance(
   return true;
 }
 
+
+function getGardenCharacterTravelTimelineSnapshot(
+  character
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  const travel =
+    worldState?.travel;
+
+
+  if (!travel) {
+    return null;
+  }
+
+
+  return {
+    character,
+
+    fromSceneId:
+      travel.fromSceneId,
+
+    toSceneId:
+      travel.toSceneId,
+
+    phase:
+      travel.phase,
+
+    startedAt:
+      travel.startedAt ??
+      null,
+
+    phaseStartedAt:
+      travel.phaseStartedAt ??
+      null,
+
+    transitStartedAt:
+      travel.transitStartedAt ??
+      null,
+
+    expectedArrivalAt:
+      travel.expectedArrivalAt ??
+      null,
+
+    arrivedAt:
+      travel.arrivedAt ??
+      null,
+
+
+    /*
+      Debug 時順便顯示
+      目前離 Travel 開始多久。
+    */
+    elapsedSinceStartMs:
+      isValidGardenWorldTimestamp(
+        travel.startedAt
+      )
+        ? getGardenWorldElapsedMs(
+            travel.startedAt
+          )
+        : null,
+  };
+}
 
 /*
   每一幀更新「單一角色」的旅行。
@@ -13775,12 +13964,38 @@ function updateGardenCharacterTravel(
       false;
 
 
-    travel.phase =
-      "transit";
+   /*
+  Runtime Clock：
+  現有即時 Travel 照舊。
+*/
+travel.phase =
+  "transit";
 
 
-    travel.transitUntil =
+travel.transitUntil =
   now +
+  GARDEN_CHARACTER_TRAVEL_TRANSIT_MS;
+
+
+/*
+  World Clock：
+  記錄這個 Transit
+  在真實世界時間上的區間。
+*/
+const transitStartedAt =
+  getGardenWorldNow();
+
+
+travel.phaseStartedAt =
+  transitStartedAt;
+
+
+travel.transitStartedAt =
+  transitStartedAt;
+
+
+travel.expectedArrivalAt =
+  transitStartedAt +
   GARDEN_CHARACTER_TRAVEL_TRANSIT_MS;
 
 
@@ -14005,16 +14220,50 @@ function travelGardenCharacter(
   }
 
 
-  worldState.travel = {
-    fromSceneId,
-    toSceneId,
+ const travelTimeline =
+  createGardenCharacterTravelTimeline();
 
-    phase:
-      "walkingToExit",
 
-    transitUntil:
-      0,
-  };
+worldState.travel = {
+  fromSceneId,
+  toSceneId,
+
+  phase:
+    "walkingToExit",
+
+
+  /*
+    =========================
+    Runtime Clock
+    =========================
+
+    保留既有 performance.now()
+    Transit 流程。
+  */
+  transitUntil:
+    0,
+
+
+  /*
+    =========================
+    World Clock Timeline
+    =========================
+  */
+  startedAt:
+    travelTimeline.startedAt,
+
+  phaseStartedAt:
+    travelTimeline.phaseStartedAt,
+
+  transitStartedAt:
+    travelTimeline.transitStartedAt,
+
+  expectedArrivalAt:
+    travelTimeline.expectedArrivalAt,
+
+  arrivedAt:
+    travelTimeline.arrivedAt,
+};
 
 
   setGardenCharacterActivity(
@@ -14024,6 +14273,9 @@ function travelGardenCharacter(
   {
     fromSceneId,
     toSceneId,
+
+    startedAt:
+      travelTimeline.startedAt,
   }
 );
 
@@ -23971,6 +24223,904 @@ const MOON_BRIDGE_CHAT_SPOTS = [
   },
 ];
 
+/* =========================
+   Garden World Clock
+========================= */
+
+/*
+  Garden 世界的「絕對時間」。
+
+  與 Animation / RAF 使用的
+  performance.now() 分開。
+
+  World State / Activity Timeline /
+  Suspend / Resume / Persistence
+  之後都統一使用這個 API。
+*/
+let gardenWorldClockTestNow =
+  null;
+
+
+/*
+  取得目前 Garden 世界時間。
+
+  單位：
+  Unix timestamp milliseconds
+
+  正式狀態：
+  Date.now()
+
+  Debug 狀態：
+  可由 test clock 覆蓋。
+*/
+function getGardenWorldNow() {
+  if (
+    Number.isFinite(
+      gardenWorldClockTestNow
+    )
+  ) {
+    return gardenWorldClockTestNow;
+  }
+
+
+  return Date.now();
+}
+
+
+/*
+  判斷 timestamp 是否可以使用。
+*/
+function isValidGardenWorldTimestamp(
+  timestamp
+) {
+  return (
+    Number.isFinite(timestamp) &&
+    timestamp >= 0
+  );
+}
+
+
+/*
+  計算兩個世界 timestamp
+  之間經過多久。
+
+  如果系統時間被往回調，
+  不允許出現負 elapsed。
+*/
+function getGardenWorldElapsedMs(
+  fromTimestamp,
+  toTimestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !isValidGardenWorldTimestamp(
+      fromTimestamp
+    ) ||
+    !isValidGardenWorldTimestamp(
+      toTimestamp
+    )
+  ) {
+    return 0;
+  }
+
+
+  return Math.max(
+    0,
+    toTimestamp -
+      fromTimestamp
+  );
+}
+
+
+/*
+  秒數版本。
+
+  Activity 排程有時候
+  使用秒會比較方便。
+*/
+function getGardenWorldElapsedSeconds(
+  fromTimestamp,
+  toTimestamp =
+    getGardenWorldNow()
+) {
+  return (
+    getGardenWorldElapsedMs(
+      fromTimestamp,
+      toTimestamp
+    ) /
+    1000
+  );
+}
+
+/*
+  =========================
+  Garden World Clock Debug
+  =========================
+
+  不修改電腦系統時間，
+  只讓 Garden 世界時間暫時前進。
+
+  正式功能不會主動使用。
+*/
+
+function setGardenWorldClockTestNow(
+  timestamp
+) {
+  if (
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return false;
+  }
+
+
+  gardenWorldClockTestNow =
+    timestamp;
+
+
+  return true;
+}
+
+
+function advanceGardenWorldClockTestBy(
+  milliseconds
+) {
+  if (
+    !Number.isFinite(
+      milliseconds
+    )
+  ) {
+    return false;
+  }
+
+
+  /*
+    第一次使用時，
+    從真實時間開始。
+  */
+  if (
+    !Number.isFinite(
+      gardenWorldClockTestNow
+    )
+  ) {
+    gardenWorldClockTestNow =
+      Date.now();
+  }
+
+
+  gardenWorldClockTestNow =
+    Math.max(
+      0,
+      gardenWorldClockTestNow +
+        milliseconds
+    );
+
+
+  return true;
+}
+
+
+function clearGardenWorldClockTestNow() {
+  gardenWorldClockTestNow =
+    null;
+
+
+  return true;
+}
+
+
+function isGardenWorldClockInTestMode() {
+  return Number.isFinite(
+    gardenWorldClockTestNow
+  );
+}
+
+/*
+  Debug / Persistence
+  共用的簡單時間 Snapshot。
+*/
+function getGardenWorldClockSnapshot() {
+  const now =
+    getGardenWorldNow();
+
+
+  return {
+    now,
+
+    iso:
+      new Date(
+        now
+      ).toISOString(),
+
+    testMode:
+      isGardenWorldClockInTestMode(),
+  };
+}
+
+
+/* =========================
+   Garden World Suspend / Resume
+========================= */
+
+/*
+  注意：
+
+  suspended 的意思不是
+  「世界時間停止」。
+
+  恰恰相反：
+
+  RAF / 畫面模擬暫停，
+  但 getGardenWorldNow()
+  仍然繼續前進。
+
+  回來時才能計算
+  真正過了多久。
+*/
+const gardenWorldSuspendState = {
+  isSuspended: false,
+
+  suspendedAt: null,
+
+  suspendReason: null,
+
+  lastResumedAt: null,
+
+  lastResumeReason: null,
+
+  lastElapsedMs: 0,
+
+  resumeCount: 0,
+};
+
+
+/*
+  Garden 畫面目前是否真的開著。
+
+  不使用 body class 作唯一判斷，
+  避免 fallback 畫面切換流程
+  沒有更新 body class 時失效。
+*/
+function isGardenWorldViewActive() {
+  return (
+    gardenScreen &&
+    !gardenScreen.classList.contains(
+      "hidden"
+    )
+  );
+}
+
+
+/*
+  開始暫停 Garden Runtime。
+
+  已經 suspended 時，
+  不覆寫第一次的 timestamp。
+
+  例如：
+
+  Garden → Menu
+  ↓
+  再切到其他分頁
+
+  仍然應從「離開 Garden」
+  那一刻開始計算。
+*/
+function suspendGardenWorld(
+  reason = "unknown",
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    gardenWorldSuspendState
+      .isSuspended
+  ) {
+    return false;
+  }
+
+
+  if (
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return false;
+  }
+
+
+  gardenWorldSuspendState
+    .isSuspended =
+    true;
+
+
+  gardenWorldSuspendState
+    .suspendedAt =
+    timestamp;
+
+
+  gardenWorldSuspendState
+    .suspendReason =
+    String(reason);
+
+
+  return true;
+}
+
+
+/* =========================
+   Garden World Reconciliation
+========================= */
+
+/*
+  所有需要在 Garden Resume 時
+  重新推算世界狀態的系統，
+  都登記在這裡。
+
+  例如未來：
+
+  travel
+  activity
+  schedule
+*/
+const gardenWorldReconciliationHandlers =
+  new Map();
+
+
+let gardenWorldReconciliationOrder =
+  0;
+
+
+/*
+  Debug 用：
+
+  保存最近一次 Resume Context
+  與 Pipeline 執行結果。
+*/
+let gardenWorldLastResumeContext =
+  null;
+
+
+let gardenWorldLastReconciliationResults =
+  Object.freeze([]);
+
+
+function registerGardenWorldReconciliationHandler(
+  handlerId,
+  handler,
+  options = {}
+) {
+  if (
+    !handlerId ||
+    typeof handler !==
+      "function"
+  ) {
+    return false;
+  }
+
+
+  const id =
+    String(handlerId);
+
+
+  const existing =
+    gardenWorldReconciliationHandlers.get(
+      id
+    );
+
+
+  /*
+    預設不允許偷偷覆蓋。
+
+    開發階段若真的要替換：
+    { replace: true }
+  */
+  if (
+    existing &&
+    options.replace !==
+      true
+  ) {
+    console.warn(
+      "[Garden World] reconciliation handler already exists:",
+      id
+    );
+
+    return false;
+  }
+
+
+  const priority =
+    Number.isFinite(
+      options.priority
+    )
+      ? options.priority
+      : 0;
+
+
+  /*
+    replace 時保留原本 order，
+    避免同 priority 的執行順序
+    因 hot reload 改變。
+  */
+  const order =
+    existing?.order ??
+    ++gardenWorldReconciliationOrder;
+
+
+  gardenWorldReconciliationHandlers.set(
+    id,
+    Object.freeze({
+      id,
+      handler,
+      priority,
+      order,
+    })
+  );
+
+
+  return true;
+}
+
+
+function unregisterGardenWorldReconciliationHandler(
+  handlerId
+) {
+  if (!handlerId) {
+    return false;
+  }
+
+
+  return (
+    gardenWorldReconciliationHandlers.delete(
+      String(handlerId)
+    )
+  );
+}
+
+/*
+  將 Suspend / Resume 資訊
+  正規化成所有 World System
+  共用的 Context。
+*/
+function createGardenWorldResumeContext(
+  suspendedAt,
+  resumedAt,
+  suspendReason,
+  resumeReason
+) {
+  if (
+    !isValidGardenWorldTimestamp(
+      suspendedAt
+    ) ||
+    !isValidGardenWorldTimestamp(
+      resumedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  const elapsedMs =
+    getGardenWorldElapsedMs(
+      suspendedAt,
+      resumedAt
+    );
+
+
+  return Object.freeze({
+    source:
+      "runtimeResume",
+
+    suspendedAt,
+
+    resumedAt,
+
+    elapsedMs,
+
+    elapsedSeconds:
+      elapsedMs / 1000,
+
+    suspendReason:
+      String(
+        suspendReason ||
+        "unknown"
+      ),
+
+    resumeReason:
+      String(
+        resumeReason ||
+        "unknown"
+      ),
+  });
+}
+
+/*
+  依 priority 執行全部
+  Reconciliation Handler。
+
+  規則：
+
+  priority 高 → 先執行
+
+  priority 相同 →
+  依註冊順序執行。
+*/
+function runGardenWorldReconciliation(
+  context
+) {
+  if (!context) {
+    return Object.freeze([]);
+  }
+
+
+  const handlers =
+    Array.from(
+      gardenWorldReconciliationHandlers.values()
+    ).sort(
+      (a, b) =>
+        b.priority -
+          a.priority ||
+        a.order -
+          b.order
+    );
+
+
+  const results =
+    [];
+
+
+  for (
+    const entry of
+    handlers
+  ) {
+    try {
+      const result =
+        entry.handler(
+          context
+        );
+
+
+      /*
+        World Reconciliation
+        必須同步完成。
+
+        因為之後：
+        planGardenInitialMode()
+
+        必須看到已經更新完成的世界。
+      */
+      if (
+        result &&
+        typeof result.then ===
+          "function"
+      ) {
+        console.error(
+          "[Garden World] reconciliation handler must be synchronous:",
+          entry.id
+        );
+
+
+        results.push(
+          Object.freeze({
+            id:
+              entry.id,
+
+            ok:
+              false,
+
+            reason:
+              "asyncNotSupported",
+          })
+        );
+
+
+        continue;
+      }
+
+
+      results.push(
+        Object.freeze({
+          id:
+            entry.id,
+
+          ok:
+            true,
+
+          result:
+            result ?? null,
+        })
+      );
+
+    } catch (err) {
+      /*
+        一個系統失敗，
+        不允許阻止其他系統
+        繼續 reconciliation。
+      */
+      console.error(
+        `[Garden World] reconciliation handler failed: ${entry.id}`,
+        err
+      );
+
+
+      results.push(
+        Object.freeze({
+          id:
+            entry.id,
+
+          ok:
+            false,
+
+          reason:
+            "handlerError",
+        })
+      );
+    }
+  }
+
+
+  return Object.freeze(
+    results
+  );
+}
+
+function getGardenWorldReconciliationSnapshot() {
+  const handlers =
+    Array.from(
+      gardenWorldReconciliationHandlers.values()
+    )
+      .sort(
+        (a, b) =>
+          b.priority -
+            a.priority ||
+          a.order -
+            b.order
+      )
+      .map(
+        (entry) => ({
+          id:
+            entry.id,
+
+          priority:
+            entry.priority,
+
+          order:
+            entry.order,
+        })
+      );
+
+
+  return {
+    handlerCount:
+      handlers.length,
+
+    handlers,
+
+    lastContext:
+      gardenWorldLastResumeContext,
+
+    lastResults:
+      gardenWorldLastReconciliationResults,
+  };
+}
+
+
+
+/*
+  Garden Runtime 恢復。
+
+  計算離開期間經過時間，
+  建立 Resume Context，
+
+  並同步執行所有
+  World Reconciliation Handler。
+
+  所有世界狀態推算完成後，
+  才會回到 Garden 顯示流程。
+*/
+function resumeGardenWorld(
+  reason = "unknown",
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !gardenWorldSuspendState
+      .isSuspended
+  ) {
+    return null;
+  }
+
+
+  if (
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  const suspendedAt =
+    gardenWorldSuspendState
+      .suspendedAt;
+
+
+  const elapsedMs =
+    getGardenWorldElapsedMs(
+      suspendedAt,
+      timestamp
+    );
+
+
+  const suspendReason =
+    gardenWorldSuspendState
+      .suspendReason;
+
+
+  /*
+    Resume 後重新成為 Active。
+  */
+  gardenWorldSuspendState
+    .isSuspended =
+    false;
+
+
+  gardenWorldSuspendState
+    .suspendedAt =
+    null;
+
+
+  gardenWorldSuspendState
+    .suspendReason =
+    null;
+
+
+  gardenWorldSuspendState
+    .lastResumedAt =
+    timestamp;
+
+
+  gardenWorldSuspendState
+    .lastResumeReason =
+    String(reason);
+
+
+  gardenWorldSuspendState
+    .lastElapsedMs =
+    elapsedMs;
+
+
+  gardenWorldSuspendState
+    .resumeCount +=
+    1;
+
+
+  /*
+  建立正式 Resume Context。
+*/
+const context =
+  createGardenWorldResumeContext(
+    suspendedAt,
+    timestamp,
+    suspendReason,
+    reason
+  );
+
+
+if (!context) {
+  return null;
+}
+
+
+/*
+  所有 World System
+  在這裡同步推算到「現在」。
+*/
+const reconciliationResults =
+  runGardenWorldReconciliation(
+    context
+  );
+
+
+/*
+  完整 Result。
+
+  Context 本身仍保持 immutable。
+*/
+const result =
+  Object.freeze({
+    ...context,
+
+    reconciliation:
+      reconciliationResults,
+  });
+
+
+gardenWorldLastResumeContext =
+  result;
+
+
+gardenWorldLastReconciliationResults =
+  reconciliationResults;
+
+
+return result;
+}
+
+function getGardenWorldSuspendSnapshot() {
+  return {
+    isSuspended:
+      gardenWorldSuspendState
+        .isSuspended,
+
+    suspendedAt:
+      gardenWorldSuspendState
+        .suspendedAt,
+
+    suspendReason:
+      gardenWorldSuspendState
+        .suspendReason,
+
+    lastResumedAt:
+      gardenWorldSuspendState
+        .lastResumedAt,
+
+    lastResumeReason:
+      gardenWorldSuspendState
+        .lastResumeReason,
+
+    lastElapsedMs:
+      gardenWorldSuspendState
+        .lastElapsedMs,
+
+    resumeCount:
+      gardenWorldSuspendState
+        .resumeCount,
+  };
+}
+
+/*
+  只給開發測試使用。
+*/
+function resetGardenWorldSuspendTracker() {
+  gardenWorldSuspendState
+    .isSuspended =
+    false;
+
+  gardenWorldSuspendState
+    .suspendedAt =
+    null;
+
+  gardenWorldSuspendState
+    .suspendReason =
+    null;
+
+  gardenWorldSuspendState
+    .lastResumedAt =
+    null;
+
+  gardenWorldSuspendState
+    .lastResumeReason =
+    null;
+
+  gardenWorldSuspendState
+    .lastElapsedMs =
+    0;
+
+  gardenWorldSuspendState
+    .resumeCount =
+    0;
+gardenWorldLastResumeContext =
+  null;
+
+
+gardenWorldLastReconciliationResults =
+  Object.freeze([]);
+
+  return true;
+}
+
+
 const GARDEN_CHARACTER_ACTIVITY =
   Object.freeze({
     WANDER: "wander",
@@ -24005,6 +25155,289 @@ const gardenCharacterWorldState = {
   },
 };
 
+/* =========================
+   Garden Travel Reconciliation
+========================= */
+
+/*
+  Garden Resume 時，
+  將 Travel 的 Runtime 狀態
+  對齊到目前 World Clock。
+
+  第一版主要處理：
+
+  transit
+  ↓
+  還沒到時間 → 繼續 transit
+  已經到時間 → 直接進目的地入口
+*/
+function reconcileGardenCharacterTravel(
+  character,
+  context
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  const travel =
+    worldState?.travel;
+
+
+  if (
+    !worldState ||
+    !travel
+  ) {
+    return {
+      character,
+      action: "none",
+      reason: "notTraveling",
+    };
+  }
+
+
+  /*
+    walkingToExit：
+
+    目前還沒有足夠資料推算
+    「離線期間走了多遠」。
+
+    這一版先保持原狀，
+    回 Garden 後繼續走。
+
+    之後 Activity / Movement Timeline
+    再處理這類空間移動。
+  */
+  if (
+    travel.phase ===
+      "walkingToExit"
+  ) {
+    return {
+      character,
+      action: "continue",
+      phase:
+        travel.phase,
+
+      reason:
+        "walkingToExitNotTimeReconciledYet",
+    };
+  }
+
+
+  /*
+    已經進目的地入口。
+
+    世界狀態本身已經屬於目的 Scene，
+    這版先讓入口 walk 照常接續。
+  */
+  if (
+    travel.phase ===
+      "walkingFromEntrance"
+  ) {
+    return {
+      character,
+      action: "continue",
+      phase:
+        travel.phase,
+
+      reason:
+        "alreadyAtDestination",
+    };
+  }
+
+
+  /*
+    目前真正需要用
+    World Clock 修正的是 transit。
+  */
+  if (
+    travel.phase !==
+      "transit"
+  ) {
+    return {
+      character,
+      action: "none",
+      phase:
+        travel.phase,
+
+      reason:
+        "unsupportedTravelPhase",
+    };
+  }
+
+
+  /*
+    expectedArrivalAt
+    是 11B-1 建立的絕對時間。
+
+    如果資料不完整，
+    不亂猜角色位置。
+  */
+  if (
+    !isValidGardenWorldTimestamp(
+      travel.expectedArrivalAt
+    )
+  ) {
+    return {
+      character,
+      action: "continue",
+      phase:
+        travel.phase,
+
+      reason:
+        "missingExpectedArrivalAt",
+    };
+  }
+
+
+  const resumedAt =
+    context.resumedAt;
+
+
+  /*
+    =========================
+    還沒到抵達時間
+    =========================
+  */
+  if (
+    resumedAt <
+    travel.expectedArrivalAt
+  ) {
+    const remainingMs =
+      Math.max(
+        0,
+        travel.expectedArrivalAt -
+          resumedAt
+      );
+
+
+    /*
+      Runtime Clock 重新對齊。
+
+      這很重要：
+
+      World Clock 已經知道
+      還剩多少時間，
+
+      performance.now()
+      則重新從「現在」開始
+      等剩餘的那一小段。
+    */
+    travel.transitUntil =
+      performance.now() +
+      remainingMs;
+
+
+    return {
+      character,
+
+      action:
+        "continueTransit",
+
+      phase:
+        travel.phase,
+
+      remainingMs,
+
+      expectedArrivalAt:
+        travel.expectedArrivalAt,
+    };
+  }
+
+
+  /*
+    =========================
+    已經超過抵達時間
+    =========================
+
+    不再讓角色重新等待 transit。
+
+    直接進目的地入口。
+  */
+  const entered =
+    startGardenCharacterTravelEntrance(
+      character
+    );
+
+
+  return {
+    character,
+
+    action:
+      entered
+        ? "enterDestination"
+        : "enterDestinationFailed",
+
+    phase:
+      worldState.travel?.phase ||
+      null,
+
+    destinationSceneId:
+      travel.toSceneId,
+
+    expectedArrivalAt:
+      travel.expectedArrivalAt,
+
+    resumedAt,
+
+    overdueMs:
+      Math.max(
+        0,
+        resumedAt -
+          travel.expectedArrivalAt
+      ),
+  };
+}
+
+/*
+  一次處理 Garden 所有角色。
+
+  未來角色增加時，
+  不需要為每一個角色
+  各註冊一次 Handler。
+*/
+function reconcileGardenTravelSystem(
+  context
+) {
+  const results =
+    [];
+
+
+  for (
+    const character of
+    Object.keys(
+      gardenCharacterWorldState
+    )
+  ) {
+    results.push(
+      reconcileGardenCharacterTravel(
+        character,
+        context
+      )
+    );
+  }
+
+
+  return results;
+}
+
+/*
+  Travel 應該比一般 Activity /
+  Schedule 更早完成空間狀態推算。
+
+  所以先給較高 priority。
+*/
+registerGardenWorldReconciliationHandler(
+  "travel",
+  reconcileGardenTravelSystem,
+  {
+    priority: 200,
+  }
+);
+
+
+
 function areGardenCharactersInViewedScene() {
   return (
     gardenCharacterWorldState.chifuyu.sceneId ===
@@ -24016,11 +25449,1316 @@ function areGardenCharactersInViewedScene() {
 
 
 /* =========================
+   Garden Page Visibility
+========================= */
+
+document.addEventListener(
+  "visibilitychange",
+  () => {
+    /*
+      -------------------------
+      頁面進入背景
+      -------------------------
+    */
+    if (document.hidden) {
+      /*
+        只有真的正在 Garden
+        才建立新的 suspend。
+
+        如果本來就在 Menu，
+        Garden 已經因 "menu"
+        suspended，
+        不覆寫時間。
+      */
+      if (
+  isGardenWorldViewActive()
+) {
+  suspendGardenWorld(
+    "documentHidden"
+  );
+
+
+  saveGardenWorldState(
+    "documentHidden"
+  );
+}
+
+
+      return;
+    }
+
+
+    /*
+      -------------------------
+      頁面重新可見
+      -------------------------
+
+      如果仍停留在 Garden，
+      立刻 Resume。
+
+      如果現在是 Menu，
+      不 Resume。
+
+      要等真正再次進 Garden
+      才恢復。
+    */
+    if (
+      isGardenWorldViewActive()
+    ) {
+      const result =
+        resumeGardenWorld(
+          "documentVisible"
+        );
+
+
+      if (result) {
+        console.log(
+          "[Garden World] resumed:",
+          result
+        );
+      }
+    }
+  }
+);
+
+
+/*
+  Safari / bfcache 保險。
+
+  pagehide 不代表一定永久關閉；
+  有可能只是被瀏覽器放進
+  Back-Forward Cache。
+*/
+window.addEventListener(
+  "pagehide",
+  () => {
+    if (
+      isGardenWorldViewActive()
+    ) {
+      suspendGardenWorld(
+        "pageHide"
+      );
+
+
+      saveGardenWorldState(
+        "pageHide"
+      );
+    }
+  }
+);
+
+
+window.addEventListener(
+  "pageshow",
+  () => {
+    if (
+      !document.hidden &&
+      isGardenWorldViewActive()
+    ) {
+      const result =
+        resumeGardenWorld(
+          "pageShow"
+        );
+
+
+      if (result) {
+        console.log(
+          "[Garden World] resumed:",
+          result
+        );
+      }
+    }
+  }
+);
+
+
+/* =========================
    Garden Scene Config
 ========================= */
 
 let gardenViewSceneId =
   "courtyard";
+
+
+/* =========================
+   Garden World State Snapshot
+========================= */
+
+/*
+  Snapshot Schema 版本。
+
+  未來存檔結構如果真的改變，
+  才增加版本號。
+*/
+const GARDEN_WORLD_SNAPSHOT_SCHEMA =
+  "nanaharaGardenWorld";
+
+
+const GARDEN_WORLD_SNAPSHOT_VERSION =
+  1;
+
+
+/*
+  將資料轉成真正可以
+  JSON.stringify() 的副本。
+
+  Activity Data / Travel
+  原則上都應該只包含：
+
+  - string
+  - number
+  - boolean
+  - null
+  - Array
+  - plain object
+
+  不允許 DOM / function / Map
+  等 Runtime 物件進入存檔。
+*/
+function cloneGardenWorldSerializableValue(
+  value
+) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+
+  try {
+    const json =
+      JSON.stringify(
+        value
+      );
+
+
+    if (
+      typeof json !==
+        "string"
+    ) {
+      return null;
+    }
+
+
+    return JSON.parse(
+      json
+    );
+
+  } catch (err) {
+    console.warn(
+      "[Garden World] value is not serializable:",
+      err
+    );
+
+
+    return null;
+  }
+}
+
+
+function createGardenCharacterWorldSnapshot(
+  character
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      character
+    );
+
+
+  if (!worldState) {
+    return null;
+  }
+
+
+  const moveState =
+    runtime?.moveState ||
+    null;
+
+
+  return {
+    /*
+      =========================
+      Semantic World State
+      =========================
+    */
+
+    sceneId:
+      worldState.sceneId ??
+      null,
+
+    activity:
+      worldState.activity ??
+      null,
+
+    activityData:
+      cloneGardenWorldSerializableValue(
+        worldState.activityData
+      ),
+
+    travel:
+      cloneGardenWorldSerializableValue(
+        worldState.travel
+      ),
+
+
+    /*
+      =========================
+      Persistent Position
+      =========================
+
+      x / y / direction
+      雖然目前仍存在 movement runtime，
+
+      但它們其實是角色在世界中的
+      必要持久位置資料，
+      所以必須進 Snapshot。
+    */
+    position: {
+      x:
+        Number.isFinite(
+          moveState?.x
+        )
+          ? moveState.x
+          : null,
+
+      y:
+        Number.isFinite(
+          moveState?.y
+        )
+          ? moveState.y
+          : null,
+
+      direction:
+        Number.isFinite(
+          moveState?.direction
+        )
+          ? moveState.direction
+          : null,
+    },
+  };
+}
+
+
+function createGardenWorldStateSnapshot(
+  reason = "manual"
+) {
+  const characters =
+    {};
+
+
+  for (
+    const character of
+    Object.keys(
+      gardenCharacterWorldState
+    )
+  ) {
+    const characterSnapshot =
+      createGardenCharacterWorldSnapshot(
+        character
+      );
+
+
+    if (
+      characterSnapshot
+    ) {
+      characters[
+        character
+      ] =
+        characterSnapshot;
+    }
+  }
+
+
+  return {
+    schema:
+      GARDEN_WORLD_SNAPSHOT_SCHEMA,
+
+    version:
+      GARDEN_WORLD_SNAPSHOT_VERSION,
+
+
+    /*
+      這一定是 World Clock，
+      不使用 performance.now()。
+    */
+    savedAt:
+      getGardenWorldNow(),
+
+
+    /*
+      Debug 用。
+      之後可能會看到：
+
+      manual
+      menu
+      pageHide
+      periodic
+    */
+    reason:
+      String(
+        reason ||
+        "manual"
+      ),
+
+
+    /*
+      Player View 與
+      Character World 分開保存。
+
+      View Scene 不等於
+      角色真正所在 Scene。
+    */
+    view: {
+      sceneId:
+        gardenViewSceneId ||
+        "courtyard",
+    },
+
+
+    characters,
+  };
+}
+
+function isValidGardenWorldStateSnapshot(
+  snapshot
+) {
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      "object"
+  ) {
+    return false;
+  }
+
+
+  if (
+    snapshot.schema !==
+      GARDEN_WORLD_SNAPSHOT_SCHEMA
+  ) {
+    return false;
+  }
+
+
+  if (
+    snapshot.version !==
+      GARDEN_WORLD_SNAPSHOT_VERSION
+  ) {
+    return false;
+  }
+
+
+  if (
+    !isValidGardenWorldTimestamp(
+      snapshot.savedAt
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    !snapshot.characters ||
+    typeof snapshot.characters !==
+      "object"
+  ) {
+    return false;
+  }
+
+
+  return true;
+}
+
+
+function inspectGardenWorldStateSnapshot() {
+  const snapshot =
+    createGardenWorldStateSnapshot(
+      "debug"
+    );
+
+
+  console.log(
+    "[Garden World] Snapshot:",
+    snapshot
+  );
+
+
+  console.log(
+    "[Garden World] JSON:",
+    JSON.stringify(
+      snapshot,
+      null,
+      2
+    )
+  );
+
+
+  return snapshot;
+}
+
+/* =========================
+   Garden World Persistence
+========================= */
+
+const GARDEN_WORLD_STORAGE_KEY =
+  "nanahara-garden-world-v1";
+
+
+/*
+  將目前 Garden World Snapshot
+  寫入 localStorage。
+
+  成功：
+  回傳 snapshot
+
+  失敗：
+  回傳 null
+*/
+function saveGardenWorldState(
+  reason = "manual"
+) {
+  try {
+    const snapshot =
+      createGardenWorldStateSnapshot(
+        reason
+      );
+
+
+    if (
+      !isValidGardenWorldStateSnapshot(
+        snapshot
+      )
+    ) {
+      console.warn(
+        "[Garden World] refusing to save invalid snapshot"
+      );
+
+      return null;
+    }
+
+
+    const json =
+      JSON.stringify(
+        snapshot
+      );
+
+
+    localStorage.setItem(
+      GARDEN_WORLD_STORAGE_KEY,
+      json
+    );
+
+
+    return snapshot;
+
+  } catch (err) {
+    console.warn(
+      "[Garden World] save failed:",
+      err
+    );
+
+
+    return null;
+  }
+}
+
+
+/*
+  只「讀取並驗證」存檔。
+
+  注意：
+  這一步不會修改目前世界。
+
+  11C-3 才會真正 Restore。
+*/
+function loadGardenWorldState() {
+  try {
+    const raw =
+      localStorage.getItem(
+        GARDEN_WORLD_STORAGE_KEY
+      );
+
+
+    if (!raw) {
+      return null;
+    }
+
+
+    const snapshot =
+      JSON.parse(
+        raw
+      );
+
+
+    if (
+      !isValidGardenWorldStateSnapshot(
+        snapshot
+      )
+    ) {
+      console.warn(
+        "[Garden World] invalid saved snapshot"
+      );
+
+      return null;
+    }
+
+
+    return snapshot;
+
+  } catch (err) {
+    console.warn(
+      "[Garden World] load failed:",
+      err
+    );
+
+
+    return null;
+  }
+}
+
+
+function clearGardenWorldSave() {
+  try {
+    localStorage.removeItem(
+      GARDEN_WORLD_STORAGE_KEY
+    );
+
+
+    return true;
+
+  } catch (err) {
+    console.warn(
+      "[Garden World] clear save failed:",
+      err
+    );
+
+
+    return false;
+  }
+}
+
+
+function getGardenWorldSaveInfo() {
+  const snapshot =
+    loadGardenWorldState();
+
+
+  if (!snapshot) {
+    return {
+      exists: false,
+      key:
+        GARDEN_WORLD_STORAGE_KEY,
+    };
+  }
+
+
+  return {
+    exists: true,
+
+    key:
+      GARDEN_WORLD_STORAGE_KEY,
+
+    schema:
+      snapshot.schema,
+
+    version:
+      snapshot.version,
+
+    savedAt:
+      snapshot.savedAt,
+
+    savedAtIso:
+      new Date(
+        snapshot.savedAt
+      ).toISOString(),
+
+    reason:
+      snapshot.reason,
+
+    viewSceneId:
+      snapshot.view?.sceneId ??
+      null,
+
+    characterIds:
+      Object.keys(
+        snapshot.characters ||
+        {}
+      ),
+  };
+}
+
+/* =========================
+   Garden Cold Start Restore
+========================= */
+
+let gardenWorldLastColdStartRestore =
+  null;
+
+
+
+function createGardenWorldColdStartContext(
+  snapshot,
+  resumedAt =
+    getGardenWorldNow()
+) {
+  if (
+    !isValidGardenWorldStateSnapshot(
+      snapshot
+    ) ||
+    !isValidGardenWorldTimestamp(
+      resumedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  const elapsedMs =
+    getGardenWorldElapsedMs(
+      snapshot.savedAt,
+      resumedAt
+    );
+
+
+  return Object.freeze({
+    source:
+      "coldStart",
+
+    suspendedAt:
+      snapshot.savedAt,
+
+    resumedAt,
+
+    elapsedMs,
+
+    elapsedSeconds:
+      elapsedMs / 1000,
+
+    suspendReason:
+      snapshot.reason ||
+      "savedState",
+
+    resumeReason:
+      "coldStart",
+  });
+}
+
+
+function restoreGardenCharacterFromSnapshot(
+  character,
+  snapshot
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      character
+    );
+
+
+  if (
+    !worldState ||
+    !snapshot
+  ) {
+    return false;
+  }
+
+
+  /*
+    =========================
+    Position
+    =========================
+  */
+
+  const position =
+    snapshot.position;
+
+
+  if (
+    runtime?.moveState
+  ) {
+    const state =
+      runtime.moveState;
+
+
+    if (
+      Number.isFinite(
+        position?.x
+      )
+    ) {
+      state.x =
+        position.x;
+    }
+
+
+    if (
+      Number.isFinite(
+        position?.y
+      )
+    ) {
+      state.y =
+        position.y;
+    }
+
+
+    if (
+      Number.isFinite(
+        position?.direction
+      )
+    ) {
+      state.direction =
+        position.direction;
+    }
+
+
+    /*
+      舊頁面的 Runtime 不能復活。
+
+      特別是：
+      path
+      isMoving
+      performance.now() timeline
+    */
+    state.path =
+      [];
+
+    state.isMoving =
+      false;
+  }
+
+
+  /*
+    =========================
+    Semantic State
+    =========================
+  */
+
+  const savedTravel =
+    cloneGardenWorldSerializableValue(
+      snapshot.travel
+    );
+
+
+  /*
+    如果有有效 Travel，
+    Travel 優先於一般 Activity。
+  */
+  if (
+    savedTravel &&
+    typeof savedTravel ===
+      "object" &&
+    savedTravel.fromSceneId &&
+    savedTravel.toSceneId &&
+    savedTravel.phase
+  ) {
+    worldState.travel =
+      savedTravel;
+
+
+    /*
+      transitUntil 是上一個頁面的
+      performance.now()。
+
+      絕對不能跨 Reload 沿用。
+    */
+    worldState.travel
+      .transitUntil =
+      0;
+
+
+    worldState.activity =
+      GARDEN_CHARACTER_ACTIVITY
+        .TRAVEL;
+
+
+    worldState.activityData =
+      cloneGardenWorldSerializableValue(
+        snapshot.activityData
+      );
+
+
+    /*
+      transit 時本來就不屬於
+      任一可觀看場景。
+    */
+    if (
+      savedTravel.phase ===
+        "transit"
+    ) {
+      worldState.sceneId =
+        null;
+
+    } else {
+      worldState.sceneId =
+        snapshot.sceneId ??
+        savedTravel.fromSceneId;
+    }
+
+
+    return true;
+  }
+
+
+  /*
+    =========================
+    Chat Cold Start Policy
+    =========================
+
+    Chat Runtime 沒有持久化：
+
+    - loop
+    - talk ready
+    - approach path
+    - callback
+
+    所以不能假裝從半句話繼續。
+  */
+  if (
+    snapshot.activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .CHAT
+  ) {
+    worldState.activity =
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER;
+
+    worldState.activityData =
+      null;
+
+    worldState.travel =
+      null;
+
+    worldState.sceneId =
+      snapshot.sceneId ||
+      "courtyard";
+
+
+    return true;
+  }
+
+
+  /*
+    目前其他一般狀態
+    安全恢復為 Wander。
+
+    等 Tea / Read / Pray
+    有自己的 persistence policy 後，
+    再擴充這裡。
+  */
+  worldState.activity =
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER;
+
+  worldState.activityData =
+    null;
+
+  worldState.travel =
+    null;
+
+  worldState.sceneId =
+    snapshot.sceneId ||
+    "courtyard";
+
+
+  return true;
+}
+
+
+function rebuildGardenCharacterTravelRuntime(
+  character
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      character
+    );
+
+
+  const travel =
+    worldState?.travel;
+
+
+  if (
+    !worldState ||
+    !runtime ||
+    !travel
+  ) {
+    return false;
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  state.path =
+    [];
+
+  state.isMoving =
+    false;
+
+
+  const route =
+    getGardenCharacterTravelRoute(
+      travel.fromSceneId,
+      travel.toSceneId
+    );
+
+
+  if (!route) {
+    return false;
+  }
+
+
+  /*
+    -------------------------
+    Walking To Exit
+    -------------------------
+
+    從 Snapshot 保存的 x/y
+    重新算到出口的路徑。
+  */
+  if (
+    travel.phase ===
+      "walkingToExit"
+  ) {
+    const path =
+      buildGardenCharacterExitPath(
+        character,
+        route
+      );
+
+
+    if (
+      path &&
+      path.length > 0
+    ) {
+      runtime.setPath(
+        path
+      );
+
+
+      return true;
+    }
+
+
+    return false;
+  }
+
+
+  /*
+    -------------------------
+    Transit
+    -------------------------
+
+    沒有空間 path。
+
+    剩餘時間會由
+    Travel Reconciliation
+    重建 transitUntil。
+  */
+  if (
+    travel.phase ===
+      "transit"
+  ) {
+    return true;
+  }
+
+
+  /*
+    -------------------------
+    Walking From Entrance
+    -------------------------
+
+    從保存的位置繼續走向
+    正式入口終點。
+  */
+  if (
+    travel.phase ===
+      "walkingFromEntrance"
+  ) {
+    const entrance =
+      route.entranceByCharacter?.[
+        character
+      ];
+
+
+    if (!entrance) {
+      return false;
+    }
+
+
+    runtime.setPath([
+      {
+        x:
+          entrance.enter.x,
+
+        y:
+          entrance.enter.y,
+      },
+    ]);
+
+
+    return true;
+  }
+
+
+  return false;
+}
+
+
+
+function hydrateGardenWorldState(
+  snapshot
+) {
+  if (
+    !isValidGardenWorldStateSnapshot(
+      snapshot
+    )
+  ) {
+    return false;
+  }
+
+
+  /*
+    =========================
+    Player View
+    =========================
+  */
+
+  const savedViewSceneId =
+    snapshot.view?.sceneId;
+
+
+  if (
+    savedViewSceneId &&
+    getGardenSceneById(
+      savedViewSceneId
+    )
+  ) {
+    gardenViewSceneId =
+      savedViewSceneId;
+
+  } else {
+    gardenViewSceneId =
+      "courtyard";
+  }
+
+
+  /*
+    =========================
+    Runtime-only Chat State
+    =========================
+
+    新頁面一定先從乾淨 Runtime 開始。
+  */
+  clearGardenChatState();
+
+
+  /*
+    =========================
+    Characters
+    =========================
+  */
+
+  for (
+    const character of
+    Object.keys(
+      gardenCharacterWorldState
+    )
+  ) {
+    const characterSnapshot =
+      snapshot.characters?.[
+        character
+      ];
+
+
+    if (
+      !characterSnapshot
+    ) {
+      continue;
+    }
+
+
+    restoreGardenCharacterFromSnapshot(
+      character,
+      characterSnapshot
+    );
+  }
+
+
+  /*
+    Travel Semantic State
+    還原完成之後，
+    重建本頁需要的 movement path。
+  */
+  for (
+    const character of
+    Object.keys(
+      gardenCharacterWorldState
+    )
+  ) {
+    if (
+      gardenCharacterWorldState[
+        character
+      ]?.travel
+    ) {
+      rebuildGardenCharacterTravelRuntime(
+        character
+      );
+    }
+  }
+
+
+  /*
+    這是關鍵。
+
+    告訴 initGardenScreen：
+
+    世界不是第一次出生，
+    不准重新 randomize / overwrite。
+  */
+  gardenWorldInitialized =
+    true;
+
+
+  gardenPendingInitialMode =
+    null;
+
+
+  return true;
+}
+
+
+function restoreGardenWorldFromStorage() {
+  const snapshot =
+    loadGardenWorldState();
+
+
+  if (!snapshot) {
+    gardenWorldLastColdStartRestore =
+      null;
+
+
+    return null;
+  }
+
+
+  const restored =
+    hydrateGardenWorldState(
+      snapshot
+    );
+
+
+  if (!restored) {
+    console.warn(
+      "[Garden World] cold start hydrate failed"
+    );
+
+
+    return null;
+  }
+
+
+  /*
+    Hydrate 完成後，
+    才能跑 Reconciliation。
+
+    因為 Travel Handler
+    必須看到已還原的 travel。
+  */
+  const context =
+    createGardenWorldColdStartContext(
+      snapshot
+    );
+
+
+  if (!context) {
+    return null;
+  }
+
+
+  const reconciliationResults =
+    runGardenWorldReconciliation(
+      context
+    );
+
+
+  const result =
+    Object.freeze({
+      ...context,
+
+      restored:
+        true,
+
+      savedReason:
+        snapshot.reason,
+
+      reconciliation:
+        reconciliationResults,
+    });
+
+
+  /*
+    與普通 Resume 共用
+    Debug 狀態。
+  */
+  gardenWorldLastResumeContext =
+    result;
+
+
+  gardenWorldLastReconciliationResults =
+    reconciliationResults;
+
+
+  gardenWorldLastColdStartRestore =
+    result;
+
+
+  return result;
+}
+
+
+function getGardenWorldColdStartRestoreInfo() {
+  return (
+    gardenWorldLastColdStartRestore
+  );
+}
+
+
+window.addEventListener(
+  "load",
+  () => {
+    const result =
+      restoreGardenWorldFromStorage();
+
+
+    if (result) {
+      console.log(
+        "[Garden World] cold start restored:",
+        result
+      );
+    }
+  }
+);
+
+
+
 
 
 function getGardenSceneById(
