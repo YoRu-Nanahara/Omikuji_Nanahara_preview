@@ -1332,6 +1332,29 @@ const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
     night:
       "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-night.png",
   },
+
+{
+  selector:
+    ".moon-bridge-fg-shidarezakura-shadow-a",
+
+  day:
+    "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-shadow-01-night.png",
+
+  night:
+    "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-shadow-01-night.png",
+},
+
+{
+  selector:
+    ".moon-bridge-fg-shidarezakura-shadow-b",
+
+  day:
+    "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-shadow-02-night.png",
+
+  night:
+    "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-shadow-02-night.png",
+},
+
 ];
 
 
@@ -9220,6 +9243,46 @@ updateDayNightMode();
 
 // 每 5 分鐘檢查一次時間（避免剛好跨 6 點沒刷新）
 setInterval(updateDayNightMode, 5 * 60 * 1000);
+
+
+/* =========================
+   Moon Bridge Time Resync
+========================= */
+
+/*
+  使用者從背景切回網站時，
+  立刻重新同步月亮與湖光。
+
+  不需要等下一次一分鐘 timer。
+*/
+document.addEventListener(
+  "visibilitychange",
+  () => {
+    if (document.hidden) {
+      return;
+    }
+
+    if (
+      !gardenScreen ||
+      gardenScreen.classList.contains(
+        "hidden"
+      )
+    ) {
+      return;
+    }
+
+    if (
+      gardenViewSceneId !==
+      "moonBridge"
+    ) {
+      return;
+    }
+
+    updateMoonBridgeMoonPosition();
+  }
+);
+
+
 
 
 
@@ -17405,24 +17468,24 @@ const MOON_BRIDGE_CLOUD_PROFILES = [
     widthMin: 480,
     widthMax: 540,
 
-    durationMin: 22000,
-    durationMax: 28000,
+    durationMin: 28000,
+    durationMax: 36000,
   },
 
   {
     widthMin: 530,
     widthMax: 600,
 
-    durationMin: 26000,
-    durationMax: 33000,
+    durationMin: 33000,
+    durationMax: 42000,
   },
 
   {
     widthMin: 590,
     widthMax: 670,
 
-    durationMin: 30000,
-    durationMax: 38000,
+    durationMin: 38000,
+    durationMax: 48000,
   },
 ];
 

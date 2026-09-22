@@ -3345,8 +3345,145 @@ body.night-mode #gardenScreen #chinatsuWalkShadow {
 /*
   最前方枝垂櫻。
 */
+/* =========================
+   Moon Bridge Foreground Sakura
+========================= */
+
+/* =========================
+   Moon Bridge Foreground Sakura
+   Equal-speed Shadow Loop
+========================= */
+
 .moon-bridge-fg-shidarezakura {
   z-index: 920;
+
+  animation:
+    moonBridgeShidarezakuraBase
+    12s linear infinite;
+}
+
+
+.moon-bridge-fg-shidarezakura-shadow-a {
+  z-index: 921;
+
+  opacity: 0;
+
+  animation:
+    moonBridgeShidarezakuraShadowA
+    12s linear infinite;
+}
+
+
+.moon-bridge-fg-shidarezakura-shadow-b {
+  z-index: 922;
+
+  opacity: 0;
+
+  animation:
+    moonBridgeShidarezakuraShadowB
+    12s linear infinite;
+}
+
+
+/*
+  0%   原樹影
+  25%  樹影 A
+  50%  原樹影
+  75%  樹影 B
+  100% 原樹影
+*/
+
+@keyframes moonBridgeShidarezakuraBase {
+  0% {
+    opacity: 1;
+  }
+
+  /* 稍微提早淡乾淨 */
+  22% {
+    opacity: 0;
+  }
+
+  25% {
+    opacity: 0;
+  }
+
+  /* 回原樹影 */
+  47% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  /* 再前往樹影 B */
+  72% {
+    opacity: 0;
+  }
+
+  75% {
+    opacity: 0;
+  }
+
+  97% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+
+@keyframes moonBridgeShidarezakuraShadowA {
+  0% {
+    opacity: 0;
+  }
+
+  /* 原樹影快淡完後才真正上來 */
+  3% {
+    opacity: 0;
+  }
+
+  25% {
+    opacity: 1;
+  }
+
+  /* 回原樹影時稍微提早退乾淨 */
+  47% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+
+@keyframes moonBridgeShidarezakuraShadowB {
+  0% {
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 0;
+  }
+
+  53% {
+    opacity: 0;
+  }
+
+  75% {
+    opacity: 1;
+  }
+
+  97% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 0;
+  }
 }
 
 
