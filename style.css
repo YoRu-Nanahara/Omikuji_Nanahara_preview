@@ -3158,6 +3158,48 @@ body.night-mode #gardenScreen #chinatsuWalkShadow {
   z-index: 0;
 }
 
+
+/* =========================
+   Garden Scene Transition
+========================= */
+
+#gardenSceneTransition {
+  position: absolute;
+  inset: 0;
+
+  width: 1080px;
+  height: 1920px;
+
+  background: #000;
+
+  opacity: 0;
+  pointer-events: none;
+
+  /*
+    高於 Garden UI / 角色 / 場景，
+    但只在場景切換時啟用。
+  */
+  z-index: 6000;
+
+  transition:
+    opacity 260ms ease;
+
+  /*
+    只有 opacity 動畫，
+    對手機 / iPad 負擔很低。
+  */
+  will-change: opacity;
+}
+
+
+#gardenSceneTransition.is-active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+
+
+
 /* =========================
    Garden Character Depth Layers
 ========================= */

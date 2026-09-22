@@ -82,35 +82,42 @@
 
   <!-- Garden 左上角：場景切換 -->
   <div
-    id="gardenSceneNav"
-    class="garden-auto-hide-ui"
+  id="gardenSceneNav"
+  class="garden-auto-hide-ui"
+>
+  <button
+    id="btnGardenSceneLeft"
+    class="garden-scene-nav-btn"
+    type="button"
+    aria-label="Previous Garden Scene"
+    disabled
   >
-    <button
-      id="btnGardenSceneLeft"
-      class="garden-scene-nav-btn"
-      type="button"
-      aria-label="Previous Garden Scene"
-      disabled
+    <img
+      src="images/garden/ui/garden-scene-arrow-left.png"
+      alt=""
     >
-      <img
-        src="images/garden/ui/garden-scene-arrow-left.png"
-        alt=""
-      >
-    </button>
+  </button>
 
-    <button
-      id="btnGardenSceneRight"
-      class="garden-scene-nav-btn"
-      type="button"
-      aria-label="Next Garden Scene"
-      disabled
+  <button
+    id="btnGardenSceneRight"
+    class="garden-scene-nav-btn"
+    type="button"
+    aria-label="Next Garden Scene"
+    disabled
+  >
+    <img
+      src="images/garden/ui/garden-scene-arrow-right.png"
+      alt=""
     >
-      <img
-        src="images/garden/ui/garden-scene-arrow-right.png"
-        alt=""
-      >
-    </button>
-  </div>
+  </button>
+</div>
+
+
+<!-- Garden 場景切換黑幕 -->
+<div
+  id="gardenSceneTransition"
+  aria-hidden="true"
+></div>
 
   <button
     id="btnGardenMenu"

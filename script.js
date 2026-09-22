@@ -2625,6 +2625,28 @@ applyGardenSceneMode(
   );
 
 
+/*
+  首次真正需要的 sheet
+  已經下載 + decode + warmup。
+
+  趁拉門仍然關著，
+  提前建立角色 sprite layer。
+*/
+ensureChifuyuSpriteLayers();
+ensureChinatsuSpriteLayers();
+
+bindGardenSpriteLayerImage(
+  "chifuyu",
+  firstMode
+);
+
+bindGardenSpriteLayerImage(
+  "chinatsu",
+  firstMode
+);
+
+
+
   gardenCharacterModeLoaded[
     firstMode
   ] = true;
@@ -6735,6 +6757,198 @@ const btnGardenSceneRight =
 
 let gardenSceneSwitchBusy = false;
 
+/* =========================
+   Garden Scene Fade Transition
+========================= */
+
+const GARDEN_SCENE_FADE_TIMEOUT_MS =
+  420;
+
+
+function waitGardenSceneFade(
+  overlay
+) {
+  return new Promise((resolve) => {
+    if (!overlay) {
+      resolve();
+      return;
+    }
+
+
+    let finished = false;
+
+
+    const finish = () => {
+      if (finished) {
+        return;
+      }
+
+      finished = true;
+
+      overlay.removeEventListener(
+        "transitionend",
+        onTransitionEnd
+      );
+
+      resolve();
+    };
+
+
+    const onTransitionEnd = (e) => {
+      if (
+        e.target !== overlay ||
+        e.propertyName !== "opacity"
+      ) {
+        return;
+      }
+
+      finish();
+    };
+
+
+    overlay.addEventListener(
+      "transitionend",
+      onTransitionEnd
+    );
+
+
+    /*
+      Safari / WebKit 保險。
+
+      transitionend 萬一沒有正常送出，
+      場景切換也不能永久卡住。
+    */
+    setTimeout(
+      finish,
+      GARDEN_SCENE_FADE_TIMEOUT_MS
+    );
+  });
+}
+
+
+function waitGardenScenePaint() {
+  return new Promise((resolve) => {
+    /*
+      等兩個 frame：
+
+      第一幀：
+      新場景 DOM / src / visibility
+      已經套用。
+
+      第二幀：
+      瀏覽器有機會真正畫出來。
+
+      黑幕再打開，
+      可以減少閃一下舊畫面的機會。
+    */
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resolve);
+    });
+  });
+}
+
+
+async function switchGardenSceneWithFade(
+  sceneId,
+  options = {}
+) {
+  /*
+    同場景且不是 force，
+    不需要做一次黑幕。
+  */
+  if (
+    !options.force &&
+    sceneId === gardenViewSceneId
+  ) {
+    return true;
+  }
+
+
+  const overlay =
+    document.getElementById(
+      "gardenSceneTransition"
+    );
+
+
+  /*
+    HTML 尚未加入黑幕時，
+    保留原本切換功能，
+    不讓整個 Garden 壞掉。
+  */
+  if (!overlay) {
+    return await switchGardenScene(
+      sceneId,
+      options
+    );
+  }
+
+
+  /*
+    ① 先把目前場景完全遮黑
+  */
+  overlay.setAttribute(
+    "aria-hidden",
+    "false"
+  );
+
+  overlay.classList.add(
+    "is-active"
+  );
+
+
+  await waitGardenSceneFade(
+    overlay
+  );
+
+
+  try {
+    /*
+      ② 畫面全黑之後，
+      才開始真正準備 / 切換場景。
+
+      如果第一次下載素材比較慢，
+      玩家現在看到的是黑幕，
+      而不是舊畫面卡住。
+    */
+    const switched =
+  await switchGardenScene(
+    sceneId,
+    options
+  );
+
+
+    /*
+      ③ 等新場景真正 paint。
+    */
+    await waitGardenScenePaint();
+
+
+    return switched;
+
+  } finally {
+    /*
+      ④ 不論成功或發生錯誤，
+      都一定把黑幕重新打開。
+    */
+    overlay.classList.remove(
+      "is-active"
+    );
+
+
+    await waitGardenSceneFade(
+      overlay
+    );
+
+
+    overlay.setAttribute(
+      "aria-hidden",
+      "true"
+    );
+  }
+}
+
+
+
 
 function updateGardenSceneNav() {
   const scene =
@@ -6807,15 +7021,9 @@ async function handleGardenSceneNav(
 
   try {
     const switched =
-  await switchGardenScene(
+  await switchGardenSceneWithFade(
     targetSceneId,
     {
-      /*
-        玩家切場景永遠只是在換鏡頭。
-
-        不論角色是否 travel，
-        都不能重新生成角色。
-      */
       resetCharacters: false,
     }
   );
@@ -11347,8 +11555,18 @@ function ensureChifuyuSpriteLayers() {
     layer.style.pointerEvents =
       "none";
 
-    layer.style.backgroundImage =
-      `url("${asset.src}")`;
+   const warmupKey =
+  getGardenAnimationWarmupKey(
+    "chifuyu",
+    mode
+  );
+
+layer.style.backgroundImage =
+  gardenAnimationWarmupState[
+    warmupKey
+  ]
+    ? `url("${asset.src}")`
+    : "none";
 
     layer.style.backgroundSize =
       `${asset.logicalSize}px ` +
@@ -11907,6 +12125,58 @@ function requestGardenAnimationWarmup(
 }
 
 
+function bindGardenSpriteLayerImage(
+  character,
+  mode
+) {
+  const asset =
+    getGardenAnimationAsset(
+      character,
+      mode
+    );
+
+  let layer = null;
+
+  if (
+    character === "chifuyu"
+  ) {
+    layer =
+      getChifuyuSpriteLayer(
+        mode
+      );
+  }
+
+  if (
+    character === "chinatsu"
+  ) {
+    layer =
+      getChinatsuSpriteLayer(
+        mode
+      );
+  }
+
+  if (!layer || !asset) {
+    return;
+  }
+
+  if (
+    !layer.style.backgroundImage ||
+    layer.style.backgroundImage ===
+      "none"
+  ) {
+    layer.style.backgroundImage =
+      `url("${asset.src}")`;
+
+    layer.style.backgroundSize =
+      `${asset.logicalSize}px ` +
+      `${asset.logicalSize}px`;
+
+    layer.style.backgroundRepeat =
+      "no-repeat";
+  }
+}
+
+
 async function warmupGardenCriticalAnimationSheets() {
 
   /*
@@ -12181,6 +12451,12 @@ function setChifuyuAnimationMode(
   ) {
     return;
   }
+
+bindGardenSpriteLayerImage(
+  "chifuyu",
+  safeMode
+);
+
 
   if (
     !force &&
@@ -13286,8 +13562,18 @@ function ensureChinatsuSpriteLayers() {
       "none";
 
     // 每一層永遠綁自己的 spritesheet
-    layer.style.backgroundImage =
-      `url("${asset.src}")`;
+    const warmupKey =
+  getGardenAnimationWarmupKey(
+    "chinatsu",
+    mode
+  );
+
+layer.style.backgroundImage =
+  gardenAnimationWarmupState[
+    warmupKey
+  ]
+    ? `url("${asset.src}")`
+    : "none";
 
     layer.style.backgroundSize =
       `${asset.logicalSize}px ` +
@@ -13470,6 +13756,12 @@ function setChinatsuAnimationMode(
   ) {
     return;
   }
+
+bindGardenSpriteLayerImage(
+  "chinatsu",
+  safeMode
+);
+
 
   if (
     !force &&
