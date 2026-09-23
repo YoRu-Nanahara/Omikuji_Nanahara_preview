@@ -2789,31 +2789,17 @@ body.autumn-mode.night-mode .menu-background.night {
   --garden-char-hue: 0deg;
 }
 
-body.night-mode
+body.garden-world-night
 #gardenScreen
 #chifuyuWalkTest,
 
-body.night-mode
+body.garden-world-night
 #gardenScreen
 #chinatsuWalkTest {
-  filter:
-    brightness(
-      var(--garden-char-brightness)
-    )
-    saturate(
-      var(--garden-char-saturate)
-    )
-    sepia(
-      var(--garden-char-sepia)
-    )
-    hue-rotate(
-      var(--garden-char-hue)
-    );
-
-  transition: filter 0.35s ease;
+  filter: brightness(0.65);
 }
 
-body.night-mode.garden-active #sakura {
+body.garden-world-night.garden-active #sakura {
   filter: brightness(0.65);
 }
 
@@ -3553,6 +3539,40 @@ body.night-mode #gardenScreen #chinatsuWalkShadow {
    Moon Bridge Lake Glow Motion
 ========================= */
 
+/*
+  =========================
+  Moon Bridge Lake Glow Brightness
+
+  普通時段：
+  水面仍持續有微弱流光。
+
+  22:00 ～ 01:59：
+  JS 會加入
+  .moon-bridge-lake-glow-special，
+  提升為原本的月映最大亮度。
+  =========================
+*/
+
+#gardenScreen {
+  --moon-bridge-upper-glow-peak: 0.36;
+  --moon-bridge-lower-glow-peak: 0.50;
+}
+
+
+#gardenScreen.moon-bridge-lake-glow-special {
+  /*
+    特殊月映時段。
+
+    upper 原本最大值 = 1
+    lower 原本最大值 = 0.58
+  */
+  --moon-bridge-upper-glow-peak: 1;
+  --moon-bridge-lower-glow-peak: 0.58;
+}
+
+
+
+
 /* =========================
    Moon Bridge Lake Glow
    慢速：顯現 → 淡出
@@ -3580,17 +3600,27 @@ body.night-mode #gardenScreen #chinatsuWalkShadow {
       translateY(0px);
   }
 
-  12% {
-    opacity: 1;
-    transform:
-      translateY(6px);
-  }
+12% {
+  opacity:
+    var(
+      --moon-bridge-upper-glow-peak,
+      0.36
+    );
 
-  28% {
-    opacity: 1;
-    transform:
-      translateY(14px);
-  }
+  transform:
+    translateY(6px);
+}
+
+28% {
+  opacity:
+    var(
+      --moon-bridge-upper-glow-peak,
+      0.36
+    );
+
+  transform:
+    translateY(14px);
+}
 
   40% {
     opacity: 0;
@@ -3667,13 +3697,21 @@ body.night-mode #gardenScreen #chinatsuWalkShadow {
   }
 
   12% {
-    opacity: 0.58;
+    opacity:
+  var(
+    --moon-bridge-lower-glow-peak,
+    0.44
+  );
     transform:
       translateY(706px);
   }
 
   28% {
-    opacity: 0.58;
+   opacity:
+  var(
+    --moon-bridge-lower-glow-peak,
+    0.44
+  );
     transform:
       translateY(714px);
   }

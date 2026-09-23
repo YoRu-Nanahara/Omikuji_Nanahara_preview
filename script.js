@@ -1182,7 +1182,7 @@ const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
       先暫時沿用夜間天空。
     */
     day:
-      "images/garden/moon-bridge/moon-bridge-sky-night.jpg",
+       "images/garden/moon-bridge/moon-bridge-bg-day.png",
 
     night:
       "images/garden/moon-bridge/moon-bridge-sky-night.jpg",
@@ -1205,19 +1205,23 @@ const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
 
 
   {
-    selector:
-      ".moon-bridge-lake",
+  selector:
+    ".moon-bridge-lake",
 
-    /*
-      白天版尚未完成前，
-      先暫時沿用夜間湖面。
-    */
-    day:
-      "images/garden/moon-bridge/moon-bridge-lake-night.png",
+  /*
+    白天背景已經把天空 + 湖面合併，
+    所以不需要額外湖面層。
+  */
+  day:
+    null,
 
-    night:
-      "images/garden/moon-bridge/moon-bridge-lake-night.png",
-  },
+  /*
+    夜晚仍然需要獨立湖面，
+    用來遮住月亮下半部並維持原有景深。
+  */
+  night:
+    "images/garden/moon-bridge/moon-bridge-lake-night.png",
+},
 
 
 {
@@ -1225,7 +1229,7 @@ const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
     ".moon-bridge-cloud-01",
 
   day:
-    "images/garden/moon-bridge/moon-bridge-cloud-01-night.png",
+    "images/garden/moon-bridge/moon-bridge-cloud-01-day.png",
 
   night:
     "images/garden/moon-bridge/moon-bridge-cloud-01-night.png",
@@ -1236,7 +1240,7 @@ const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
     ".moon-bridge-cloud-02",
 
   day:
-    "images/garden/moon-bridge/moon-bridge-cloud-02-night.png",
+    "images/garden/moon-bridge/moon-bridge-cloud-02-day.png",
 
   night:
     "images/garden/moon-bridge/moon-bridge-cloud-02-night.png",
@@ -1247,7 +1251,7 @@ const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
     ".moon-bridge-cloud-03",
 
   day:
-    "images/garden/moon-bridge/moon-bridge-cloud-03-night.png",
+    "images/garden/moon-bridge/moon-bridge-cloud-03-day.png",
 
   night:
     "images/garden/moon-bridge/moon-bridge-cloud-03-night.png",
@@ -1332,7 +1336,8 @@ const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
       ".moon-bridge-main",
 
     day:
-      "images/garden/moon-bridge/moon-bridge-main-night.png",
+     "images/garden/moon-bridge/moon-bridge-main-day.png",
+
 
     night:
       "images/garden/moon-bridge/moon-bridge-main-night.png",
@@ -1344,7 +1349,7 @@ const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
       ".moon-bridge-railing-front",
 
     day:
-      "images/garden/moon-bridge/moon-bridge-railing-front-night.png",
+      "images/garden/moon-bridge/moon-bridge-railing-front-day.png",
 
     night:
       "images/garden/moon-bridge/moon-bridge-railing-front-night.png",
@@ -1356,7 +1361,7 @@ const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
       ".moon-bridge-fg-shidarezakura",
 
     day:
-      "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-night.png",
+       "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-day.png",
 
     night:
       "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-night.png",
@@ -1367,7 +1372,7 @@ const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
     ".moon-bridge-fg-shidarezakura-shadow-a",
 
   day:
-    "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-shadow-01-night.png",
+      "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-shadow-01-day.png",
 
   night:
     "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-shadow-01-night.png",
@@ -1378,7 +1383,7 @@ const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
     ".moon-bridge-fg-shidarezakura-shadow-b",
 
   day:
-    "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-shadow-02-night.png",
+    "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-shadow-02-day.png",
 
   night:
     "images/garden/moon-bridge/moon-bridge-fg-shidarezakura-shadow-02-night.png",
@@ -1393,16 +1398,25 @@ const MOON_BRIDGE_SCENE_LAYER_ASSETS = [
 
 /*
   null：
-  使用玩家真實時間。
+  使用七原世界 Canonical Time。
 
   測試時：
-  儲存一天中的分鐘數。
+  暫時覆蓋月亮顯示使用的
+  一天中分鐘數。
+
+  只影響 Moon Bridge visual debug，
+  不修改真正 World Clock。
 */
 let moonBridgeMoonTestMinutes =
   null;
 
-
 function getMoonBridgeMoonTimeMinutes() {
+  /*
+    手動 Moon Debug 仍然保留最高優先權。
+
+    例如：
+    setMoonBridgeMoonTestTime("23:30")
+  */
   if (
     moonBridgeMoonTestMinutes !==
     null
@@ -1411,14 +1425,22 @@ function getMoonBridgeMoonTimeMinutes() {
   }
 
 
-  const now =
-    new Date();
+  /*
+    正式狀態：
+    使用七原世界 Canonical Time。
+
+    不再使用玩家：
+    new Date().getHours()
+  */
+  const minuteOfDay =
+    getGardenWorldMinuteOfDay();
 
 
-  return (
-    now.getHours() * 60 +
-    now.getMinutes()
-  );
+  return Number.isFinite(
+    minuteOfDay
+  )
+    ? minuteOfDay
+    : 0;
 }
 
 
@@ -1542,22 +1564,41 @@ function updateMoonBridgeUpperLakeGlow() {
   const minutes =
     getMoonBridgeMoonTimeMinutes();
 
+  const isMoonBridge =
+    gardenViewSceneId ===
+      "moonBridge";
+
 
   /*
-    上方湖光顯示時間：
+    特殊月映湖光：
 
     22:00 ～ 01:59
+
+    注意：
+    這次不再控制「有沒有湖光」，
+    只控制湖光的最大亮度。
   */
-  const shouldShow =
-    gardenViewSceneId ===
-      "moonBridge" &&
+  const isSpecialGlow =
+    isMoonBridge &&
     (
       minutes >= 22 * 60 ||
       minutes < 2 * 60
     );
 
 
-  const glowEls =
+  /*
+    把特殊時段狀態放在 Garden Screen。
+
+    CSS 會依這個 class
+    切換 upper / lower 的峰值透明度。
+  */
+  gardenScreen?.classList.toggle(
+    "moon-bridge-lake-glow-special",
+    isSpecialGlow
+  );
+
+
+  const upperGlowEls =
     gardenScreen?.querySelectorAll(
       [
         ".moon-bridge-lake-glow-01",
@@ -1567,17 +1608,20 @@ function updateMoonBridgeUpperLakeGlow() {
     );
 
 
-  if (!glowEls) {
+  if (!upperGlowEls) {
     return;
   }
 
 
-  for (const el of glowEls) {
-    if (shouldShow) {
+  for (const el of upperGlowEls) {
+    if (isMoonBridge) {
 
       /*
-        只有這個時段，
-        才真正掛上動畫。
+        賞月橋中：
+
+        全天都讓 upper 湖光運作。
+        特殊時段只改亮度，
+        不重新開關動畫。
       */
       el.classList.add(
         "is-active"
@@ -1589,10 +1633,8 @@ function updateMoonBridgeUpperLakeGlow() {
     } else {
 
       /*
-        非湖光時段：
-
-        - 移除動畫 class
-        - 完全不渲染
+        離開賞月橋後停止，
+        不浪費其他場景的效能。
       */
       el.classList.remove(
         "is-active"
@@ -1860,8 +1902,38 @@ const GARDEN_SCENE_ASSETS_BY_MODE = {
 const GARDEN_SCENE_ASSETS =
   GARDEN_SCENE_ASSETS_BY_MODE.day;
 
+/*
+  Canonical World Time 的定義
+  位於檔案後段。
+
+  script 首次由上往下執行時，
+  Garden 必須能安全使用舊 fallback，
+  避免初始化順序造成 TDZ 問題。
+*/
+var gardenCanonicalWorldTimeReady =
+  false;
+
+
 
 function getGardenSceneModeByTime() {
+  /*
+    正式完成 World Time 初始化後，
+    Garden 永遠使用七原世界時間。
+  */
+  if (
+    gardenCanonicalWorldTimeReady
+  ) {
+    return getGardenWorldDayNightMode();
+  }
+
+
+  /*
+    Script 首次初始化期間的
+    極短暫 fallback。
+
+    等檔案執行到 World Clock 區塊後，
+    就不再使用玩家 local time。
+  */
   return document.body.classList.contains(
     "night-mode"
   )
@@ -1877,6 +1949,18 @@ function applyGardenSceneMode(
     mode === "night"
       ? "night"
       : "day";
+
+
+  /*
+    Garden 專用 Canonical Night Flag。
+
+    和全站 body.night-mode 分離：
+    這個 class 只代表七原世界目前是否為夜晚。
+  */
+  document.body.classList.toggle(
+    "garden-world-night",
+    safeMode === "night"
+  );
 
 
   const scene =
@@ -6562,10 +6646,25 @@ const gardenResumeResult =
   );
 
 
-if (gardenResumeResult) {
+/*
+  正常 Resume：
+  使用原有 Resume Result。
+
+  第一次開網站：
+  沒有 suspended state，
+  就直接把世界 reconciliation 到現在。
+*/
+const gardenEnterWorldResult =
+  gardenResumeResult ??
+  reconcileGardenWorldAtCurrentTime(
+    "gardenEnterInitial"
+  );
+
+
+if (gardenEnterWorldResult) {
   console.log(
-    "[Garden World] resumed:",
-    gardenResumeResult
+    "[Garden World] enter reconciled:",
+    gardenEnterWorldResult
   );
 }
 
@@ -10336,6 +10435,4395 @@ function createGardenCharacterTravelTimeline() {
   };
 }
 
+
+/* =========================
+   Garden Canonical Travel Spatial Plan
+   12H-4A
+========================= */
+
+const GARDEN_TRAVEL_SPATIAL_PLAN_SCHEMA =
+  "nanaharaGardenTravelSpatialPlan";
+
+const GARDEN_TRAVEL_SPATIAL_PLAN_VERSION =
+  1;
+
+/*
+  =========================
+  Canonical Travel Runtime
+  =========================
+
+  true：
+  Travel 的 phase / scene / position
+  正式允許由 Spatial Plan +
+  Absolute World Time 重建。
+
+  4C-1 尚未接入主 Loop，
+  4C-2 才正式 handoff。
+*/
+const GARDEN_CANONICAL_TRAVEL_RUNTIME_ENABLED =
+  true;
+
+
+const GARDEN_TRAVEL_FALLBACK_SPEED =
+  140;
+
+
+/*
+  取得 Travel Timeline 使用的
+  deterministic walking speed。
+
+  千冬：
+  與目前 Runtime moveSpeed 相同，
+  150 px/s。
+
+  千夏：
+  沿用目前依 Y 改變速度的規則。
+
+  注意：
+  這裡只讀 world geometry，
+  不使用 deltaMs / performance.now()。
+*/
+function getGardenCanonicalTravelSpeedAtPoint(
+  characterId,
+  point
+) {
+  const y =
+    Number.isFinite(
+      point?.y
+    )
+      ? point.y
+      : 0;
+
+
+  if (
+    characterId ===
+      "chinatsu" &&
+    typeof getChinatsuMoveSpeedByY ===
+      "function"
+  ) {
+    const speed =
+      getChinatsuMoveSpeedByY(
+        y
+      );
+
+
+    if (
+      Number.isFinite(
+        speed
+      ) &&
+      speed > 0
+    ) {
+      return speed;
+    }
+  }
+
+
+  if (
+    characterId ===
+      "chifuyu"
+  ) {
+    return 150;
+  }
+
+
+  if (
+    characterId ===
+      "chinatsu"
+  ) {
+    return 145;
+  }
+
+
+  return (
+    GARDEN_TRAVEL_FALLBACK_SPEED
+  );
+}
+
+
+/*
+  將既有 Garden path
+  轉成「時間化 Path」。
+
+  一般 Path 只有：
+
+  point A
+  point B
+  point C
+
+  Canonical Travel Path 還會知道：
+
+  A → B 要多久
+  B → C 要多久
+  整條走完要多久
+*/
+function createGardenCanonicalTravelPathRecord(
+  characterId,
+  startPoint,
+  pathPoints
+) {
+  const rawPoints = [
+    startPoint,
+
+    ...(
+      Array.isArray(
+        pathPoints
+      )
+        ? pathPoints
+        : []
+    ),
+  ];
+
+
+  const cleanedPoints =
+    [];
+
+
+  /*
+    清除：
+    - invalid point
+    - 重複 point
+  */
+  for (
+    const point of
+    rawPoints
+  ) {
+    if (
+      !point ||
+      !Number.isFinite(
+        point.x
+      ) ||
+      !Number.isFinite(
+        point.y
+      )
+    ) {
+      continue;
+    }
+
+
+    const normalized = {
+      x:
+        point.x,
+
+      y:
+        point.y,
+    };
+
+
+    const previous =
+      cleanedPoints[
+        cleanedPoints.length -
+          1
+      ];
+
+
+    if (previous) {
+      const dx =
+        normalized.x -
+        previous.x;
+
+      const dy =
+        normalized.y -
+        previous.y;
+
+
+      if (
+        Math.sqrt(
+          dx * dx +
+          dy * dy
+        ) <
+        0.001
+      ) {
+        continue;
+      }
+    }
+
+
+    cleanedPoints.push(
+      normalized
+    );
+  }
+
+
+  if (
+    cleanedPoints.length ===
+    0
+  ) {
+    return null;
+  }
+
+
+  const cumulativeDistances =
+    [0];
+
+  const cumulativeDurationMs =
+    [0];
+
+  const segmentDurationsMs =
+    [];
+
+
+  let totalDistance =
+    0;
+
+  let totalDurationMs =
+    0;
+
+
+  for (
+    let i = 1;
+    i <
+      cleanedPoints.length;
+    i++
+  ) {
+    const from =
+      cleanedPoints[
+        i - 1
+      ];
+
+    const to =
+      cleanedPoints[i];
+
+
+    const dx =
+      to.x - from.x;
+
+    const dy =
+      to.y - from.y;
+
+
+    const distance =
+      Math.sqrt(
+        dx * dx +
+        dy * dy
+      );
+
+
+    /*
+      取 segment 兩端速度平均。
+
+      千冬是固定 150，
+      所以結果完全等同
+      distance / 150。
+
+      千夏則保留
+      遠景慢、近景快的感覺。
+    */
+    const fromSpeed =
+      getGardenCanonicalTravelSpeedAtPoint(
+        characterId,
+        from
+      );
+
+
+    const toSpeed =
+      getGardenCanonicalTravelSpeedAtPoint(
+        characterId,
+        to
+      );
+
+
+    const averageSpeed =
+      Math.max(
+        1,
+
+        (
+          fromSpeed +
+          toSpeed
+        ) /
+          2
+      );
+
+
+    const durationMs =
+      (
+        distance /
+        averageSpeed
+      ) *
+      1000;
+
+
+    totalDistance +=
+      distance;
+
+    totalDurationMs +=
+      durationMs;
+
+
+    segmentDurationsMs.push(
+      durationMs
+    );
+
+
+    cumulativeDistances.push(
+      totalDistance
+    );
+
+
+    cumulativeDurationMs.push(
+      totalDurationMs
+    );
+  }
+
+
+  return Object.freeze({
+    characterId,
+
+
+    points:
+      Object.freeze(
+        cleanedPoints.map(
+          point =>
+            Object.freeze({
+              ...point,
+            })
+        )
+      ),
+
+
+    cumulativeDistances:
+      Object.freeze([
+        ...cumulativeDistances,
+      ]),
+
+
+    cumulativeDurationMs:
+      Object.freeze([
+        ...cumulativeDurationMs,
+      ]),
+
+
+    segmentDurationsMs:
+      Object.freeze([
+        ...segmentDurationsMs,
+      ]),
+
+
+    totalDistance,
+
+    totalDurationMs,
+  });
+}
+
+
+/*
+  用 elapsed time
+  直接取 Path 上應該所在的位置。
+
+  不讀上一幀位置。
+*/
+function sampleGardenCanonicalTravelPath(
+  pathRecord,
+  elapsedMs
+) {
+  if (
+    !pathRecord ||
+    !Array.isArray(
+      pathRecord.points
+    ) ||
+    pathRecord.points.length ===
+      0
+  ) {
+    return null;
+  }
+
+
+  const safeElapsed =
+    Math.max(
+      0,
+
+      Math.min(
+        Number.isFinite(
+          elapsedMs
+        )
+          ? elapsedMs
+          : 0,
+
+        pathRecord
+          .totalDurationMs
+      )
+    );
+
+
+  /*
+    只有一個點。
+  */
+  if (
+    pathRecord.points.length ===
+      1 ||
+    pathRecord.totalDurationMs <=
+      0
+  ) {
+    const point =
+      pathRecord.points[0];
+
+
+    return Object.freeze({
+      x:
+        point.x,
+
+      y:
+        point.y,
+
+      direction:
+        null,
+
+      elapsedMs:
+        0,
+
+      progress:
+        1,
+
+      segmentIndex:
+        0,
+
+      segmentProgress:
+        1,
+    });
+  }
+
+
+  /*
+    已經走完整條 Path。
+  */
+  if (
+    safeElapsed >=
+    pathRecord.totalDurationMs
+  ) {
+    const lastIndex =
+      pathRecord.points.length -
+      1;
+
+
+    const from =
+      pathRecord.points[
+        lastIndex - 1
+      ];
+
+    const to =
+      pathRecord.points[
+        lastIndex
+      ];
+
+
+    const dx =
+      to.x - from.x;
+
+
+    return Object.freeze({
+      x:
+        to.x,
+
+      y:
+        to.y,
+
+      direction:
+        Math.abs(dx) >
+        0.001
+          ? dx > 0
+            ? 1
+            : -1
+          : null,
+
+      elapsedMs:
+        safeElapsed,
+
+      progress:
+        1,
+
+      segmentIndex:
+        lastIndex - 1,
+
+      segmentProgress:
+        1,
+    });
+  }
+
+
+  /*
+    找出 timestamp
+    落在哪一段 path。
+  */
+  let segmentIndex =
+    0;
+
+
+  for (
+    let i = 1;
+    i <
+      pathRecord
+        .cumulativeDurationMs
+        .length;
+    i++
+  ) {
+    if (
+      safeElapsed <=
+      pathRecord
+        .cumulativeDurationMs[
+          i
+        ]
+    ) {
+      segmentIndex =
+        i - 1;
+
+      break;
+    }
+  }
+
+
+  const from =
+    pathRecord.points[
+      segmentIndex
+    ];
+
+  const to =
+    pathRecord.points[
+      segmentIndex + 1
+    ];
+
+
+  if (
+    !from ||
+    !to
+  ) {
+    return null;
+  }
+
+
+  const segmentStartMs =
+    pathRecord
+      .cumulativeDurationMs[
+        segmentIndex
+      ];
+
+
+  const segmentEndMs =
+    pathRecord
+      .cumulativeDurationMs[
+        segmentIndex + 1
+      ];
+
+
+  const segmentDurationMs =
+    segmentEndMs -
+    segmentStartMs;
+
+
+  const segmentProgress =
+    segmentDurationMs >
+      0
+      ? Math.max(
+          0,
+
+          Math.min(
+            1,
+
+            (
+              safeElapsed -
+              segmentStartMs
+            ) /
+              segmentDurationMs
+          )
+        )
+      : 1;
+
+
+  const dx =
+    to.x - from.x;
+
+  const dy =
+    to.y - from.y;
+
+
+  const x =
+    from.x +
+    dx *
+      segmentProgress;
+
+
+  const y =
+    from.y +
+    dy *
+      segmentProgress;
+
+
+  return Object.freeze({
+    x,
+
+    y,
+
+
+    direction:
+      Math.abs(dx) >
+      0.001
+        ? dx > 0
+          ? 1
+          : -1
+        : null,
+
+
+    elapsedMs:
+      safeElapsed,
+
+
+    progress:
+      pathRecord
+        .totalDurationMs >
+      0
+        ? safeElapsed /
+          pathRecord
+            .totalDurationMs
+        : 1,
+
+
+    segmentIndex,
+
+    segmentProgress,
+  });
+}
+
+
+/*
+  建立一整趟 Travel
+  的 Absolute Spatial Timeline。
+
+  Timeline：
+
+  startedAt
+      ↓
+  walkingToExit
+      ↓
+  transit
+      ↓
+  walkingFromEntrance
+      ↓
+  completedAt
+*/
+function createGardenCanonicalTravelSpatialPlan({
+  characterId,
+
+  route,
+
+  startPoint,
+
+  startDirection = 1,
+
+  exitPath,
+
+  startedAt =
+    getGardenWorldNow(),
+
+  transitDurationMs =
+    GARDEN_CHARACTER_TRAVEL_TRANSIT_MS,
+} = {}) {
+  if (
+    !characterId ||
+    !route ||
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  const entrance =
+    route
+      .entranceByCharacter?.[
+        characterId
+      ];
+
+
+  if (
+    !entrance?.spawn ||
+    !entrance?.enter
+  ) {
+    return null;
+  }
+
+
+  /*
+    出口 Walking Path。
+  */
+  const exitRecord =
+    createGardenCanonicalTravelPathRecord(
+      characterId,
+      startPoint,
+      exitPath
+    );
+
+
+  /*
+    入口 Walking Path。
+
+    spawn 可以在 walkArea 外，
+    沒關係。
+
+    這本來就是 Travel
+    專用入口動畫。
+  */
+  const entranceRecord =
+    createGardenCanonicalTravelPathRecord(
+      characterId,
+
+      entrance.spawn,
+
+      [
+        entrance.enter,
+      ]
+    );
+
+
+  if (
+    !exitRecord ||
+    !entranceRecord
+  ) {
+    return null;
+  }
+
+
+  const safeTransitDurationMs =
+    Math.max(
+      0,
+
+      Number.isFinite(
+        transitDurationMs
+      )
+        ? transitDurationMs
+        : 0
+    );
+
+
+  /*
+    =========================
+    Absolute Phase Boundaries
+    =========================
+  */
+
+  const exitStartedAt =
+    startedAt;
+
+
+  const exitEndsAt =
+    exitStartedAt +
+    exitRecord.totalDurationMs;
+
+
+  const transitStartedAt =
+    exitEndsAt;
+
+
+  const transitEndsAt =
+    transitStartedAt +
+    safeTransitDurationMs;
+
+
+  const entranceStartedAt =
+    transitEndsAt;
+
+
+  const entranceEndsAt =
+    entranceStartedAt +
+    entranceRecord
+      .totalDurationMs;
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_TRAVEL_SPATIAL_PLAN_SCHEMA,
+
+    version:
+      GARDEN_TRAVEL_SPATIAL_PLAN_VERSION,
+
+
+    characterId,
+
+
+    fromSceneId:
+      route.fromSceneId,
+
+    toSceneId:
+      route.toSceneId,
+
+
+    startedAt,
+
+
+    startDirection:
+      startDirection === -1
+        ? -1
+        : 1,
+
+
+    entranceDirection:
+      route
+        .entranceDirection ===
+      -1
+        ? -1
+        : 1,
+
+
+    exit:
+      Object.freeze({
+        startedAt:
+          exitStartedAt,
+
+        endsAt:
+          exitEndsAt,
+
+        durationMs:
+          exitRecord
+            .totalDurationMs,
+
+        path:
+          exitRecord,
+      }),
+
+
+    transit:
+      Object.freeze({
+        startedAt:
+          transitStartedAt,
+
+        endsAt:
+          transitEndsAt,
+
+        durationMs:
+          safeTransitDurationMs,
+      }),
+
+
+    entrance:
+      Object.freeze({
+        startedAt:
+          entranceStartedAt,
+
+        endsAt:
+          entranceEndsAt,
+
+        durationMs:
+          entranceRecord
+            .totalDurationMs,
+
+        path:
+          entranceRecord,
+      }),
+
+
+    completedAt:
+      entranceEndsAt,
+  });
+}
+
+
+/*
+  給任意 Absolute World Timestamp，
+
+  直接算角色現在應該
+  位於 Travel Timeline 的哪裡。
+*/
+function resolveGardenCanonicalTravelSpatialState(
+  plan,
+
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !plan ||
+    plan.schema !==
+      GARDEN_TRAVEL_SPATIAL_PLAN_SCHEMA ||
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    =========================
+    Walking To Exit
+    =========================
+  */
+  if (
+    timestamp <
+    plan.exit.endsAt
+  ) {
+    const sample =
+      sampleGardenCanonicalTravelPath(
+        plan.exit.path,
+
+        Math.max(
+          0,
+
+          timestamp -
+            plan.exit.startedAt
+        )
+      );
+
+
+    return Object.freeze({
+      phase:
+        "walkingToExit",
+
+
+      phaseProgress:
+        plan.exit.durationMs >
+          0
+          ? Math.max(
+              0,
+
+              Math.min(
+                1,
+
+                (
+                  timestamp -
+                  plan.exit
+                    .startedAt
+                ) /
+                  plan.exit
+                    .durationMs
+              )
+            )
+          : 1,
+
+
+      sceneId:
+        plan.fromSceneId,
+
+
+      x:
+        sample?.x ??
+        null,
+
+      y:
+        sample?.y ??
+        null,
+
+
+      direction:
+        sample?.direction ??
+        plan.startDirection,
+
+
+      isMoving:
+        true,
+
+
+      sample,
+    });
+  }
+
+
+  /*
+    =========================
+    Transit
+    =========================
+  */
+  if (
+    timestamp <
+    plan.transit.endsAt
+  ) {
+    return Object.freeze({
+      phase:
+        "transit",
+
+
+      phaseProgress:
+        plan.transit
+          .durationMs >
+        0
+          ? Math.max(
+              0,
+
+              Math.min(
+                1,
+
+                (
+                  timestamp -
+                  plan.transit
+                    .startedAt
+                ) /
+                  plan.transit
+                    .durationMs
+              )
+            )
+          : 1,
+
+
+      sceneId:
+        null,
+
+      x:
+        null,
+
+      y:
+        null,
+
+      direction:
+        null,
+
+      isMoving:
+        false,
+
+      sample:
+        null,
+    });
+  }
+
+
+  /*
+    =========================
+    Walking From Entrance
+    =========================
+  */
+  if (
+    timestamp <
+    plan.entrance.endsAt
+  ) {
+    const sample =
+      sampleGardenCanonicalTravelPath(
+        plan.entrance.path,
+
+        Math.max(
+          0,
+
+          timestamp -
+            plan.entrance
+              .startedAt
+        )
+      );
+
+
+    return Object.freeze({
+      phase:
+        "walkingFromEntrance",
+
+
+      phaseProgress:
+        plan.entrance
+          .durationMs >
+        0
+          ? Math.max(
+              0,
+
+              Math.min(
+                1,
+
+                (
+                  timestamp -
+                  plan.entrance
+                    .startedAt
+                ) /
+                  plan.entrance
+                    .durationMs
+              )
+            )
+          : 1,
+
+
+      sceneId:
+        plan.toSceneId,
+
+
+      x:
+        sample?.x ??
+        null,
+
+      y:
+        sample?.y ??
+        null,
+
+
+      direction:
+        sample?.direction ??
+        plan.entranceDirection,
+
+
+      isMoving:
+        true,
+
+
+      sample,
+    });
+  }
+
+
+  /*
+    =========================
+    Completed
+    =========================
+  */
+
+  const finalSample =
+    sampleGardenCanonicalTravelPath(
+      plan.entrance.path,
+      plan.entrance.durationMs
+    );
+
+
+  return Object.freeze({
+    phase:
+      "completed",
+
+    phaseProgress:
+      1,
+
+
+    sceneId:
+      plan.toSceneId,
+
+
+    x:
+      finalSample?.x ??
+      null,
+
+    y:
+      finalSample?.y ??
+      null,
+
+
+    direction:
+      finalSample?.direction ??
+      plan.entranceDirection,
+
+
+    isMoving:
+      false,
+
+
+    sample:
+      finalSample,
+  });
+}
+
+
+
+/* =========================
+   12H-4E
+   Travel → Wander Continuity
+========================= */
+
+const GARDEN_WANDER_CONTINUITY_SCHEMA =
+  "nanaharaGardenWanderContinuity";
+
+const GARDEN_WANDER_CONTINUITY_VERSION =
+  1;
+
+
+/*
+  最多向未來找幾個 Wander Slot Boundary。
+
+  正常情況通常第 1～2 個就足夠。
+*/
+const GARDEN_WANDER_CONTINUITY_MAX_SLOT_SEARCH =
+  4;
+
+
+/*
+  將 Wander Slot Address
+  轉回真正的 Absolute World Timestamp。
+
+  目前 Garden World Time Zone
+  固定為 Asia/Tokyo / JST，
+  所以使用 +09:00。
+*/
+function getGardenWanderSlotBoundaryTimestamp(
+  dateKey,
+  slotIndex
+) {
+  const address =
+    normalizeGardenWanderSlotAddress(
+      dateKey,
+      slotIndex
+    );
+
+
+  if (!address) {
+    return null;
+  }
+
+
+  const secondOfDay =
+    address.slotIndex *
+    GARDEN_WANDER_SLOT_SECONDS;
+
+
+  const hour =
+    Math.floor(
+      secondOfDay /
+      3600
+    );
+
+
+  const minute =
+    Math.floor(
+      (
+        secondOfDay %
+        3600
+      ) /
+      60
+    );
+
+
+  const second =
+    secondOfDay %
+    60;
+
+
+  const pad2 =
+    value =>
+      String(
+        value
+      ).padStart(
+        2,
+        "0"
+      );
+
+
+  const timestamp =
+    Date.parse(
+      `${address.dateKey}T${pad2(hour)}:${pad2(minute)}:${pad2(second)}+09:00`
+    );
+
+
+  return (
+    isValidGardenWorldTimestamp(
+      timestamp
+    )
+      ? timestamp
+      : null
+  );
+}
+
+function createGardenTravelToWanderContinuityPlan({
+  characterId,
+
+  sceneId,
+
+  startPoint,
+
+  startDirection = 1,
+
+  startedAt =
+    getGardenWorldNow(),
+} = {}) {
+  if (
+    !characterId ||
+    !sceneId ||
+    !startPoint ||
+    !Number.isFinite(
+      startPoint.x
+    ) ||
+    !Number.isFinite(
+      startPoint.y
+    ) ||
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  const calendar =
+    getGardenWorldCalendarParts(
+      startedAt
+    );
+
+
+  if (!calendar) {
+    return null;
+  }
+
+
+  const currentSlotIndex =
+    Math.floor(
+      calendar.secondOfDay /
+      GARDEN_WANDER_SLOT_SECONDS
+    );
+
+
+  /*
+    Travel completion 後，
+    尋找最早一個：
+
+    「有足夠真實時間
+      讓角色正常走到 Anchor」
+
+    的未來 slot boundary。
+  */
+  for (
+    let offset = 1;
+    offset <=
+      GARDEN_WANDER_CONTINUITY_MAX_SLOT_SEARCH;
+    offset++
+  ) {
+    const targetAddress =
+      normalizeGardenWanderSlotAddress(
+        calendar.dateKey,
+        currentSlotIndex +
+          offset
+      );
+
+
+    if (!targetAddress) {
+      continue;
+    }
+
+
+    const targetAnchor =
+      getGardenDeterministicWanderAnchor({
+        dateKey:
+          targetAddress.dateKey,
+
+        slotIndex:
+          targetAddress.slotIndex,
+
+        characterId,
+
+        sceneId,
+      });
+
+
+    if (!targetAnchor) {
+      continue;
+    }
+
+
+    const boundaryTimestamp =
+      getGardenWanderSlotBoundaryTimestamp(
+        targetAddress.dateKey,
+        targetAddress.slotIndex
+      );
+
+
+    if (
+      !isValidGardenWorldTimestamp(
+        boundaryTimestamp
+      ) ||
+      boundaryTimestamp <=
+        startedAt
+    ) {
+      continue;
+    }
+
+
+    /*
+      Travel 已經完全抵達目的 Scene。
+
+      所以從 entrance.enter
+      正常尋路到 Wander Anchor。
+    */
+    const path =
+      findGardenPath(
+        startPoint,
+        targetAnchor,
+        sceneId
+      );
+
+
+    if (!path) {
+      continue;
+    }
+
+
+    /*
+      直接重用 12H-4A
+      已經建立好的時間化 Path Model。
+
+      這樣：
+      千冬固定 speed、
+      千夏依 Y 深度 speed
+
+      都與 Canonical Travel
+      使用同一套模型。
+    */
+    const pathRecord =
+      createGardenCanonicalTravelPathRecord(
+        characterId,
+        startPoint,
+        path
+      );
+
+
+    if (!pathRecord) {
+      continue;
+    }
+
+
+    const availableDurationMs =
+      boundaryTimestamp -
+      startedAt;
+
+
+    /*
+      時間不夠正常走過去，
+      就找下一個 boundary。
+
+      絕不為了趕時間
+      突然加速或瞬移。
+    */
+    if (
+      pathRecord.totalDurationMs >
+      availableDurationMs
+    ) {
+      continue;
+    }
+
+
+    /*
+      角色不需要 Travel 一結束
+      就立刻開始走。
+
+      如果到 boundary 還有很多時間，
+      先在入口停留，
+      再用正常速度走過去。
+    */
+    const moveStartedAt =
+      boundaryTimestamp -
+      pathRecord.totalDurationMs;
+
+
+    return Object.freeze({
+      schema:
+        GARDEN_WANDER_CONTINUITY_SCHEMA,
+
+      version:
+        GARDEN_WANDER_CONTINUITY_VERSION,
+
+
+      characterId,
+
+      sceneId,
+
+
+      startedAt,
+
+      endsAt:
+        boundaryTimestamp,
+
+
+      startPoint:
+        Object.freeze({
+          x:
+            startPoint.x,
+
+          y:
+            startPoint.y,
+        }),
+
+
+      startDirection:
+        startDirection === -1
+          ? -1
+          : 1,
+
+
+      moveStartedAt,
+
+
+      targetDateKey:
+        targetAddress.dateKey,
+
+      targetSlotIndex:
+        targetAddress.slotIndex,
+
+
+      targetAnchor,
+
+
+      path:
+        pathRecord,
+
+
+      totalDurationMs:
+        availableDurationMs,
+
+      moveDurationMs:
+        pathRecord.totalDurationMs,
+
+      idleDurationMs:
+        Math.max(
+          0,
+          moveStartedAt -
+          startedAt
+        ),
+    });
+  }
+
+
+  return null;
+}
+
+
+function resolveGardenTravelToWanderContinuity(
+  plan,
+
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !plan ||
+    plan.schema !==
+      GARDEN_WANDER_CONTINUITY_SCHEMA ||
+    plan.version !==
+      GARDEN_WANDER_CONTINUITY_VERSION ||
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    =========================
+    Before / At Start
+    =========================
+  */
+  if (
+    timestamp <=
+    plan.startedAt
+  ) {
+    return Object.freeze({
+      phase:
+        "idle",
+
+      completed:
+        false,
+
+      sceneId:
+        plan.sceneId,
+
+      x:
+        plan.startPoint.x,
+
+      y:
+        plan.startPoint.y,
+
+      direction:
+        plan.startDirection,
+
+      isMoving:
+        false,
+
+      progress:
+        0,
+    });
+  }
+
+
+  /*
+    =========================
+    Completed
+    =========================
+
+    在 endsAt 時，
+    必須精準落在
+    Wander Slot 的 fromAnchor。
+  */
+  if (
+    timestamp >=
+    plan.endsAt
+  ) {
+    return Object.freeze({
+      phase:
+        "completed",
+
+      completed:
+        true,
+
+      sceneId:
+        plan.sceneId,
+
+      x:
+        plan.targetAnchor.x,
+
+      y:
+        plan.targetAnchor.y,
+
+      direction:
+        null,
+
+      isMoving:
+        false,
+
+      progress:
+        1,
+    });
+  }
+
+
+  /*
+    =========================
+    Idle Before Move
+    =========================
+  */
+  if (
+    timestamp <
+    plan.moveStartedAt
+  ) {
+    return Object.freeze({
+      phase:
+        "idle",
+
+      completed:
+        false,
+
+      sceneId:
+        plan.sceneId,
+
+      x:
+        plan.startPoint.x,
+
+      y:
+        plan.startPoint.y,
+
+      direction:
+        plan.startDirection,
+
+      isMoving:
+        false,
+
+      progress:
+        0,
+    });
+  }
+
+
+  /*
+    =========================
+    Move To Wander Anchor
+    =========================
+  */
+  const sample =
+    sampleGardenCanonicalTravelPath(
+      plan.path,
+
+      timestamp -
+      plan.moveStartedAt
+    );
+
+
+  if (!sample) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    phase:
+      "move",
+
+    completed:
+      false,
+
+    sceneId:
+      plan.sceneId,
+
+    x:
+      sample.x,
+
+    y:
+      sample.y,
+
+    direction:
+      sample.direction ??
+      plan.startDirection,
+
+    isMoving:
+      true,
+
+    progress:
+      sample.progress,
+
+    sample,
+  });
+}
+
+function isGardenWanderContinuityPlanUsable(
+  plan,
+  characterId = null,
+  sceneId = null
+) {
+  if (
+    !plan ||
+    typeof plan !==
+      "object"
+  ) {
+    return false;
+  }
+
+
+  if (
+    plan.schema !==
+      GARDEN_WANDER_CONTINUITY_SCHEMA ||
+    plan.version !==
+      GARDEN_WANDER_CONTINUITY_VERSION
+  ) {
+    return false;
+  }
+
+
+  if (
+    !plan.characterId ||
+    !plan.sceneId
+  ) {
+    return false;
+  }
+
+
+  /*
+    Caller 若指定角色 / Scene，
+    Plan 必須完全一致。
+  */
+  if (
+    characterId &&
+    plan.characterId !==
+      characterId
+  ) {
+    return false;
+  }
+
+
+  if (
+    sceneId &&
+    plan.sceneId !==
+      sceneId
+  ) {
+    return false;
+  }
+
+
+  if (
+    !isValidGardenWorldTimestamp(
+      plan.startedAt
+    ) ||
+    !isValidGardenWorldTimestamp(
+      plan.moveStartedAt
+    ) ||
+    !isValidGardenWorldTimestamp(
+      plan.endsAt
+    )
+  ) {
+    return false;
+  }
+
+
+  /*
+    Timeline 必須：
+
+    startedAt
+      <= moveStartedAt
+      <= endsAt
+  */
+  if (
+    plan.moveStartedAt <
+      plan.startedAt ||
+    plan.endsAt <
+      plan.moveStartedAt
+  ) {
+    return false;
+  }
+
+
+  if (
+    !Number.isFinite(
+      plan.startPoint?.x
+    ) ||
+    !Number.isFinite(
+      plan.startPoint?.y
+    ) ||
+    !Number.isFinite(
+      plan.targetAnchor?.x
+    ) ||
+    !Number.isFinite(
+      plan.targetAnchor?.y
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    !plan.path ||
+    typeof plan.path !==
+      "object"
+  ) {
+    return false;
+  }
+
+
+  if (
+    !Number.isFinite(
+      plan.path.totalDurationMs
+    ) ||
+    plan.path.totalDurationMs <
+      0
+  ) {
+    return false;
+  }
+
+
+  if (
+    !Number.isFinite(
+      plan.moveDurationMs
+    ) ||
+    !Number.isFinite(
+      plan.idleDurationMs
+    ) ||
+    plan.moveDurationMs <
+      0 ||
+    plan.idleDurationMs <
+      0
+  ) {
+    return false;
+  }
+
+
+  /*
+    moveStartedAt 是：
+
+    endsAt - 正常走路所需時間
+  */
+  const expectedMoveStartedAt =
+    plan.endsAt -
+    plan.moveDurationMs;
+
+
+  if (
+    Math.abs(
+      expectedMoveStartedAt -
+      plan.moveStartedAt
+    ) >
+      0.001
+  ) {
+    return false;
+  }
+
+
+  /*
+    整份 Plan 長度
+    必須等於 idle + move。
+  */
+  const expectedTotalDuration =
+    plan.endsAt -
+    plan.startedAt;
+
+
+  if (
+    Math.abs(
+      expectedTotalDuration -
+      plan.totalDurationMs
+    ) >
+      0.001
+  ) {
+    return false;
+  }
+
+
+  if (
+    Math.abs(
+      (
+        plan.idleDurationMs +
+        plan.moveDurationMs
+      ) -
+      plan.totalDurationMs
+    ) >
+      0.001
+  ) {
+    return false;
+  }
+
+
+  return true;
+}
+
+
+/* =========================
+   12H-4E-2C
+   Travel Completion → Wander Continuity
+========================= */
+
+function createGardenWanderContinuityFromCompletedTravel(
+  characterId,
+  travel
+) {
+  const spatialPlan =
+    travel?.spatialPlan;
+
+
+  if (
+    !isGardenCanonicalTravelSpatialPlanUsable(
+      spatialPlan
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    非常重要：
+
+    Continuity 永遠從
+    Travel 真正 canonical completedAt
+    開始。
+
+    絕不能使用：
+    - Date.now()
+    - getGardenWorldNow()
+    - Resume 時間
+    - 當前 frame 時間
+
+    否則不同 Client
+    會建立不同 Timeline。
+  */
+  const completedAt =
+    spatialPlan.completedAt;
+
+
+  const completedState =
+    resolveGardenCanonicalTravelSpatialState(
+      spatialPlan,
+      completedAt
+    );
+
+
+  if (
+    !completedState ||
+    completedState.phase !==
+      "completed" ||
+    !completedState.sceneId ||
+    !Number.isFinite(
+      completedState.x
+    ) ||
+    !Number.isFinite(
+      completedState.y
+    )
+  ) {
+    return null;
+  }
+
+
+  return (
+    createGardenTravelToWanderContinuityPlan({
+      characterId,
+
+      sceneId:
+        completedState.sceneId,
+
+      startPoint: {
+        x:
+          completedState.x,
+
+        y:
+          completedState.y,
+      },
+
+      startDirection:
+        completedState.direction ===
+          -1
+          ? -1
+          : 1,
+
+      startedAt:
+        completedAt,
+    })
+  );
+}
+
+function createGardenWanderContinuityFromActivitySpot({
+  characterId,
+
+  sceneId,
+
+  spotId,
+
+  activityId,
+
+  startedAt,
+} = {}) {
+  if (
+    !characterId ||
+    !sceneId ||
+    !spotId ||
+    !activityId ||
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    起點永遠重新從正式 Spot Registry 取得。
+
+    不使用：
+    - DOM 座標
+    - Runtime 當前座標
+    - Snapshot 舊座標
+
+    因此即使 Cold Start，
+    同一個 Activity End Timestamp
+    仍會產生同一份 Continuity。
+  */
+  const spot =
+    getGardenActivitySpot(
+      sceneId,
+      spotId,
+      activityId
+    );
+
+
+  if (!spot) {
+    return null;
+  }
+
+
+  return (
+    createGardenTravelToWanderContinuityPlan({
+      characterId,
+
+      sceneId,
+
+      startPoint: {
+        x:
+          spot.x,
+
+        y:
+          spot.y,
+      },
+
+      startDirection:
+        spot.direction === -1
+          ? -1
+          : 1,
+
+      startedAt,
+    })
+  );
+}
+
+
+function createGardenWanderContinuityFromCurrentPosition(
+  characterId,
+  startedAt =
+    getGardenWorldNow()
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+  const moveState =
+    runtime?.moveState;
+
+
+  if (
+    !worldState?.sceneId ||
+    !moveState ||
+    !Number.isFinite(
+      moveState.x
+    ) ||
+    !Number.isFinite(
+      moveState.y
+    ) ||
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  return (
+    createGardenTravelToWanderContinuityPlan({
+      characterId,
+
+      sceneId:
+        worldState.sceneId,
+
+      startPoint: {
+        x:
+          moveState.x,
+
+        y:
+          moveState.y,
+      },
+
+      startDirection:
+        moveState.direction === -1
+          ? -1
+          : 1,
+
+      startedAt,
+    })
+  );
+}
+
+
+function finalizeGardenCanonicalTravelToWander(
+  characterId,
+  travel
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  const spatialPlan =
+    travel?.spatialPlan;
+
+
+  if (
+    !worldState ||
+    !runtime?.moveState ||
+    !isGardenCanonicalTravelSpatialPlanUsable(
+      spatialPlan
+    )
+  ) {
+    return Object.freeze({
+      ok:
+        false,
+
+      characterId,
+
+      reason:
+        "completionUnavailable",
+
+      continuityCreated:
+        false,
+    });
+  }
+
+
+  /*
+    永遠重新取得
+    EXACT completedAt endpoint。
+
+    不使用 caller 當下那份
+    timestamp sample。
+  */
+  const completedState =
+    resolveGardenCanonicalTravelSpatialState(
+      spatialPlan,
+      spatialPlan.completedAt
+    );
+
+
+  if (
+    !completedState ||
+    completedState.phase !==
+      "completed"
+  ) {
+    return Object.freeze({
+      ok:
+        false,
+
+      characterId,
+
+      reason:
+        "completedStateUnavailable",
+
+      continuityCreated:
+        false,
+    });
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  /*
+    =========================
+    Exact Travel Endpoint
+    =========================
+  */
+
+  worldState.sceneId =
+    completedState.sceneId ??
+    travel.toSceneId;
+
+
+  if (
+    Number.isFinite(
+      completedState.x
+    ) &&
+    Number.isFinite(
+      completedState.y
+    )
+  ) {
+    state.x =
+      completedState.x;
+
+    state.y =
+      completedState.y;
+  }
+
+
+  if (
+    completedState.direction ===
+      1 ||
+    completedState.direction ===
+      -1
+  ) {
+    state.direction =
+      completedState.direction;
+  }
+
+
+  runtime.setPath?.([]);
+
+  state.path =
+    [];
+
+  state.isMoving =
+    false;
+
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  /*
+    先建立 Continuity Plan。
+
+    即使現在實際時間
+    已經晚於 endsAt，
+    也仍然建立同一份 plan。
+
+    下一次 Wander Resolve
+    會自行發現它已完成，
+    並直接切回 Standard Wander。
+  */
+  const continuityPlan =
+    createGardenWanderContinuityFromCompletedTravel(
+      characterId,
+      travel
+    );
+
+
+  /*
+    Semantic Travel 正式結束。
+  */
+  worldState.travel =
+    null;
+
+
+  setGardenCharacterActivity(
+    characterId,
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER,
+    null
+  );
+
+
+  /*
+    setGardenCharacterActivity(WANDER)
+    不會清掉 Continuity。
+
+    在 Activity transition 完成後
+    再正式掛上 Plan。
+  */
+  worldState.wanderContinuity =
+    continuityPlan;
+
+
+  return Object.freeze({
+    ok:
+      true,
+
+    characterId,
+
+    reason:
+      continuityPlan
+        ? "continuityCreated"
+        : "continuityUnavailable",
+
+    sceneId:
+      worldState.sceneId,
+
+    completedAt:
+      spatialPlan.completedAt,
+
+    continuityCreated:
+      !!continuityPlan,
+
+    continuityEndsAt:
+      continuityPlan?.endsAt ??
+      null,
+
+    completedState,
+
+    continuityPlan,
+  });
+}
+
+
+
+function runGardenTravelToWanderContinuitySelfTest() {
+  const characterId =
+    "chifuyu";
+
+
+  const route =
+    getGardenCharacterTravelRoute(
+      "courtyard",
+      "moonBridge"
+    );
+
+
+  if (!route) {
+    const result = {
+      pass:
+        false,
+
+      reason:
+        "routeMissing",
+    };
+
+
+    console.warn(
+      "[Garden Travel → Wander Continuity Self-Test] FAIL",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  const entrance =
+    route
+      .entranceByCharacter?.[
+        characterId
+      ];
+
+
+  if (!entrance?.enter) {
+    const result = {
+      pass:
+        false,
+
+      reason:
+        "entranceMissing",
+    };
+
+
+    console.warn(
+      "[Garden Travel → Wander Continuity Self-Test] FAIL",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  /*
+    故意選在 slot 中間，
+    不依賴目前真實時間。
+  */
+  const startedAt =
+    Date.parse(
+      "2026-09-23T12:00:37+09:00"
+    );
+
+
+  const plan =
+    createGardenTravelToWanderContinuityPlan({
+      characterId,
+
+      sceneId:
+        "moonBridge",
+
+      startPoint:
+        entrance.enter,
+
+      startDirection:
+        route.entranceDirection,
+
+      startedAt,
+    });
+
+
+  if (!plan) {
+    const result = {
+      pass:
+        false,
+
+      reason:
+        "planBuildFailed",
+    };
+
+
+    console.warn(
+      "[Garden Travel → Wander Continuity Self-Test] FAIL",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  const atStart =
+    resolveGardenTravelToWanderContinuity(
+      plan,
+      plan.startedAt
+    );
+
+
+  const atEnd =
+    resolveGardenTravelToWanderContinuity(
+      plan,
+      plan.endsAt
+    );
+
+
+  /*
+    Continuity 結束的同一瞬間，
+    查詢正式 Wander Timeline。
+  */
+  const standardWanderResolution =
+    resolveGardenDeterministicWanderAtTimestamp(
+      characterId,
+      plan.sceneId,
+      plan.endsAt
+    );
+
+
+  const standardWanderPosition =
+    resolveGardenDeterministicWanderPosition(
+      standardWanderResolution
+    );
+
+
+  const endCalendar =
+    getGardenWorldCalendarParts(
+      plan.endsAt
+    );
+
+
+  const serialized =
+    JSON.stringify(
+      plan
+    );
+
+
+  const restored =
+    JSON.parse(
+      serialized
+    );
+
+
+  const restoredEnd =
+    resolveGardenTravelToWanderContinuity(
+      restored,
+      restored.endsAt
+    );
+
+
+  const epsilon =
+    0.000001;
+
+
+  const checks = {
+    planCreated:
+      !!plan,
+
+
+    futureBoundary:
+      plan.endsAt >
+      plan.startedAt,
+
+
+    enoughWalkingTime:
+      plan.moveDurationMs <=
+      plan.totalDurationMs,
+
+
+    nonNegativeIdle:
+      plan.idleDurationMs >=
+      0,
+
+
+    startsAtTravelArrival:
+      Math.abs(
+        atStart.x -
+        entrance.enter.x
+      ) <
+        epsilon &&
+
+      Math.abs(
+        atStart.y -
+        entrance.enter.y
+      ) <
+        epsilon,
+
+
+    startIdle:
+      atStart.isMoving ===
+        false,
+
+
+    endsCompleted:
+      atEnd.phase ===
+        "completed" &&
+
+      atEnd.completed ===
+        true,
+
+
+    /*
+      endsAt 必須正好落在
+      Wander slot boundary。
+    */
+    endsAtSlotBoundary:
+      !!endCalendar &&
+
+      endCalendar.secondOfDay %
+        GARDEN_WANDER_SLOT_SECONDS ===
+      0,
+
+
+    /*
+      Continuity 的終點，
+      必須就是該 Wander Slot
+      正式起點。
+    */
+    standardWanderAvailable:
+      !!standardWanderPosition,
+
+
+    seamlessX:
+      !!standardWanderPosition &&
+
+      Math.abs(
+        atEnd.x -
+        standardWanderPosition.x
+      ) <
+        epsilon,
+
+
+    seamlessY:
+      !!standardWanderPosition &&
+
+      Math.abs(
+        atEnd.y -
+        standardWanderPosition.y
+      ) <
+        epsilon,
+
+
+    targetAnchorMatchesSlot:
+      standardWanderResolution
+        ?.slot
+        ?.fromAnchor
+        ?.targetId ===
+      plan.targetAnchor.targetId,
+
+
+    serializable:
+      !!serialized,
+
+
+    reloadStable:
+      Math.abs(
+        restoredEnd.x -
+        atEnd.x
+      ) <
+        epsilon &&
+
+      Math.abs(
+        restoredEnd.y -
+        atEnd.y
+      ) <
+        epsilon,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(
+      Boolean
+    );
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    plan,
+
+    atStart,
+
+    atEnd,
+
+    standardWanderResolution,
+
+    standardWanderPosition,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Travel → Wander Continuity Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Travel → Wander Continuity Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+function runGardenWanderContinuityPersistenceSelfTest() {
+  const characterId =
+    "chifuyu";
+
+
+  const route =
+    getGardenCharacterTravelRoute(
+      "courtyard",
+      "moonBridge"
+    );
+
+
+  const entrance =
+    route?.entranceByCharacter?.[
+      characterId
+    ];
+
+
+  const startedAt =
+    Date.parse(
+      "2026-09-23T12:00:37+09:00"
+    );
+
+
+  const plan =
+    entrance?.enter
+      ? createGardenTravelToWanderContinuityPlan({
+          characterId,
+
+          sceneId:
+            "moonBridge",
+
+          startPoint:
+            entrance.enter,
+
+          startDirection:
+            route.entranceDirection,
+
+          startedAt,
+        })
+      : null;
+
+
+  const serialized =
+    plan
+      ? JSON.stringify(
+          plan
+        )
+      : null;
+
+
+  const restored =
+    serialized
+      ? JSON.parse(
+          serialized
+        )
+      : null;
+
+
+  const checks = {
+    planCreated:
+      !!plan,
+
+    validOriginal:
+      isGardenWanderContinuityPlanUsable(
+        plan,
+        characterId,
+        "moonBridge"
+      ),
+
+    serializable:
+      !!serialized,
+
+    validAfterJson:
+      isGardenWanderContinuityPlanUsable(
+        restored,
+        characterId,
+        "moonBridge"
+      ),
+
+    wrongCharacterRejected:
+      !isGardenWanderContinuityPlanUsable(
+        restored,
+        "chinatsu",
+        "moonBridge"
+      ),
+
+    wrongSceneRejected:
+      !isGardenWanderContinuityPlanUsable(
+        restored,
+        characterId,
+        "courtyard"
+      ),
+
+    timestampStable:
+      restored?.startedAt ===
+        plan?.startedAt &&
+      restored?.moveStartedAt ===
+        plan?.moveStartedAt &&
+      restored?.endsAt ===
+        plan?.endsAt,
+
+    targetStable:
+      restored?.targetAnchor
+        ?.targetId ===
+      plan?.targetAnchor
+        ?.targetId,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(
+      Boolean
+    );
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    plan,
+
+    restored,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Wander Continuity Persistence Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Wander Continuity Persistence Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+
+function runGardenWanderContinuityRuntimeSelfTest() {
+  const characterId =
+    "chifuyu";
+
+
+  const route =
+    getGardenCharacterTravelRoute(
+      "courtyard",
+      "moonBridge"
+    );
+
+
+  const entrance =
+    route?.entranceByCharacter?.[
+      characterId
+    ];
+
+
+  const startedAt =
+    Date.parse(
+      "2026-09-23T12:00:37+09:00"
+    );
+
+
+  const plan =
+    entrance?.enter
+      ? createGardenTravelToWanderContinuityPlan({
+          characterId,
+
+          sceneId:
+            "moonBridge",
+
+          startPoint:
+            entrance.enter,
+
+          startDirection:
+            route.entranceDirection,
+
+          startedAt,
+        })
+      : null;
+
+
+  if (!plan) {
+    const result = {
+      pass:
+        false,
+
+      reason:
+        "planBuildFailed",
+    };
+
+
+    console.warn(
+      "[Garden Wander Continuity Runtime Self-Test] FAIL",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  /*
+    不碰真實角色 World State。
+  */
+  const fakeWorldState = {
+    sceneId:
+      "moonBridge",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+
+    activityData:
+      null,
+
+    wanderContinuity:
+      JSON.parse(
+        JSON.stringify(
+          plan
+        )
+      ),
+
+    travel:
+      null,
+  };
+
+
+  /*
+    Continuity MOVE 中間取樣。
+
+    若 path 恰好為 0 長度，
+    就退回 idle 區段測試。
+  */
+  const activeTimestamp =
+    plan.moveDurationMs > 0
+      ? plan.moveStartedAt +
+        plan.moveDurationMs *
+          0.5
+      : plan.startedAt;
+
+
+  const activeResult =
+    resolveGardenCanonicalWanderSpatialSource(
+      characterId,
+      fakeWorldState,
+      activeTimestamp
+    );
+
+
+  const continuityStillExists =
+    !!fakeWorldState
+      .wanderContinuity;
+
+
+  /*
+    到達 boundary 的同一 timestamp。
+
+    Resolver 應：
+    1. 清掉 Continuity
+    2. 直接回 Standard Wander
+  */
+  const boundaryResult =
+    resolveGardenCanonicalWanderSpatialSource(
+      characterId,
+      fakeWorldState,
+      plan.endsAt
+    );
+
+
+  const standardDirect =
+    resolveGardenWanderRuntimeSampleAtTimestamp(
+      characterId,
+      "moonBridge",
+      plan.endsAt
+    );
+
+
+  const epsilon =
+    0.000001;
+
+
+  const checks = {
+    planCreated:
+      !!plan,
+
+
+    activeUsesContinuity:
+      activeResult?.source ===
+        "continuity",
+
+
+    activeSampleAvailable:
+      Number.isFinite(
+        activeResult?.sample?.x
+      ) &&
+      Number.isFinite(
+        activeResult?.sample?.y
+      ),
+
+
+    activeContinuityPreserved:
+      continuityStillExists,
+
+
+    boundaryUsesStandard:
+      boundaryResult?.source ===
+        "standard",
+
+
+    boundaryContinuityCleared:
+      fakeWorldState
+        .wanderContinuity ===
+      null,
+
+
+    boundaryStandardAvailable:
+      !!standardDirect &&
+      !!boundaryResult?.sample,
+
+
+    /*
+      同一 timestamp：
+
+      handoff 後的結果
+      必須與直接 Standard Wander
+      完全一致。
+    */
+    boundaryXStable:
+      !!standardDirect &&
+      Math.abs(
+        boundaryResult.sample.x -
+        standardDirect.x
+      ) <
+        epsilon,
+
+
+    boundaryYStable:
+      !!standardDirect &&
+      Math.abs(
+        boundaryResult.sample.y -
+        standardDirect.y
+      ) <
+        epsilon,
+
+
+    boundaryMovementStable:
+      !!standardDirect &&
+      boundaryResult.sample
+        .isMoving ===
+      standardDirect.isMoving,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(
+      Boolean
+    );
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    plan,
+
+    activeResult,
+
+    boundaryResult,
+
+    standardDirect,
+
+    finalFakeWorldState:
+      fakeWorldState,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Wander Continuity Runtime Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Wander Continuity Runtime Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+function isGardenCanonicalTravelSpatialPlanUsable(
+  plan
+) {
+  if (
+    !plan ||
+    typeof plan !==
+      "object"
+  ) {
+    return false;
+  }
+
+
+  if (
+    plan.schema !==
+      GARDEN_TRAVEL_SPATIAL_PLAN_SCHEMA ||
+    plan.version !==
+      GARDEN_TRAVEL_SPATIAL_PLAN_VERSION
+  ) {
+    return false;
+  }
+
+
+  if (
+    !isValidGardenWorldTimestamp(
+      plan.startedAt
+    ) ||
+    !isValidGardenWorldTimestamp(
+      plan.completedAt
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    !plan.exit ||
+    !plan.transit ||
+    !plan.entrance
+  ) {
+    return false;
+  }
+
+
+  const timestamps = [
+    plan.exit.startedAt,
+    plan.exit.endsAt,
+
+    plan.transit.startedAt,
+    plan.transit.endsAt,
+
+    plan.entrance.startedAt,
+    plan.entrance.endsAt,
+  ];
+
+
+  if (
+    !timestamps.every(
+      isValidGardenWorldTimestamp
+    )
+  ) {
+    return false;
+  }
+
+
+  /*
+    Phase boundaries 必須連續。
+
+    walkingToExit
+        ↓
+    transit
+        ↓
+    walkingFromEntrance
+  */
+  if (
+    plan.exit.endsAt !==
+      plan.transit.startedAt ||
+
+    plan.transit.endsAt !==
+      plan.entrance.startedAt ||
+
+    plan.entrance.endsAt !==
+      plan.completedAt
+  ) {
+    return false;
+  }
+
+
+  return true;
+}
+
+
+function canGardenCharacterUseCanonicalTravelRuntime(
+  characterId,
+  worldStateOverride = null
+) {
+  if (
+    !GARDEN_CANONICAL_TRAVEL_RUNTIME_ENABLED
+  ) {
+    return false;
+  }
+
+
+  const worldState =
+    worldStateOverride ??
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  if (!worldState) {
+    return false;
+  }
+
+
+  if (
+    worldState.activity !==
+      GARDEN_CHARACTER_ACTIVITY
+        .TRAVEL
+  ) {
+    return false;
+  }
+
+
+  const travel =
+    worldState.travel;
+
+
+  if (!travel) {
+    return false;
+  }
+
+
+  return (
+    isGardenCanonicalTravelSpatialPlanUsable(
+      travel.spatialPlan
+    )
+  );
+}
+
+function applyGardenCanonicalTravelRuntimeForCharacter(
+  characterId,
+  timestamp =
+    getGardenWorldNow()
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  if (
+    !worldState ||
+    !runtime ||
+    !runtime.moveState
+  ) {
+    return Object.freeze({
+      characterId,
+
+      owned:
+        false,
+
+      applied:
+        false,
+
+      completed:
+        false,
+
+      reason:
+        "runtimeUnavailable",
+
+      canonicalState:
+        null,
+    });
+  }
+
+
+  if (
+    !canGardenCharacterUseCanonicalTravelRuntime(
+      characterId
+    )
+  ) {
+    return Object.freeze({
+      characterId,
+
+      owned:
+        false,
+
+      applied:
+        false,
+
+      completed:
+        false,
+
+      reason:
+        "notCanonicalTravel",
+
+      canonicalState:
+        null,
+    });
+  }
+
+
+  const travel =
+    worldState.travel;
+
+
+  const plan =
+    travel.spatialPlan;
+
+
+  const canonicalState =
+    resolveGardenCanonicalTravelSpatialState(
+      plan,
+      timestamp
+    );
+
+
+  /*
+    Plan 明明有效卻無法 Resolve：
+
+    不允許偷偷退回 Local Simulation。
+
+    否則不同 Client
+    又可能開始分岔。
+  */
+  if (!canonicalState) {
+    return Object.freeze({
+      characterId,
+
+      owned:
+        true,
+
+      applied:
+        false,
+
+      completed:
+        false,
+
+      reason:
+        "canonicalResolveFailed",
+
+      canonicalState:
+        null,
+    });
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  const previousSceneId =
+    worldState.sceneId;
+
+
+  /*
+    Canonical Travel
+    絕對不使用 local path queue。
+  */
+  runtime.setPath?.([]);
+
+
+  state.path =
+    [];
+
+  state.isMoving =
+    false;
+
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  /*
+    =========================
+    Completed
+    =========================
+
+    整趟 Travel 已經結束。
+  */
+  if (
+  canonicalState.phase ===
+    "completed"
+) {
+  const completion =
+    finalizeGardenCanonicalTravelToWander(
+      characterId,
+      travel
+    );
+
+
+  /*
+    Live Runtime 才需要處理 View visibility。
+
+    Finalizer 本身保持純 World State。
+  */
+  if (
+    completion.ok &&
+    previousSceneId !==
+      worldState.sceneId
+  ) {
+    updateGardenCharacterVisibility();
+  }
+
+
+  return Object.freeze({
+    characterId,
+
+    owned:
+      true,
+
+    applied:
+      completion.ok,
+
+    completed:
+      true,
+
+    reason:
+      completion.ok
+        ? "canonicalTravelCompleted"
+        : "canonicalTravelCompletionFailed",
+
+    sceneId:
+      worldState.sceneId,
+
+    continuityCreated:
+      completion.continuityCreated,
+
+    continuityEndsAt:
+      completion.continuityEndsAt,
+
+    canonicalState,
+
+    completion,
+  });
+}
+
+
+  /*
+    =========================
+    Active Travel
+    =========================
+  */
+
+  travel.phase =
+    canonicalState.phase;
+
+
+  /*
+    舊 Timeline 欄位先同步成
+    Canonical Plan 的值。
+
+    這些欄位目前還有
+    Debug / Legacy Reconciliation
+    會讀取，所以暫時保留。
+  */
+  travel.transitStartedAt =
+    plan.transit.startedAt;
+
+
+  travel.expectedArrivalAt =
+    plan.transit.endsAt;
+
+
+  if (
+    canonicalState.phase ===
+      "walkingToExit"
+  ) {
+    travel.phaseStartedAt =
+      plan.exit.startedAt;
+
+    travel.arrivedAt =
+      null;
+  }
+
+
+  if (
+    canonicalState.phase ===
+      "transit"
+  ) {
+    travel.phaseStartedAt =
+      plan.transit.startedAt;
+
+    travel.arrivedAt =
+      null;
+  }
+
+
+  if (
+    canonicalState.phase ===
+      "walkingFromEntrance"
+  ) {
+    travel.phaseStartedAt =
+      plan.entrance.startedAt;
+
+
+    /*
+      arrivedAt 的既有語意是：
+      正式進入目的 Scene 的時間。
+
+      不是入口 walk 完成時間。
+    */
+    travel.arrivedAt =
+      plan.entrance.startedAt;
+  }
+
+
+  /*
+    performance.now() 的 transitUntil
+    已經不再是 Ground Truth。
+  */
+  travel.transitUntil =
+    0;
+
+
+  /*
+    Scene ownership
+    直接來自 Canonical Timeline。
+  */
+  worldState.sceneId =
+    canonicalState.sceneId;
+
+
+  /*
+    Transit 本身沒有可觀看位置。
+
+    這時不把 moveState.x/y
+    改成 null，避免舊 renderer
+    遇到非數字。
+
+    sceneId = null 已經足以
+    讓角色不可見。
+  */
+  if (
+    Number.isFinite(
+      canonicalState.x
+    ) &&
+    Number.isFinite(
+      canonicalState.y
+    )
+  ) {
+    state.x =
+      canonicalState.x;
+
+    state.y =
+      canonicalState.y;
+  }
+
+
+  if (
+    canonicalState.direction ===
+      1 ||
+    canonicalState.direction ===
+      -1
+  ) {
+    state.direction =
+      canonicalState.direction;
+  }
+
+
+  state.isMoving =
+    canonicalState.isMoving ===
+      true;
+
+
+  if (
+    previousSceneId !==
+    worldState.sceneId
+  ) {
+    updateGardenCharacterVisibility();
+  }
+
+
+  return Object.freeze({
+    characterId,
+
+    owned:
+      true,
+
+    applied:
+      true,
+
+    completed:
+      false,
+
+    reason:
+      "canonicalTravel",
+
+    sceneId:
+      worldState.sceneId,
+
+    phase:
+      canonicalState.phase,
+
+    canonicalState,
+  });
+}
+
+
+function updateGardenCanonicalTravelRuntime(
+  timestamp =
+    getGardenWorldNow()
+) {
+  const chifuyu =
+    applyGardenCanonicalTravelRuntimeForCharacter(
+      "chifuyu",
+      timestamp
+    );
+
+
+  const chinatsu =
+    applyGardenCanonicalTravelRuntimeForCharacter(
+      "chinatsu",
+      timestamp
+    );
+
+
+  return Object.freeze({
+    timestamp,
+
+    chifuyu,
+
+    chinatsu,
+  });
+}
+
+function inspectGardenCanonicalTravelRuntime(
+  characterId =
+    "chifuyu"
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  const travel =
+    worldState?.travel;
+
+
+  const timestamp =
+    getGardenWorldNow();
+
+
+  const owned =
+    canGardenCharacterUseCanonicalTravelRuntime(
+      characterId
+    );
+
+
+  const canonicalState =
+    owned
+      ? resolveGardenCanonicalTravelSpatialState(
+          travel.spatialPlan,
+          timestamp
+        )
+      : null;
+
+
+  const info = {
+    character:
+      characterId,
+
+    activity:
+      worldState?.activity ??
+      null,
+
+    runtimePhase:
+      travel?.phase ??
+      null,
+
+    canonicalPhase:
+      canonicalState?.phase ??
+      null,
+
+    worldScene:
+      worldState?.sceneId ??
+      null,
+
+    canonicalScene:
+      canonicalState?.sceneId ??
+      null,
+
+    owned,
+
+    x:
+      runtime?.moveState?.x ??
+      null,
+
+    y:
+      runtime?.moveState?.y ??
+      null,
+
+    canonicalX:
+      canonicalState?.x ??
+      null,
+
+    canonicalY:
+      canonicalState?.y ??
+      null,
+
+    isMoving:
+      runtime?.moveState
+        ?.isMoving ??
+      null,
+
+    canonicalMoving:
+      canonicalState
+        ?.isMoving ??
+      null,
+
+    localPathLength:
+      runtime?.moveState
+        ?.path?.length ??
+      0,
+  };
+
+
+  console.table([
+    info,
+  ]);
+
+
+  return {
+    ...info,
+
+    canonicalState,
+
+    spatialPlan:
+      travel?.spatialPlan ??
+      null,
+  };
+}
+
+
+function runGardenCanonicalTravelRuntimeOwnershipSelfTest() {
+  const fakeValidPlan = {
+    schema:
+      GARDEN_TRAVEL_SPATIAL_PLAN_SCHEMA,
+
+    version:
+      GARDEN_TRAVEL_SPATIAL_PLAN_VERSION,
+
+    startedAt:
+      1000,
+
+    completedAt:
+      5000,
+
+    exit: {
+      startedAt:
+        1000,
+
+      endsAt:
+        2000,
+    },
+
+    transit: {
+      startedAt:
+        2000,
+
+      endsAt:
+        3000,
+    },
+
+    entrance: {
+      startedAt:
+        3000,
+
+      endsAt:
+        5000,
+    },
+  };
+
+
+  const fakeTravelState = {
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .TRAVEL,
+
+    travel: {
+      fromSceneId:
+        "moonBridge",
+
+      toSceneId:
+        "courtyard",
+
+      phase:
+        "walkingToExit",
+
+      spatialPlan:
+        fakeValidPlan,
+    },
+  };
+
+
+  const validTravelOwned =
+    canGardenCharacterUseCanonicalTravelRuntime(
+      "chifuyu",
+      fakeTravelState
+    );
+
+
+  const fakeWanderState = {
+    ...fakeTravelState,
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+  };
+
+
+  const wanderNotOwned =
+    !canGardenCharacterUseCanonicalTravelRuntime(
+      "chifuyu",
+      fakeWanderState
+    );
+
+
+  const fakeLegacyTravelState = {
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .TRAVEL,
+
+    travel: {
+      fromSceneId:
+        "moonBridge",
+
+      toSceneId:
+        "courtyard",
+
+      phase:
+        "walkingToExit",
+
+      spatialPlan:
+        null,
+    },
+  };
+
+
+  const legacyTravelNotOwned =
+    !canGardenCharacterUseCanonicalTravelRuntime(
+      "chifuyu",
+      fakeLegacyTravelState
+    );
+
+
+  const brokenBoundaryPlan = {
+    ...fakeValidPlan,
+
+    transit: {
+      startedAt:
+        2500,
+
+      endsAt:
+        3000,
+    },
+  };
+
+
+  const brokenPlanRejected =
+    !isGardenCanonicalTravelSpatialPlanUsable(
+      brokenBoundaryPlan
+    );
+
+
+  const checks = {
+    featureEnabled:
+      GARDEN_CANONICAL_TRAVEL_RUNTIME_ENABLED ===
+      true,
+
+    validTravelOwned,
+
+    wanderNotOwned,
+
+    legacyTravelNotOwned,
+
+    brokenPlanRejected,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(
+      Boolean
+    );
+
+
+  const result = {
+    pass,
+
+    checks,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Canonical Travel Runtime Ownership Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Canonical Travel Runtime Ownership Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+
+
+function runGardenCanonicalTravelSpatialPlanSelfTest() {
+  const characterId =
+    "chifuyu";
+
+
+  /*
+    使用真實 Route Config，
+    但完全不修改 Runtime State。
+  */
+  const route =
+    getGardenCharacterTravelRoute(
+      "courtyard",
+      "moonBridge"
+    );
+
+
+  if (!route) {
+    const result = {
+      pass:
+        false,
+
+      reason:
+        "routeMissing",
+    };
+
+
+    console.warn(
+      "[Garden Canonical Travel Spatial Plan Self-Test] FAIL",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  /*
+    使用庭院內合法的測試起點。
+  */
+  const startPoint = {
+    x:
+      600,
+
+    y:
+      1725,
+  };
+
+
+  const exitTarget =
+    route
+      .exitByCharacter?.[
+        characterId
+      ];
+
+
+  /*
+    Courtyard → Moon Bridge
+    是 direct exit，
+    所以可以直接使用
+    scene-aware pathfinding。
+  */
+  const exitPath =
+    exitTarget
+      ? findGardenPath(
+          startPoint,
+          exitTarget,
+          route.fromSceneId
+        )
+      : null;
+
+
+  if (
+    !exitPath ||
+    exitPath.length ===
+      0
+  ) {
+    const result = {
+      pass:
+        false,
+
+      reason:
+        "exitPathMissing",
+    };
+
+
+    console.warn(
+      "[Garden Canonical Travel Spatial Plan Self-Test] FAIL",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  /*
+    固定 Absolute World Time。
+
+    不用 Date.now()，
+    所以每次測試結果完全一致。
+  */
+  const startedAt =
+    Date.parse(
+      "2026-09-23T12:00:00+09:00"
+    );
+
+
+  const planA =
+    createGardenCanonicalTravelSpatialPlan({
+      characterId,
+
+      route,
+
+      startPoint,
+
+      startDirection:
+        1,
+
+      exitPath,
+
+      startedAt,
+    });
+
+
+  /*
+    完全相同輸入再建立一次，
+    驗證 Deterministic Rebuild。
+  */
+  const planB =
+    createGardenCanonicalTravelSpatialPlan({
+      characterId,
+
+      route,
+
+      startPoint,
+
+      startDirection:
+        1,
+
+      exitPath,
+
+      startedAt,
+    });
+
+
+  if (
+    !planA ||
+    !planB
+  ) {
+    const result = {
+      pass:
+        false,
+
+      reason:
+        "planBuildFailed",
+    };
+
+
+    console.warn(
+      "[Garden Canonical Travel Spatial Plan Self-Test] FAIL",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  /*
+    各 Phase 中間各取一個 timestamp。
+  */
+  const exitTimestamp =
+    planA.exit.startedAt +
+    planA.exit.durationMs *
+      0.5;
+
+
+  const transitTimestamp =
+    planA.transit.startedAt +
+    planA.transit.durationMs *
+      0.5;
+
+
+  const entranceTimestamp =
+    planA.entrance.startedAt +
+    planA.entrance.durationMs *
+      0.5;
+
+
+  const completedTimestamp =
+    planA.completedAt +
+    1000;
+
+
+  const exitState =
+    resolveGardenCanonicalTravelSpatialState(
+      planA,
+      exitTimestamp
+    );
+
+
+  const transitState =
+    resolveGardenCanonicalTravelSpatialState(
+      planA,
+      transitTimestamp
+    );
+
+
+  const entranceState =
+    resolveGardenCanonicalTravelSpatialState(
+      planA,
+      entranceTimestamp
+    );
+
+
+  const completedState =
+    resolveGardenCanonicalTravelSpatialState(
+      planA,
+      completedTimestamp
+    );
+
+
+  const entrance =
+    route
+      .entranceByCharacter?.[
+        characterId
+      ];
+
+
+  /*
+    Snapshot / localStorage 模擬。
+
+    Travel Plan 未來會直接存在
+    travel state 裡，
+    所以必須能完整 JSON serialize。
+  */
+  const serialized =
+    JSON.stringify(
+      planA
+    );
+
+
+  const restoredPlan =
+    JSON.parse(
+      serialized
+    );
+
+
+  const restoredCompletedState =
+    resolveGardenCanonicalTravelSpatialState(
+      restoredPlan,
+      completedTimestamp
+    );
+
+
+  const epsilon =
+    0.000001;
+
+
+  const checks = {
+    planCreated:
+      !!planA,
+
+
+    deterministicRebuild:
+      JSON.stringify(
+        planA
+      ) ===
+      JSON.stringify(
+        planB
+      ),
+
+
+    exitDurationPositive:
+      planA.exit
+        .durationMs >
+      0,
+
+
+    transitDurationMatches:
+      Math.abs(
+        planA.transit
+          .durationMs -
+        GARDEN_CHARACTER_TRAVEL_TRANSIT_MS
+      ) <
+      epsilon,
+
+
+    entranceDurationPositive:
+      planA.entrance
+        .durationMs >
+      0,
+
+
+    /*
+      所有 Phase 必須首尾相接。
+
+      不允許：
+      gap
+      overlap
+      local wait
+    */
+    boundariesMonotonic:
+      planA.startedAt <=
+        planA.exit.endsAt &&
+
+      planA.exit.endsAt ===
+        planA.transit.startedAt &&
+
+      planA.transit.endsAt ===
+        planA.entrance.startedAt &&
+
+      planA.entrance.endsAt ===
+        planA.completedAt,
+
+
+    exitPhaseCorrect:
+      exitState?.phase ===
+        "walkingToExit" &&
+
+      exitState.sceneId ===
+        "courtyard" &&
+
+      Number.isFinite(
+        exitState.x
+      ) &&
+
+      Number.isFinite(
+        exitState.y
+      ) &&
+
+      exitState.isMoving ===
+        true,
+
+
+    transitPhaseCorrect:
+      transitState?.phase ===
+        "transit" &&
+
+      transitState.sceneId ===
+        null &&
+
+      transitState.x ===
+        null &&
+
+      transitState.y ===
+        null &&
+
+      transitState.isMoving ===
+        false,
+
+
+    entrancePhaseCorrect:
+      entranceState?.phase ===
+        "walkingFromEntrance" &&
+
+      entranceState.sceneId ===
+        "moonBridge" &&
+
+      Number.isFinite(
+        entranceState.x
+      ) &&
+
+      Number.isFinite(
+        entranceState.y
+      ) &&
+
+      entranceState.isMoving ===
+        true,
+
+
+    completedPhaseCorrect:
+      completedState?.phase ===
+        "completed" &&
+
+      completedState.sceneId ===
+        "moonBridge" &&
+
+      completedState.isMoving ===
+        false,
+
+
+    /*
+      Travel 最後一定精確停在
+      entrance.enter。
+    */
+    completedAtEntrance:
+      !!entrance &&
+
+      Math.abs(
+        completedState.x -
+        entrance.enter.x
+      ) <
+        epsilon &&
+
+      Math.abs(
+        completedState.y -
+        entrance.enter.y
+      ) <
+        epsilon,
+
+
+    /*
+      Plan 必須可以完整存進
+      Garden Snapshot。
+    */
+    serializable:
+      !!serialized &&
+
+      restoredPlan.schema ===
+        GARDEN_TRAVEL_SPATIAL_PLAN_SCHEMA,
+
+
+    /*
+      JSON round-trip 之後，
+      同一 timestamp
+      仍然得到相同世界狀態。
+    */
+    reloadStateStable:
+      !!restoredCompletedState &&
+
+      Math.abs(
+        restoredCompletedState.x -
+        completedState.x
+      ) <
+        epsilon &&
+
+      Math.abs(
+        restoredCompletedState.y -
+        completedState.y
+      ) <
+        epsilon &&
+
+      restoredCompletedState.phase ===
+        completedState.phase,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(
+      Boolean
+    );
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    plan:
+      planA,
+
+    exitState,
+
+    transitState,
+
+    entranceState,
+
+    completedState,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Canonical Travel Spatial Plan Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Canonical Travel Spatial Plan Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+
 /*
   賞月橋左側入口。
 
@@ -10540,6 +15028,144 @@ function setGardenCharacterActivity(
     );
   }
 }
+
+  /*
+    =========================
+    Activity Movement Policy
+    =========================
+  */
+
+  if (
+    previousActivity !==
+      activity
+  ) {
+    const runtime =
+      getGardenCharacterRuntime(
+        character
+      );
+
+
+    /*
+      REST 必須真的停下來。
+
+      如果角色原本正在 Wander path，
+      不可以 Activity 已經變 REST，
+      人卻繼續往前走。
+    */
+    if (
+      activity ===
+        GARDEN_CHARACTER_ACTIVITY
+          .REST
+    ) {
+      runtime?.setPath?.([]);
+
+
+      if (
+        runtime?.autoState
+      ) {
+        runtime.autoState
+          .wasMoving =
+          false;
+      }
+    }
+
+
+    /*
+  從任何非 Wander Activity
+  回到 WANDER。
+*/
+if (
+  activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER &&
+  previousActivity !==
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER
+) {
+  /*
+    Canonical Wander：
+
+    不再重新建立
+    local Auto Walk timer。
+
+    同時清掉上一個 Activity
+    可能留下的 local path，
+    下一個 Garden Runtime Tick
+    會直接依 Canonical Time
+    重建正確位置。
+  */
+  if (
+    GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED
+  ) {
+    runtime?.setPath?.([]);
+
+
+    if (
+      runtime?.autoState
+    ) {
+      runtime.autoState.wasMoving =
+        false;
+    }
+  }
+
+  /*
+    Legacy fallback。
+
+    未來若暫時關閉
+    Canonical Wander，
+    舊行為仍然可以使用。
+  */
+  else {
+    runtime?.resetAutoWalk?.();
+  }
+}
+  }
+
+
+/*
+  Continuity 只屬於 WANDER。
+
+  一旦世界正式進入：
+  - TRAVEL
+  - CHAT
+  - REST
+  - 未來其他 Activity
+
+  舊 Continuity 必須失效，
+  不准等角色之後回 Wander
+  又突然復活。
+*/
+if (
+  activity !==
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER
+) {
+  worldState.wanderContinuity =
+    null;
+}
+
+/*
+  Activity Spot Approach
+  只屬於它指定的 Activity。
+
+  例如：
+  REST → WANDER
+  REST → TRAVEL
+  REST → CHAT
+
+  舊 approach 都必須失效。
+*/
+if (
+  worldState.activitySpotApproach &&
+  activity !==
+    worldState.activitySpotApproach
+      .activityId
+) {
+  worldState.activitySpotApproach =
+    null;
+}
+
+
 
 
   worldState.activity =
@@ -13844,6 +18470,25 @@ function getGardenCharacterTravelTimelineSnapshot(
   }
 
 
+  const spatialPlan =
+    travel.spatialPlan ??
+    null;
+
+
+  const worldNow =
+    getGardenWorldNow();
+
+
+  const canonicalSpatialState =
+    spatialPlan
+      ? resolveGardenCanonicalTravelSpatialState(
+          spatialPlan,
+          worldNow
+        )
+      : null;
+
+
+
   return {
     character,
 
@@ -13878,6 +18523,72 @@ function getGardenCharacterTravelTimelineSnapshot(
 
 
     /*
+      =========================
+      Canonical Spatial Plan
+      =========================
+    */
+
+    hasSpatialPlan:
+      !!spatialPlan,
+
+
+    spatialPlanSchema:
+      spatialPlan?.schema ??
+      null,
+
+
+    spatialPlanVersion:
+      spatialPlan?.version ??
+      null,
+
+
+    canonicalCompletedAt:
+      spatialPlan?.completedAt ??
+      null,
+
+
+    canonicalPhase:
+      canonicalSpatialState
+        ?.phase ??
+      null,
+
+
+    canonicalSceneId:
+      canonicalSpatialState
+        ?.sceneId ??
+      null,
+
+
+    canonicalPhaseProgress:
+      canonicalSpatialState
+        ?.phaseProgress ??
+      null,
+
+
+    canonicalPosition:
+      canonicalSpatialState &&
+      Number.isFinite(
+        canonicalSpatialState.x
+      ) &&
+      Number.isFinite(
+        canonicalSpatialState.y
+      )
+        ? {
+            x:
+              canonicalSpatialState.x,
+
+            y:
+              canonicalSpatialState.y,
+
+            direction:
+              canonicalSpatialState.direction,
+          }
+        : null,
+
+
+
+
+    /*
       Debug 時順便顯示
       目前離 Travel 開始多久。
     */
@@ -13891,6 +18602,477 @@ function getGardenCharacterTravelTimelineSnapshot(
         : null,
   };
 }
+
+function inspectGardenCharacterTravelSpatialPlan(
+  character =
+    "chifuyu"
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  const travel =
+    worldState?.travel;
+
+
+  if (!travel) {
+    const result = {
+      character,
+
+      traveling:
+        false,
+
+      spatialPlan:
+        null,
+
+      canonicalState:
+        null,
+    };
+
+
+    console.log(
+      "[Garden Travel Spatial Plan] not traveling:",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  const spatialPlan =
+    travel.spatialPlan ??
+    null;
+
+
+  const worldNow =
+    getGardenWorldNow();
+
+
+  const canonicalState =
+    spatialPlan
+      ? resolveGardenCanonicalTravelSpatialState(
+          spatialPlan,
+          worldNow
+        )
+      : null;
+
+
+  const result = {
+    character,
+
+    traveling:
+      true,
+
+
+    runtimePhase:
+      travel.phase,
+
+
+    worldSceneId:
+      worldState.sceneId,
+
+
+    hasSpatialPlan:
+      !!spatialPlan,
+
+
+    canonicalPhase:
+      canonicalState?.phase ??
+      null,
+
+
+    canonicalSceneId:
+      canonicalState?.sceneId ??
+      null,
+
+
+    canonicalProgress:
+      canonicalState
+        ?.phaseProgress ??
+      null,
+
+
+    canonicalX:
+      canonicalState?.x ??
+      null,
+
+
+    canonicalY:
+      canonicalState?.y ??
+      null,
+
+
+    startedAt:
+      travel.startedAt ??
+      null,
+
+
+    canonicalCompletedAt:
+      spatialPlan
+        ?.completedAt ??
+      null,
+
+
+    spatialPlan,
+
+    canonicalState,
+  };
+
+
+  console.table([
+    {
+      character:
+        result.character,
+
+      runtimePhase:
+        result.runtimePhase,
+
+      canonicalPhase:
+        result.canonicalPhase,
+
+      worldSceneId:
+        result.worldSceneId,
+
+      canonicalSceneId:
+        result.canonicalSceneId,
+
+      canonicalProgress:
+        result.canonicalProgress,
+
+      hasSpatialPlan:
+        result.hasSpatialPlan,
+    },
+  ]);
+
+
+  return result;
+}
+
+
+function runGardenTravelSpatialPlanPersistenceSelfTest() {
+  const characterId =
+    "chifuyu";
+
+
+  const route =
+    getGardenCharacterTravelRoute(
+      "courtyard",
+      "moonBridge"
+    );
+
+
+  if (!route) {
+    const result = {
+      pass:
+        false,
+
+      reason:
+        "routeMissing",
+    };
+
+
+    console.warn(
+      "[Garden Travel Spatial Plan Persistence Self-Test] FAIL",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  const startPoint = {
+    x:
+      600,
+
+    y:
+      1725,
+  };
+
+
+  const exit =
+    route.exitByCharacter?.[
+      characterId
+    ];
+
+
+  const exitPath =
+    exit
+      ? findGardenPath(
+          startPoint,
+          exit,
+          route.fromSceneId
+        )
+      : null;
+
+
+  if (
+    !exitPath ||
+    exitPath.length ===
+      0
+  ) {
+    const result = {
+      pass:
+        false,
+
+      reason:
+        "exitPathMissing",
+    };
+
+
+    console.warn(
+      "[Garden Travel Spatial Plan Persistence Self-Test] FAIL",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  const startedAt =
+    Date.parse(
+      "2026-09-23T12:00:00+09:00"
+    );
+
+
+  const spatialPlan =
+    createGardenCanonicalTravelSpatialPlan({
+      characterId,
+
+      route,
+
+      startPoint,
+
+      startDirection:
+        1,
+
+      exitPath,
+
+      startedAt,
+    });
+
+
+  if (!spatialPlan) {
+    const result = {
+      pass:
+        false,
+
+      reason:
+        "spatialPlanMissing",
+    };
+
+
+    console.warn(
+      "[Garden Travel Spatial Plan Persistence Self-Test] FAIL",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  /*
+    模擬現在 worldState.travel
+    實際會保存的結構。
+  */
+  const travelState = {
+    fromSceneId:
+      "courtyard",
+
+    toSceneId:
+      "moonBridge",
+
+    phase:
+      "walkingToExit",
+
+    spatialPlan,
+
+    transitUntil:
+      0,
+
+    startedAt,
+
+    phaseStartedAt:
+      startedAt,
+
+    transitStartedAt:
+      null,
+
+    expectedArrivalAt:
+      null,
+
+    arrivedAt:
+      null,
+  };
+
+
+  /*
+    模擬 Snapshot clone。
+  */
+  const cloned =
+    cloneGardenWorldSerializableValue(
+      travelState
+    );
+
+
+  const serialized =
+    JSON.stringify(
+      cloned
+    );
+
+
+  const restored =
+    JSON.parse(
+      serialized
+    );
+
+
+  /*
+    Reload 很久以後：
+    直接取 Entrance 中段。
+  */
+  const testTimestamp =
+    spatialPlan
+      .entrance
+      .startedAt +
+    spatialPlan
+      .entrance
+      .durationMs *
+      0.5;
+
+
+  const beforeReload =
+    resolveGardenCanonicalTravelSpatialState(
+      spatialPlan,
+      testTimestamp
+    );
+
+
+  const afterReload =
+    resolveGardenCanonicalTravelSpatialState(
+      restored.spatialPlan,
+      testTimestamp
+    );
+
+
+  const epsilon =
+    0.000001;
+
+
+  const checks = {
+    spatialPlanCreated:
+      !!spatialPlan,
+
+
+    travelContainsPlan:
+      travelState.spatialPlan ===
+      spatialPlan,
+
+
+    cloneContainsPlan:
+      cloned?.spatialPlan
+        ?.schema ===
+      GARDEN_TRAVEL_SPATIAL_PLAN_SCHEMA,
+
+
+    jsonContainsPlan:
+      restored?.spatialPlan
+        ?.schema ===
+      GARDEN_TRAVEL_SPATIAL_PLAN_SCHEMA,
+
+
+    versionPreserved:
+      restored.spatialPlan
+        .version ===
+      GARDEN_TRAVEL_SPATIAL_PLAN_VERSION,
+
+
+    startedAtPreserved:
+      restored.spatialPlan
+        .startedAt ===
+      startedAt,
+
+
+    completedAtPreserved:
+      restored.spatialPlan
+        .completedAt ===
+      spatialPlan.completedAt,
+
+
+    reloadPhaseStable:
+      beforeReload?.phase ===
+        "walkingFromEntrance" &&
+      afterReload?.phase ===
+        beforeReload.phase,
+
+
+    reloadPositionStable:
+      !!(
+        beforeReload &&
+        afterReload &&
+
+        Math.abs(
+          beforeReload.x -
+          afterReload.x
+        ) <
+          epsilon &&
+
+        Math.abs(
+          beforeReload.y -
+          afterReload.y
+        ) <
+          epsilon
+      ),
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(
+      Boolean
+    );
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    travelState,
+
+    restored,
+
+    beforeReload,
+
+    afterReload,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Travel Spatial Plan Persistence Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Travel Spatial Plan Persistence Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+
 
 /*
   每一幀更新「單一角色」的旅行。
@@ -14220,8 +19402,93 @@ function travelGardenCharacter(
   }
 
 
- const travelTimeline =
+const travelTimeline =
   createGardenCharacterTravelTimeline();
+
+
+/*
+  =========================
+  Canonical Travel Spatial Plan
+  12H-4B
+  =========================
+
+  Travel 開始的這一瞬間，
+  把角色真正的起始位置、
+  朝向與 Exit Path
+  固定成一份 Canonical Plan。
+
+  之後即使：
+  - 關閉 Garden
+  - 進 Menu
+  - Browser Background
+  - Reload
+
+  都不需要再從 snapshot x/y
+  猜「角色走到哪裡」。
+*/
+const travelStartPoint = {
+  x:
+    runtime.moveState.x,
+
+  y:
+    runtime.moveState.y,
+};
+
+
+const travelStartDirection =
+  runtime.moveState.direction ===
+    -1
+    ? -1
+    : 1;
+
+
+const spatialPlan =
+  createGardenCanonicalTravelSpatialPlan({
+    characterId:
+      character,
+
+    route,
+
+    startPoint:
+      travelStartPoint,
+
+    startDirection:
+      travelStartDirection,
+
+    exitPath:
+      path,
+
+    /*
+      必須與整趟 Travel
+      共用完全同一個 startedAt。
+    */
+    startedAt:
+      travelTimeline.startedAt,
+
+    transitDurationMs:
+      GARDEN_CHARACTER_TRAVEL_TRANSIT_MS,
+  });
+
+
+/*
+  Canonical Travel 啟用後，
+  沒有 Spatial Plan
+  就不能偷偷退回純 Local Travel。
+
+  否則不同玩家 / Reload
+  又會重新分岔。
+*/
+if (!spatialPlan) {
+  console.warn(
+    "[Garden Travel] canonical spatial plan build failed:",
+    character,
+    fromSceneId,
+    "→",
+    toSceneId
+  );
+
+  return false;
+}
 
 
 worldState.travel = {
@@ -14231,6 +19498,14 @@ worldState.travel = {
   phase:
     "walkingToExit",
 
+
+      /*
+    Canonical Spatial Timeline。
+
+    這是整趟旅行的
+    Absolute World-Time Ground Truth。
+  */
+  spatialPlan,
 
   /*
     =========================
@@ -19685,6 +24960,18 @@ function startChinatsuAutoWalkToCompanionTarget() {
 }
 
 function updateChinatsuAutoWalk(now) {
+  
+
+  if (
+    GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED &&
+    canGardenCharacterUseCanonicalWanderRuntime(
+      "chinatsu"
+    )
+  ) {
+    return;
+  }
+
+
   // 正在走就不打斷
   if (chinatsuWalkTestState.isMoving) {
     chinatsuAutoWalkState.wasMoving = true;
@@ -19750,6 +25037,39 @@ const GARDEN_CHAT_CHECK_MAX_MS = 9000;
 
 const GARDEN_CHAT_LOOP_MIN = 2;
 const GARDEN_CHAT_LOOP_MAX = 4;
+
+function resolveGardenChatTargetLoops(
+  requestedTargetLoops = null
+) {
+  /*
+    Schedule / Deterministic Chat
+    可以明確指定 loop 數。
+  */
+  if (
+    Number.isInteger(
+      requestedTargetLoops
+    )
+  ) {
+    return Math.max(
+      GARDEN_CHAT_LOOP_MIN,
+
+      Math.min(
+        GARDEN_CHAT_LOOP_MAX,
+        requestedTargetLoops
+      )
+    );
+  }
+
+
+  /*
+    舊自然聊天維持原本邏輯。
+  */
+  return randomIntBetween(
+    GARDEN_CHAT_LOOP_MIN,
+    GARDEN_CHAT_LOOP_MAX
+  );
+}
+
 
 /*
   iPadOS 暫時不使用原尺寸 Talk spritesheet。
@@ -19923,9 +25243,12 @@ const gardenChatState = {
   ipadFallbackUntil: 0,
 
   approachSpot: null,
-  approachStartedAt: 0,
+approachStartedAt: 0,
 
-  nextCheckTime: 0,
+pendingTargetLoops:
+  null,
+
+nextCheckTime: 0,
   currentSpotName: "",
 };
 
@@ -20724,10 +26047,33 @@ function pickGardenChatApproachPlan() {
   return null;
 }
 
-function startGardenChatApproach(now = performance.now()) {
-  if (gardenChatState.mode !== "wander") return false;
+function startGardenChatApproach(
+  now = performance.now(),
+  options = {}
+) {
+  if (
+    gardenChatState.mode !==
+      "wander"
+  ) {
+    return false;
+  }
 
-  const plan = pickGardenChatApproachPlan();
+
+  const requestedSpot =
+    options?.spot ??
+    null;
+
+  const sceneId =
+    getGardenSharedCharacterSceneId();
+
+
+  const plan =
+    requestedSpot
+      ? getGardenChatApproachPlanForSpot(
+          requestedSpot,
+          sceneId
+        )
+      : pickGardenChatApproachPlan();
 
   if (!plan) {
     console.warn("[Garden Chat] no valid approach plan", {
@@ -20751,6 +26097,15 @@ gardenChatState.approachSpot = plan.spot;
 gardenChatState.approachStartedAt = now;
 gardenChatState.currentSpotName = plan.spot.name || "approach";
 
+
+gardenChatState.pendingTargetLoops =
+  Number.isInteger(
+    options?.targetLoops
+  )
+    ? resolveGardenChatTargetLoops(
+        options.targetLoops
+      )
+    : null;
 
 setGardenPairActivity(
   GARDEN_CHARACTER_ACTIVITY
@@ -20802,8 +26157,12 @@ function cancelGardenChatApproach(now = performance.now()) {
 
 
   gardenChatState.approachSpot = null;
-  gardenChatState.approachStartedAt = 0;
-  gardenChatState.currentSpotName = "";
+gardenChatState.approachStartedAt = 0;
+
+gardenChatState.pendingTargetLoops =
+  null;
+
+gardenChatState.currentSpotName = "";
 
   chifuyuWalkTestState.path = [];
   chifuyuWalkTestState.isMoving = false;
@@ -20853,10 +26212,30 @@ function updateGardenChatApproach(now = performance.now()) {
   chinatsuWalkTestState.path = [];
   chinatsuWalkTestState.isMoving = false;
 
-  gardenChatState.approachSpot = null;
-  gardenChatState.approachStartedAt = 0;
+  const pendingTargetLoops =
+  gardenChatState
+    .pendingTargetLoops;
 
-  const started = startGardenChat(now, null);
+
+gardenChatState.approachSpot =
+  null;
+
+gardenChatState.approachStartedAt =
+  0;
+
+gardenChatState.pendingTargetLoops =
+  null;
+
+
+const started =
+  startGardenChat(
+    now,
+    null,
+    {
+      targetLoops:
+        pendingTargetLoops,
+    }
+  );
 
   if (!started) {
     cancelGardenChatApproach(now);
@@ -21312,10 +26691,8 @@ function updateGardenCharacterNightLighting(
     Day / Night
     =========================
   */
-  const isNight =
-    document.body.classList.contains(
-      "night-mode"
-    );
+ const isNight =
+  isGardenWorldNight();
 
 
   /*
@@ -21485,7 +26862,8 @@ function updateGardenCharacterNightLighting(
 
 function startGardenChat(
   now = performance.now(),
-  spot = null
+  spot = null,
+  options = {}
 ) {
   if (gardenChatState.mode === "chat") {
     return false;
@@ -21554,11 +26932,11 @@ resetGardenTalkEndFlags();
 
   gardenChatState.ipadFallbackUntil = 0;
 
-  gardenChatState.targetLoops =
-    randomIntBetween(
-      GARDEN_CHAT_LOOP_MIN,
-      GARDEN_CHAT_LOOP_MAX
-    );
+gardenChatState.targetLoops =
+  resolveGardenChatTargetLoops(
+    options?.targetLoops ??
+      null
+  );
 
   /*
   Talk 不在這裡立即切換。
@@ -21597,6 +26975,24 @@ function startGardenChatAtRandomSpot(now = performance.now()) {
 }
 
 function endGardenChat(now = performance.now()) {
+  const canonicalEndedAt =
+    getGardenWorldNow();
+
+
+  const chifuyuContinuity =
+    createGardenWanderContinuityFromCurrentPosition(
+      "chifuyu",
+      canonicalEndedAt
+    );
+
+
+  const chinatsuContinuity =
+    createGardenWanderContinuityFromCurrentPosition(
+      "chinatsu",
+      canonicalEndedAt
+    );
+
+
   gardenChatState.mode = "wander";
 
 
@@ -21606,10 +27002,25 @@ function endGardenChat(now = performance.now()) {
   );
 
 
+  gardenCharacterWorldState
+    .chifuyu
+    .wanderContinuity =
+      chifuyuContinuity;
+
+
+  gardenCharacterWorldState
+    .chinatsu
+    .wanderContinuity =
+      chinatsuContinuity;
+
+
   gardenChatState.targetLoops = 0;
 
 gardenChatState.approachSpot = null;
 gardenChatState.approachStartedAt = 0;
+
+gardenChatState.pendingTargetLoops =
+  null;
 
 gardenChatState.currentSpotName = "";
 
@@ -21645,10 +27056,30 @@ setGardenCharacterAnimationMode(
   scheduleNextGardenChatCheck(now + 9000);
 }
 
+
+
 function canStartNaturalGardenChat() {
   if (
     gardenChatState.mode !==
     "wander"
+  ) {
+    return false;
+  }
+
+  /*
+    兩人都必須真的處於自由 WANDER。
+
+    REST / TRAVEL / CHAT /
+    Schedule Activity 期間
+    都不能被自然聊天打斷。
+  */
+  if (
+    !canGardenCharacterUseAmbientWander(
+      "chifuyu"
+    ) ||
+    !canGardenCharacterUseAmbientWander(
+      "chinatsu"
+    )
   ) {
     return false;
   }
@@ -21761,7 +27192,34 @@ function canStartNaturalGardenChat() {
   return true;
 }
 
-function tryStartNaturalGardenChat(now = performance.now()) {
+function tryStartNaturalGardenChat(
+  now = performance.now()
+) {
+  /*
+    舊 Natural Chat
+    使用 local performance.now()
+    + Math.random()。
+
+    Canonical World 下不能再由
+    每個玩家自行決定是否發生 CHAT。
+
+    未來 CHAT Activity
+    會由 deterministic timeline
+    重新接回。
+  */
+  if (
+    GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED
+  ) {
+    return false;
+  }
+
+
+  if (
+    gardenChatState.mode !==
+      "wander"
+  ) {
+    return false;
+  }
   if (gardenChatState.mode !== "wander") return false;
   if (now < gardenChatState.nextCheckTime) return false;
 
@@ -21951,6 +27409,27 @@ function planGardenInitialMode() {
     return gardenPendingInitialMode;
   }
 
+  /*
+    Canonical World 建立後，
+
+    Initial Chat 不可以由
+    每個 client 自己 Math.random()。
+
+    在正式 deterministic CHAT
+    Timeline 完成前，
+    新 World 一律由 WANDER 開始。
+  */
+  if (
+    GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED
+  ) {
+    gardenPendingInitialMode =
+      "wander";
+
+    return gardenPendingInitialMode;
+  }
+
+
+
 
   gardenPendingInitialMode =
     Math.random() <
@@ -21969,6 +27448,24 @@ function setupGardenInitialMode(
   now = performance.now()
 ) {
   clearGardenChatState();
+
+
+  /*
+    planGardenInitialMode()
+    理論上已經決定 Wander。
+
+    這裡再做一次 Runtime Guard，
+    避免其他 caller 跳過 plan。
+  */
+  if (
+    GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED
+  ) {
+    gardenPendingInitialMode =
+      null;
+
+    return "wander";
+  }
+
 
   let startAsChat;
 
@@ -22178,6 +27675,23 @@ function tryStartGardenAutoTravel(
   }
 
 
+  /*
+    Canonical World 開始接管後，
+
+    舊的 local random Auto Travel
+    不再允許自行改變 World Scene。
+
+    未來 Travel 由：
+    Schedule / Activity Timeline
+    決定。
+  */
+  if (
+    GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED
+  ) {
+    return false;
+  }
+
+
   const worldState =
     gardenCharacterWorldState[
       character
@@ -22194,16 +27708,10 @@ function tryStartGardenAutoTravel(
     才可以自己決定旅行。
   */
   if (
-    worldState.activity !==
-    GARDEN_CHARACTER_ACTIVITY
-      .WANDER
-  ) {
-    return false;
-  }
-
-
-  if (
-    worldState.travel
+    !canGardenCharacterUseAmbientWander(
+      character,
+      worldState
+    )
   ) {
     return false;
   }
@@ -22496,7 +28004,19 @@ return true;
 }
 
 function updateChifuyuAutoWalk(now) {
-  if (!CHIFUYU_AUTO_WALK_ENABLED) return;
+  if (!CHIFUYU_AUTO_WALK_ENABLED) {
+    return;
+  }
+
+
+  if (
+    GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED &&
+    canGardenCharacterUseCanonicalWanderRuntime(
+      "chifuyu"
+    )
+  ) {
+    return;
+  }
 
   // 正在移動時，不要打斷目前路線
   if (chifuyuWalkTestState.isMoving) {
@@ -22973,6 +28493,35 @@ function resolveGardenCharacterAnimationMode(
   }
 
 
+/*
+  =========================
+  Rest
+  =========================
+
+  第一版 REST 直接使用
+  現有 idle animation。
+
+  未來如果有：
+
+  sit
+  read-idle
+  tea-idle
+
+  再由 Activity Sequence /
+  Override 接管。
+*/
+if (
+  activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .REST
+) {
+  return moveState?.isMoving
+    ? "walk"
+    : "idle";
+}
+
+
+
   /*
     =========================
     Wander
@@ -23019,38 +28568,146 @@ function chifuyuWalkMoveLoop(now) {
 
 /*
   =========================
-  Character World Update
+  Canonical Character Spatial Runtime
   =========================
 
-  角色移動本身不再依賴玩家正在看的場景。
+  同一幀只取得一次
+  Absolute World Time。
 
-  即使玩家正在看另一張場景，
-  已經存在的 path 仍然繼續走。
+  WANDER / TRAVEL
+  都使用完全相同的 timestamp。
 */
-updateChifuyuWalkPosition(
-  deltaMs
-);
+const canonicalWorldTimestamp =
+  getGardenWorldNow();
 
-updateChinatsuWalkPosition(
-  deltaMs
-);
+
+/*
+  先 Resolve Wander。
+
+  如果角色目前正在 TRAVEL，
+  Wander 不會取得 ownership。
+*/
+const canonicalWanderRuntime =
+  updateGardenCanonicalWanderRuntime(
+    canonicalWorldTimestamp
+  );
+
+
+/*
+  再 Resolve Travel。
+
+  特別保留這個順序：
+
+  Wander → Travel
+
+  如果 Travel 正好在這一幀完成，
+  Travel endpoint 會至少完整套用這一幀，
+  不會在同一幀又被 Wander 覆寫。
+*/
+const canonicalTravelRuntime =
+  updateGardenCanonicalTravelRuntime(
+    canonicalWorldTimestamp
+  );
+
+
+/*
+  Activity Spot Approach
+  使用同一個 Absolute World Timestamp。
+*/
+const canonicalActivitySpotRuntime =
+  updateGardenCanonicalActivitySpotRuntime(
+    canonicalWorldTimestamp
+  );
+
+
+const chifuyuCanonicalSpatialOwned =
+  canonicalWanderRuntime
+    .chifuyu
+    .owned ||
+  canonicalTravelRuntime
+    .chifuyu
+    .owned ||
+  canonicalActivitySpotRuntime
+    .chifuyu
+    .owned;
+
+
+const chinatsuCanonicalSpatialOwned =
+  canonicalWanderRuntime
+    .chinatsu
+    .owned ||
+  canonicalTravelRuntime
+    .chinatsu
+    .owned ||
+  canonicalActivitySpotRuntime
+    .chinatsu
+    .owned;
+
+
+/*
+  只有完全沒有 Canonical
+  Spatial Owner 的 Activity，
+
+  例如：
+  - Chat Approach
+  - Legacy fallback
+
+  才繼續使用舊 deltaMs
+  path integrator。
+*/
+if (
+  !chifuyuCanonicalSpatialOwned
+) {
+  updateChifuyuWalkPosition(
+    deltaMs
+  );
+}
+
+
+if (
+  !chinatsuCanonicalSpatialOwned
+) {
+  updateChinatsuWalkPosition(
+    deltaMs
+  );
+}
 
 
 /*
   =========================
-  Independent Character Travel
+  Legacy Travel Fallback
   =========================
+
+  有 Canonical Travel Ownership：
+  完全不執行舊 phase simulator。
+
+  沒有 spatialPlan 的舊存檔 /
+  Legacy Travel：
+  才允許繼續舊流程。
 */
 
-updateGardenCharacterTravel(
-  "chifuyu",
-  now
-);
+if (
+  !canonicalTravelRuntime
+    .chifuyu
+    .owned
+) {
+  updateGardenCharacterTravel(
+    "chifuyu",
+    now
+  );
+}
 
-updateGardenCharacterTravel(
-  "chinatsu",
-  now
-);
+
+if (
+  !canonicalTravelRuntime
+    .chinatsu
+    .owned
+) {
+  updateGardenCharacterTravel(
+    "chinatsu",
+    now
+  );
+}
 
 
 const sharedChatSceneId =
@@ -23076,8 +28733,17 @@ if (
   gardenChatState.mode ===
     "wander"
 ) {
+  /*
+    Canonical WANDER 已取得 ownership：
+
+    不允許舊 Auto Walk
+    再建立 random path。
+  */
   if (
-    !isGardenCharacterTraveling(
+    !canonicalWanderRuntime
+      .chifuyu
+      .owned &&
+    canGardenCharacterUseAmbientWander(
       "chifuyu"
     )
   ) {
@@ -23088,7 +28754,10 @@ if (
 
 
   if (
-    !isGardenCharacterTraveling(
+    !canonicalWanderRuntime
+      .chinatsu
+      .owned &&
+    canGardenCharacterUseAmbientWander(
       "chinatsu"
     )
   ) {
@@ -23097,6 +28766,7 @@ if (
     );
   }
 }
+
 
 /* =========================
    Garden Character Animation Update
@@ -23267,9 +28937,10 @@ function initGardenScreen() {
       才隨機生成初始站位。
     */
     if (
-      initialMode !==
-      "chat"
-    ) {
+  initialMode !==
+    "chat" &&
+  !GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED
+) {
       randomizeGardenCharacterStartPositions();
 
 
@@ -23385,6 +29056,41 @@ resetChinatsuAutoWalk();
         ? "chat"
         : "wander";
   }
+
+
+  /*
+  =========================
+  Canonical Spatial First Sync
+  =========================
+
+  DOM 第一次 render 之前，
+  先把角色同步到
+  現在真正的 World Timestamp。
+
+  順序與主 Loop 相同：
+  Wander → Travel。
+*/
+const canonicalInitialTimestamp =
+  getGardenWorldNow();
+
+
+if (
+  GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED
+) {
+  updateGardenCanonicalWanderRuntime(
+    canonicalInitialTimestamp
+  );
+}
+
+
+if (
+  GARDEN_CANONICAL_TRAVEL_RUNTIME_ENABLED
+) {
+  updateGardenCanonicalTravelRuntime(
+    canonicalInitialTimestamp
+  );
+}
+
 
 
   /* =========================
@@ -24280,6 +29986,396 @@ function isValidGardenWorldTimestamp(
 }
 
 
+/* =========================
+   Garden Canonical World Time
+========================= */
+
+/*
+  七原世界唯一標準時區。
+
+  玩家人在台灣、日本、美國或歐洲，
+  都必須以這個時區解讀：
+
+  - 世界日期
+  - 世界時刻
+  - Daily Schedule
+  - Event Seed
+  - Activity Window
+
+  不使用玩家本地 timezone。
+*/
+const GARDEN_WORLD_TIME_ZONE =
+  "Asia/Tokyo";
+
+
+const GARDEN_WORLD_TIME_ZONE_LABEL =
+  "JST";
+
+
+/*
+  固定 Formatter。
+
+  不要每次查時間都重新建立
+  Intl.DateTimeFormat。
+*/
+const gardenWorldCalendarFormatter =
+  new Intl.DateTimeFormat(
+    "en-US",
+    {
+      timeZone:
+        GARDEN_WORLD_TIME_ZONE,
+
+      year:
+        "numeric",
+
+      month:
+        "2-digit",
+
+      day:
+        "2-digit",
+
+      hour:
+        "2-digit",
+
+      minute:
+        "2-digit",
+
+      second:
+        "2-digit",
+
+      hourCycle:
+        "h23",
+    }
+  );
+
+
+const GARDEN_WORLD_WEEKDAY_KEYS =
+  Object.freeze([
+    "sun",
+    "mon",
+    "tue",
+    "wed",
+    "thu",
+    "fri",
+    "sat",
+  ]);
+
+
+/*
+  將 Unix timestamp
+  轉換成「七原世界日曆時間」。
+
+  timestamp 本身是全球一致的絕對時間。
+
+  timezone 只負責回答：
+
+  「在七原世界裡，
+    這一瞬間算幾月幾日、幾點？」
+*/
+function getGardenWorldCalendarParts(
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  const date =
+    new Date(
+      timestamp
+    );
+
+
+  const formattedParts =
+    gardenWorldCalendarFormatter
+      .formatToParts(
+        date
+      );
+
+
+  const partMap =
+    {};
+
+
+  for (
+    const part of
+    formattedParts
+  ) {
+    if (
+      part.type ===
+        "literal"
+    ) {
+      continue;
+    }
+
+
+    partMap[
+      part.type
+    ] =
+      part.value;
+  }
+
+
+  const year =
+    Number(
+      partMap.year
+    );
+
+  const month =
+    Number(
+      partMap.month
+    );
+
+  const day =
+    Number(
+      partMap.day
+    );
+
+  const hour =
+    Number(
+      partMap.hour
+    );
+
+  const minute =
+    Number(
+      partMap.minute
+    );
+
+  const second =
+    Number(
+      partMap.second
+    );
+
+
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day) ||
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute) ||
+    !Number.isFinite(second)
+  ) {
+    return null;
+  }
+
+
+  /*
+    這裡 year / month / day
+    已經是七原世界日期。
+
+    再用 UTC 建一個純曆法日期，
+    只是為了安全取得星期幾，
+    不會重新套玩家 timezone。
+  */
+  const weekdayIndex =
+    new Date(
+      Date.UTC(
+        year,
+        month - 1,
+        day
+      )
+    ).getUTCDay();
+
+
+  const pad2 =
+    (value) =>
+      String(
+        value
+      ).padStart(
+        2,
+        "0"
+      );
+
+
+  const dateKey =
+    [
+      year,
+      pad2(month),
+      pad2(day),
+    ].join("-");
+
+
+  const timeKey =
+    [
+      pad2(hour),
+      pad2(minute),
+      pad2(second),
+    ].join(":");
+
+
+  const minuteOfDay =
+    hour * 60 +
+    minute;
+
+
+  const secondOfDay =
+    minuteOfDay * 60 +
+    second;
+
+
+  return Object.freeze({
+    timestamp,
+
+    timeZone:
+      GARDEN_WORLD_TIME_ZONE,
+
+    timeZoneLabel:
+      GARDEN_WORLD_TIME_ZONE_LABEL,
+
+    year,
+    month,
+    day,
+
+    hour,
+    minute,
+    second,
+
+    weekdayIndex,
+
+    weekday:
+      GARDEN_WORLD_WEEKDAY_KEYS[
+        weekdayIndex
+      ],
+
+    dateKey,
+
+    timeKey,
+
+    minuteOfDay,
+
+    secondOfDay,
+  });
+}
+
+/*
+  今日世界日期。
+
+  12B Deterministic Random
+  之後會大量使用這個值當 Seed 的一部分。
+*/
+function getGardenWorldDateKey(
+  timestamp =
+    getGardenWorldNow()
+) {
+  return (
+    getGardenWorldCalendarParts(
+      timestamp
+    )?.dateKey ??
+    null
+  );
+}
+
+
+/*
+  一天中的分鐘數。
+
+  例如：
+
+  12:30
+  =
+  750
+*/
+function getGardenWorldMinuteOfDay(
+  timestamp =
+    getGardenWorldNow()
+) {
+  return (
+    getGardenWorldCalendarParts(
+      timestamp
+    )?.minuteOfDay ??
+    null
+  );
+}
+
+
+/*
+  Garden 世界的正式日夜規則：
+
+  Night
+  18:00 ～ 05:59
+
+  Day
+  06:00 ～ 17:59
+*/
+function isGardenWorldNight(
+  timestamp =
+    getGardenWorldNow()
+) {
+  const minuteOfDay =
+    getGardenWorldMinuteOfDay(
+      timestamp
+    );
+
+
+  if (
+    !Number.isFinite(
+      minuteOfDay
+    )
+  ) {
+    return false;
+  }
+
+
+  return (
+    minuteOfDay >=
+      18 * 60 ||
+    minuteOfDay <
+      6 * 60
+  );
+}
+
+
+function getGardenWorldDayNightMode(
+  timestamp =
+    getGardenWorldNow()
+) {
+  return isGardenWorldNight(
+    timestamp
+  )
+    ? "night"
+    : "day";
+}
+
+
+function getGardenWorldCanonicalTimeSnapshot(
+  timestamp =
+    getGardenWorldNow()
+) {
+  const calendar =
+    getGardenWorldCalendarParts(
+      timestamp
+    );
+
+
+  if (!calendar) {
+    return null;
+  }
+
+
+  return {
+    ...calendar,
+
+    instantIso:
+      new Date(
+        timestamp
+      ).toISOString(),
+
+    dayNightMode:
+      getGardenWorldDayNightMode(
+        timestamp
+      ),
+
+    testClock:
+      isGardenWorldClockInTestMode(),
+  };
+}
+
+
 /*
   計算兩個世界 timestamp
   之間經過多久。
@@ -24310,6 +30406,8101 @@ function getGardenWorldElapsedMs(
       fromTimestamp
   );
 }
+
+
+/*
+  Canonical World Time API
+  到這裡已全部初始化完成。
+
+  從此之後 Garden visual time
+  不再依賴玩家 local timezone。
+*/
+gardenCanonicalWorldTimeReady =
+  true;
+
+
+/* =========================
+   Garden Deterministic World Random
+========================= */
+
+/*
+  世界隨機演算法版本。
+
+  非常重要：
+
+  一旦正式 Schedule 開始使用，
+  不要隨便修改既有版本的算法。
+
+  否則同一個日期重新計算時，
+  過去的世界結果會全部改變。
+
+  如果未來真的要換算法，
+  應增加 VERSION。
+*/
+const GARDEN_WORLD_RANDOM_NAMESPACE =
+  "nanahara-world";
+
+const GARDEN_WORLD_RANDOM_VERSION =
+  1;
+
+
+/*
+  將 Key 的每個部分做成
+  不容易碰撞的穩定文字。
+
+  例如：
+
+  ["ab", "c"]
+
+  不會和：
+
+  ["a", "bc"]
+
+  產生相同 key。
+*/
+function serializeGardenWorldRandomKeyPart(
+  value
+) {
+  let text;
+
+  if (value === null) {
+    text = "<null>";
+
+  } else if (
+    value === undefined
+  ) {
+    text = "<undefined>";
+
+  } else {
+    text =
+      String(value);
+  }
+
+
+  return (
+    `${text.length}:${text}`
+  );
+}
+
+
+/*
+  建立正式 World Random Key。
+*/
+function buildGardenWorldRandomKey(
+  ...parts
+) {
+  const namespace =
+    [
+      GARDEN_WORLD_RANDOM_NAMESPACE,
+      `v${GARDEN_WORLD_RANDOM_VERSION}`,
+    ].join("@");
+
+
+  return [
+    namespace,
+
+    ...parts.map(
+      serializeGardenWorldRandomKeyPart
+    ),
+  ].join("|");
+}
+
+
+/*
+  將世界 Key 轉成
+  deterministic uint32。
+
+  使用固定 32-bit integer mixing，
+  不依賴瀏覽器 timezone、
+  locale 或 Math.random()。
+*/
+function hashGardenWorldRandomKey(
+  ...parts
+) {
+  const key =
+    buildGardenWorldRandomKey(
+      ...parts
+    );
+
+
+  let hash =
+    1779033703 ^
+    key.length;
+
+
+  for (
+    let i = 0;
+    i < key.length;
+    i++
+  ) {
+    hash =
+      Math.imul(
+        hash ^
+          key.charCodeAt(i),
+        3432918353
+      );
+
+
+    hash =
+      (hash << 13) |
+      (hash >>> 19);
+  }
+
+
+  hash =
+    Math.imul(
+      hash ^
+        (hash >>> 16),
+      2246822507
+    );
+
+
+  hash =
+    Math.imul(
+      hash ^
+        (hash >>> 13),
+      3266489909
+    );
+
+
+  hash ^=
+    hash >>> 16;
+
+
+  return hash >>> 0;
+}
+
+
+function getGardenWorldDeterministicUnit(
+  ...parts
+) {
+  return (
+    hashGardenWorldRandomKey(
+      ...parts
+    ) /
+    4294967296
+  );
+}
+
+
+/*
+  指定世界日期的 Daily Random。
+
+  dateKey 必須是 Canonical World Date：
+
+  YYYY-MM-DD
+*/
+function getGardenWorldDailyRandomUnit(
+  dateKey,
+  ...parts
+) {
+  if (
+    !dateKey ||
+    typeof dateKey !==
+      "string"
+  ) {
+    return null;
+  }
+
+
+  return (
+    getGardenWorldDeterministicUnit(
+      "daily",
+      dateKey,
+      ...parts
+    )
+  );
+}
+
+
+/*
+  今天的世界 Random。
+
+  日期永遠來自
+  Canonical World Time，
+  不是玩家 local date。
+*/
+function getGardenWorldTodayRandomUnit(
+  ...parts
+) {
+  const dateKey =
+    getGardenWorldDateKey();
+
+
+  if (!dateKey) {
+    return null;
+  }
+
+
+  return (
+    getGardenWorldDailyRandomUnit(
+      dateKey,
+      ...parts
+    )
+  );
+}
+
+
+function getGardenWorldDeterministicRange(
+  min,
+  max,
+  ...parts
+) {
+  if (
+    !Number.isFinite(min) ||
+    !Number.isFinite(max)
+  ) {
+    return null;
+  }
+
+
+  const low =
+    Math.min(
+      min,
+      max
+    );
+
+  const high =
+    Math.max(
+      min,
+      max
+    );
+
+
+  const unit =
+    getGardenWorldDeterministicUnit(
+      ...parts
+    );
+
+
+  return (
+    low +
+    unit *
+      (high - low)
+  );
+}
+
+
+/*
+  inclusive integer：
+
+  min 和 max 都有可能抽到。
+*/
+function getGardenWorldDeterministicInt(
+  min,
+  max,
+  ...parts
+) {
+  if (
+    !Number.isFinite(min) ||
+    !Number.isFinite(max)
+  ) {
+    return null;
+  }
+
+
+  const low =
+    Math.ceil(
+      Math.min(
+        min,
+        max
+      )
+    );
+
+  const high =
+    Math.floor(
+      Math.max(
+        min,
+        max
+      )
+    );
+
+
+  if (
+    high < low
+  ) {
+    return null;
+  }
+
+
+  const unit =
+    getGardenWorldDeterministicUnit(
+      ...parts
+    );
+
+
+  return (
+    low +
+    Math.floor(
+      unit *
+      (high - low + 1)
+    )
+  );
+}
+
+
+function rollGardenWorldDeterministicChance(
+  probability,
+  ...parts
+) {
+  if (
+    !Number.isFinite(
+      probability
+    )
+  ) {
+    return false;
+  }
+
+
+  const safeProbability =
+    Math.max(
+      0,
+      Math.min(
+        1,
+        probability
+      )
+    );
+
+
+  return (
+    getGardenWorldDeterministicUnit(
+      ...parts
+    ) <
+    safeProbability
+  );
+}
+
+
+function pickGardenWorldDeterministic(
+  items,
+  ...parts
+) {
+  if (
+    !Array.isArray(items) ||
+    items.length === 0
+  ) {
+    return null;
+  }
+
+
+  const index =
+    getGardenWorldDeterministicInt(
+      0,
+      items.length - 1,
+      ...parts
+    );
+
+
+  return (
+    items[index] ??
+    null
+  );
+}
+
+
+
+/* =========================
+   Garden World Decision API
+========================= */
+
+const GARDEN_WORLD_DECISION_DEFAULT_CHARACTER =
+  "world";
+
+const GARDEN_WORLD_DECISION_DEFAULT_INSTANCE =
+  "main";
+
+
+function normalizeGardenWorldDecisionToken(
+  value,
+  fallback = null
+) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return fallback;
+  }
+
+
+  const text =
+    String(value).trim();
+
+
+  return (
+    text.length > 0
+      ? text
+      : fallback
+  );
+}
+
+
+function createGardenWorldDailyDecisionDescriptor(
+  options = {}
+) {
+  const dateKey =
+    normalizeGardenWorldDecisionToken(
+      options.dateKey,
+      getGardenWorldDateKey()
+    );
+
+
+  const characterId =
+    normalizeGardenWorldDecisionToken(
+      options.characterId,
+      GARDEN_WORLD_DECISION_DEFAULT_CHARACTER
+    );
+
+
+  const domainId =
+    normalizeGardenWorldDecisionToken(
+      options.domainId
+    );
+
+
+  const subjectId =
+    normalizeGardenWorldDecisionToken(
+      options.subjectId
+    );
+
+
+  const instanceId =
+    normalizeGardenWorldDecisionToken(
+      options.instanceId,
+      GARDEN_WORLD_DECISION_DEFAULT_INSTANCE
+    );
+
+
+  const decisionId =
+    normalizeGardenWorldDecisionToken(
+      options.decisionId
+    );
+
+
+  /*
+    Daily Decision 必須使用
+    Canonical World Date 格式。
+  */
+  if (
+    !dateKey ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      dateKey
+    )
+  ) {
+    console.warn(
+      "[Garden World] invalid decision dateKey:",
+      dateKey
+    );
+
+    return null;
+  }
+
+
+  if (
+    !characterId ||
+    !domainId ||
+    !subjectId ||
+    !instanceId ||
+    !decisionId
+  ) {
+    console.warn(
+      "[Garden World] incomplete decision descriptor:",
+      options
+    );
+
+    return null;
+  }
+
+
+  return Object.freeze({
+    scope:
+      "daily",
+
+    dateKey,
+
+    characterId,
+
+    domainId,
+
+    subjectId,
+
+    instanceId,
+
+    decisionId,
+  });
+}
+
+
+function getGardenWorldDailyDecisionUnit(
+  options = {}
+) {
+  const descriptor =
+    createGardenWorldDailyDecisionDescriptor(
+      options
+    );
+
+
+  if (!descriptor) {
+    return null;
+  }
+
+
+  return (
+    getGardenWorldDailyRandomUnit(
+      descriptor.dateKey,
+
+      descriptor.characterId,
+
+      descriptor.domainId,
+
+      descriptor.subjectId,
+
+      descriptor.instanceId,
+
+      descriptor.decisionId
+    )
+  );
+}
+
+
+function getGardenWorldDailyDecisionInt(
+  options = {}
+) {
+  const min =
+    options.min;
+
+  const max =
+    options.max;
+
+
+  if (
+    !Number.isFinite(min) ||
+    !Number.isFinite(max)
+  ) {
+    return null;
+  }
+
+
+  const low =
+    Math.ceil(
+      Math.min(
+        min,
+        max
+      )
+    );
+
+
+  const high =
+    Math.floor(
+      Math.max(
+        min,
+        max
+      )
+    );
+
+
+  if (
+    high < low
+  ) {
+    return null;
+  }
+
+
+  const unit =
+    getGardenWorldDailyDecisionUnit(
+      options
+    );
+
+
+  if (
+    !Number.isFinite(unit)
+  ) {
+    return null;
+  }
+
+
+  return (
+    low +
+    Math.floor(
+      unit *
+      (high - low + 1)
+    )
+  );
+}
+
+
+function rollGardenWorldDailyDecisionChance(
+  options = {}
+) {
+  const probability =
+    options.probability;
+
+
+  if (
+    !Number.isFinite(
+      probability
+    )
+  ) {
+    return false;
+  }
+
+
+  const safeProbability =
+    Math.max(
+      0,
+      Math.min(
+        1,
+        probability
+      )
+    );
+
+
+  const unit =
+    getGardenWorldDailyDecisionUnit(
+      options
+    );
+
+
+  if (
+    !Number.isFinite(unit)
+  ) {
+    return false;
+  }
+
+
+  return (
+    unit <
+    safeProbability
+  );
+}
+
+
+
+function pickGardenWorldDailyDecision(
+  items,
+  options = {}
+) {
+  if (
+    !Array.isArray(items) ||
+    items.length === 0
+  ) {
+    return null;
+  }
+
+
+  const index =
+    getGardenWorldDailyDecisionInt({
+      ...options,
+
+      min:
+        0,
+
+      max:
+        items.length - 1,
+    });
+
+
+  if (
+    !Number.isInteger(index)
+  ) {
+    return null;
+  }
+
+
+  return (
+    items[index] ??
+    null
+  );
+}
+
+
+function inspectGardenWorldDailyDecision(
+  options = {}
+) {
+  const descriptor =
+    createGardenWorldDailyDecisionDescriptor(
+      options
+    );
+
+
+  if (!descriptor) {
+    return null;
+  }
+
+
+  const randomParts = [
+    "daily",
+
+    descriptor.dateKey,
+
+    descriptor.characterId,
+
+    descriptor.domainId,
+
+    descriptor.subjectId,
+
+    descriptor.instanceId,
+
+    descriptor.decisionId,
+  ];
+
+
+  const key =
+    buildGardenWorldRandomKey(
+      ...randomParts
+    );
+
+
+  const hash =
+    hashGardenWorldRandomKey(
+      ...randomParts
+    );
+
+
+  const unit =
+    getGardenWorldDailyDecisionUnit(
+      descriptor
+    );
+
+
+  return {
+    descriptor,
+
+    key,
+
+    hash,
+
+    unit,
+  };
+}
+
+function getGardenWorldDailyDecisionDebugReport(
+  dateKey =
+    getGardenWorldDateKey()
+) {
+  if (!dateKey) {
+    return null;
+  }
+
+
+  /*
+    -------------------------
+    Probe 1：
+    午餐開始時間測試
+    -------------------------
+
+    11:40 ～ 13:10
+    =
+    700 ～ 790 分鐘
+  */
+  const lunchStartProbe =
+    getGardenWorldDailyDecisionInt({
+      dateKey,
+
+      characterId:
+        "chifuyu",
+
+      domainId:
+        "debug",
+
+      subjectId:
+        "lunchProbe",
+
+      instanceId:
+        "main",
+
+      decisionId:
+        "startMinute",
+
+      min:
+        700,
+
+      max:
+        790,
+    });
+
+
+  /*
+    -------------------------
+    Probe 2：
+    Activity Choice
+    -------------------------
+  */
+  const activityChoiceProbe =
+    pickGardenWorldDailyDecision(
+      [
+        "read",
+        "walk",
+        "tea",
+      ],
+      {
+        dateKey,
+
+        characterId:
+          "chinatsu",
+
+        domainId:
+          "debug",
+
+        subjectId:
+          "freeTimeProbe",
+
+        instanceId:
+          "slot-01",
+
+        decisionId:
+          "activityChoice",
+      }
+    );
+
+
+  /*
+    -------------------------
+    Probe 3：
+    Rare Event
+    -------------------------
+  */
+  const rareEventProbe =
+    rollGardenWorldDailyDecisionChance({
+      dateKey,
+
+      characterId:
+        "chinatsu",
+
+      domainId:
+        "debug",
+
+      subjectId:
+        "rareEventProbe",
+
+      instanceId:
+        "main",
+
+      decisionId:
+        "trigger",
+
+      probability:
+        0.1,
+    });
+
+
+  return {
+    debugOnly:
+      true,
+
+    dateKey,
+
+    lunchStartProbe,
+
+    activityChoiceProbe,
+
+    rareEventProbe,
+  };
+}
+
+/* =========================
+   Garden Schedule Data Model
+========================= */
+
+const GARDEN_SCHEDULE_INTENT_SCHEMA =
+  "nanaharaGardenScheduleIntent";
+
+const GARDEN_SCHEDULE_INTENT_VERSION =
+  1;
+
+
+/*
+  Schedule Priority
+
+  目前只是資料語意。
+
+  未來 Condition / Event Resolver
+  才會真正拿它處理衝突。
+*/
+const GARDEN_SCHEDULE_PRIORITY =
+  Object.freeze({
+    LOW: 25,
+    NORMAL: 50,
+    HIGH: 75,
+    CRITICAL: 100,
+  });
+
+
+/*
+  Intent 原定時間錯過之後
+  應採取的策略。
+
+  SKIP
+  → 今天就不做了。
+
+  DEFER
+  → 延後執行同一件事。
+
+  COMPENSATE
+  → 原活動錯過，
+     之後產生替代活動。
+
+  例如：
+  Dinner 錯過
+  → LateMeal
+*/
+const GARDEN_SCHEDULE_LATE_POLICY =
+  Object.freeze({
+    SKIP: "skip",
+    DEFER: "defer",
+    COMPENSATE: "compensate",
+  });
+
+
+function parseGardenScheduleTime(
+  timeText
+) {
+  const match =
+    String(
+      timeText ?? ""
+    ).match(
+      /^(\d{1,2}):(\d{2})$/
+    );
+
+
+  if (!match) {
+    return null;
+  }
+
+
+  const hour =
+    Number(
+      match[1]
+    );
+
+  const minute =
+    Number(
+      match[2]
+    );
+
+
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return null;
+  }
+
+
+  return (
+    hour * 60 +
+    minute
+  );
+}
+
+
+function formatGardenScheduleMinute(
+  minuteOfDay
+) {
+  if (
+    !Number.isFinite(
+      minuteOfDay
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    支援跨日資料。
+
+    例如：
+    1470
+    → 下一日 00:30
+  */
+  const normalized =
+    (
+      Math.floor(
+        minuteOfDay
+      ) %
+        1440 +
+      1440
+    ) %
+    1440;
+
+
+  const hour =
+    Math.floor(
+      normalized / 60
+    );
+
+  const minute =
+    normalized % 60;
+
+
+  return (
+    `${String(hour).padStart(2, "0")}:` +
+    `${String(minute).padStart(2, "0")}`
+  );
+}
+
+function createGardenScheduleWindow(
+  startTime,
+  endTime
+) {
+  const startMinute =
+    parseGardenScheduleTime(
+      startTime
+    );
+
+  const endMinute =
+    parseGardenScheduleTime(
+      endTime
+    );
+
+
+  if (
+    !Number.isInteger(
+      startMinute
+    ) ||
+    !Number.isInteger(
+      endMinute
+    )
+  ) {
+    console.warn(
+      "[Garden Schedule] invalid window:",
+      startTime,
+      endTime
+    );
+
+    return null;
+  }
+
+
+  /*
+    例如：
+
+    11:40 → 13:10
+    不跨日。
+
+    22:30 → 00:30
+    跨到下一天。
+  */
+  const wrapsNextDay =
+    endMinute <
+    startMinute;
+
+
+  const spanMinutes =
+    wrapsNextDay
+      ? (
+          1440 -
+          startMinute +
+          endMinute
+        )
+      : (
+          endMinute -
+          startMinute
+        );
+
+
+  return Object.freeze({
+    startTime:
+      formatGardenScheduleMinute(
+        startMinute
+      ),
+
+    endTime:
+      formatGardenScheduleMinute(
+        endMinute
+      ),
+
+    startMinute,
+
+    endMinute,
+
+    wrapsNextDay,
+
+    spanMinutes,
+  });
+}
+
+
+function createGardenScheduleDurationRange(
+  minMinutes,
+  maxMinutes = minMinutes
+) {
+  if (
+    !Number.isFinite(
+      minMinutes
+    ) ||
+    !Number.isFinite(
+      maxMinutes
+    )
+  ) {
+    return null;
+  }
+
+
+  const min =
+    Math.floor(
+      minMinutes
+    );
+
+  const max =
+    Math.floor(
+      maxMinutes
+    );
+
+
+  if (
+    min < 0 ||
+    max < 0 ||
+    max < min
+  ) {
+    console.warn(
+      "[Garden Schedule] invalid duration range:",
+      minMinutes,
+      maxMinutes
+    );
+
+    return null;
+  }
+
+
+  return Object.freeze({
+    minMinutes:
+      min,
+
+    maxMinutes:
+      max,
+
+    fixed:
+      min === max,
+  });
+}
+
+
+function normalizeGardenScheduleActivityCandidates(
+  values
+) {
+  if (
+    !Array.isArray(values)
+  ) {
+    return Object.freeze([]);
+  }
+
+
+  const normalized =
+    [];
+
+
+  for (
+    const value of
+    values
+  ) {
+    const activityId =
+      normalizeGardenWorldDecisionToken(
+        value
+      );
+
+
+    if (
+      !activityId ||
+      normalized.includes(
+        activityId
+      )
+    ) {
+      continue;
+    }
+
+
+    normalized.push(
+      activityId
+    );
+  }
+
+
+  return Object.freeze(
+    normalized
+  );
+}
+
+function createGardenScheduleIntentDefinition(
+  options = {}
+) {
+  const id =
+    normalizeGardenWorldDecisionToken(
+      options.id
+    );
+
+
+  const characterId =
+    normalizeGardenWorldDecisionToken(
+      options.characterId
+    );
+
+
+  const intentId =
+    normalizeGardenWorldDecisionToken(
+      options.intentId
+    );
+
+
+  const instanceId =
+    normalizeGardenWorldDecisionToken(
+      options.instanceId,
+      "main"
+    );
+
+
+  if (
+    !id ||
+    !characterId ||
+    !intentId ||
+    !instanceId
+  ) {
+    console.warn(
+      "[Garden Schedule] incomplete intent definition:",
+      options
+    );
+
+    return null;
+  }
+
+
+  const window =
+    createGardenScheduleWindow(
+      options.windowStart,
+      options.windowEnd
+    );
+
+
+  if (!window) {
+    return null;
+  }
+
+
+  const duration =
+    createGardenScheduleDurationRange(
+      options.durationMinMinutes ??
+        0,
+
+      options.durationMaxMinutes ??
+        options.durationMinMinutes ??
+        0
+    );
+
+
+  if (!duration) {
+    return null;
+  }
+
+
+  const rawPriority =
+    Number.isFinite(
+      options.priority
+    )
+      ? options.priority
+      : GARDEN_SCHEDULE_PRIORITY
+          .NORMAL;
+
+
+  const priority =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        rawPriority
+      )
+    );
+
+
+  const sceneId =
+    normalizeGardenWorldDecisionToken(
+      options.sceneId
+    );
+
+
+  const spotId =
+    normalizeGardenWorldDecisionToken(
+      options.spotId
+    );
+
+
+  const activityId =
+    normalizeGardenWorldDecisionToken(
+      options.activityId
+    );
+
+
+  const activityCandidates =
+    normalizeGardenScheduleActivityCandidates(
+      options.activityCandidates
+    );
+
+
+  const fallbackActivityId =
+    normalizeGardenWorldDecisionToken(
+      options.fallbackActivityId,
+      "wander"
+    );
+
+
+  const requestedLatePolicy =
+    normalizeGardenWorldDecisionToken(
+      options.latePolicy,
+      GARDEN_SCHEDULE_LATE_POLICY
+        .SKIP
+    );
+
+
+  const validLatePolicies =
+    Object.values(
+      GARDEN_SCHEDULE_LATE_POLICY
+    );
+
+
+  const latePolicy =
+    validLatePolicies.includes(
+      requestedLatePolicy
+    )
+      ? requestedLatePolicy
+      : GARDEN_SCHEDULE_LATE_POLICY
+          .SKIP;
+
+
+  const maxDelayMinutes =
+    Number.isFinite(
+      options.maxDelayMinutes
+    )
+      ? Math.max(
+          0,
+          Math.floor(
+            options.maxDelayMinutes
+          )
+        )
+      : null;
+
+
+  const tags =
+    Array.isArray(
+      options.tags
+    )
+      ? Object.freeze(
+          [
+            ...new Set(
+              options.tags
+                .map((value) =>
+                  normalizeGardenWorldDecisionToken(
+                    value
+                  )
+                )
+                .filter(Boolean)
+            ),
+          ]
+        )
+      : Object.freeze([]);
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_SCHEDULE_INTENT_SCHEMA,
+
+    version:
+      GARDEN_SCHEDULE_INTENT_VERSION,
+
+    id,
+
+    characterId,
+
+    intentId,
+
+    instanceId,
+
+    window,
+
+    duration,
+
+    priority,
+
+    target:
+      Object.freeze({
+        sceneId,
+        spotId,
+      }),
+
+    activity:
+      Object.freeze({
+        activityId,
+        candidates:
+          activityCandidates,
+
+        fallbackActivityId,
+      }),
+
+    flexibility:
+      Object.freeze({
+        canDelay:
+          options.canDelay !==
+          false,
+
+        canBeOverridden:
+          options.canBeOverridden !==
+          false,
+
+        latePolicy,
+
+        maxDelayMinutes,
+      }),
+
+    tags,
+  });
+}
+
+function isValidGardenScheduleIntentDefinition(
+  definition
+) {
+  if (
+    !definition ||
+    typeof definition !==
+      "object"
+  ) {
+    return false;
+  }
+
+
+  if (
+    definition.schema !==
+      GARDEN_SCHEDULE_INTENT_SCHEMA ||
+    definition.version !==
+      GARDEN_SCHEDULE_INTENT_VERSION
+  ) {
+    return false;
+  }
+
+
+  if (
+    !definition.id ||
+    !definition.characterId ||
+    !definition.intentId ||
+    !definition.window ||
+    !definition.duration
+  ) {
+    return false;
+  }
+
+
+  if (
+    !Number.isInteger(
+      definition.window.startMinute
+    ) ||
+    !Number.isInteger(
+      definition.window.endMinute
+    )
+  ) {
+    return false;
+  }
+
+
+  return true;
+}
+
+function getGardenScheduleDataModelDebugSamples() {
+  const lunch =
+    createGardenScheduleIntentDefinition({
+      id:
+        "debug-chifuyu-lunch",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "lunch",
+
+      windowStart:
+        "11:40",
+
+      windowEnd:
+        "13:10",
+
+      durationMinMinutes:
+        30,
+
+      durationMaxMinutes:
+        50,
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .HIGH,
+
+      activityId:
+        "meal",
+
+      fallbackActivityId:
+        "wander",
+
+      canDelay:
+        true,
+
+      canBeOverridden:
+        true,
+
+      latePolicy:
+        GARDEN_SCHEDULE_LATE_POLICY
+          .COMPENSATE,
+
+      maxDelayMinutes:
+        120,
+
+      tags: [
+        "meal",
+        "routine",
+      ],
+    });
+
+
+  const afternoonFree =
+    createGardenScheduleIntentDefinition({
+      id:
+        "debug-chinatsu-afternoon-free",
+
+      characterId:
+        "chinatsu",
+
+      intentId:
+        "afternoonFree",
+
+      instanceId:
+        "slot-01",
+
+      windowStart:
+        "13:00",
+
+      windowEnd:
+        "17:00",
+
+      durationMinMinutes:
+        35,
+
+      durationMaxMinutes:
+        90,
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .NORMAL,
+
+      activityCandidates: [
+        "read",
+        "walk",
+        "tea",
+      ],
+
+      fallbackActivityId:
+        "wander",
+
+      latePolicy:
+        GARDEN_SCHEDULE_LATE_POLICY
+          .SKIP,
+
+      tags: [
+        "freeTime",
+      ],
+    });
+
+
+  const eveningBridge =
+    createGardenScheduleIntentDefinition({
+      id:
+        "debug-chifuyu-evening-bridge",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "eveningBridge",
+
+      windowStart:
+        "19:00",
+
+      windowEnd:
+        "22:30",
+
+      durationMinMinutes:
+        30,
+
+      durationMaxMinutes:
+        75,
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .LOW,
+
+      sceneId:
+        "moonBridge",
+
+      activityCandidates: [
+        "walk",
+        "tea",
+      ],
+
+      fallbackActivityId:
+        "wander",
+
+      canDelay:
+        true,
+
+      latePolicy:
+        GARDEN_SCHEDULE_LATE_POLICY
+          .SKIP,
+
+      tags: [
+        "freeTime",
+        "outdoor",
+      ],
+    });
+
+
+  return Object.freeze({
+    debugOnly:
+      true,
+
+    lunch,
+
+    afternoonFree,
+
+    eveningBridge,
+
+    allValid:
+      [
+        lunch,
+        afternoonFree,
+        eveningBridge,
+      ].every(
+        isValidGardenScheduleIntentDefinition
+      ),
+  });
+}
+
+
+/* =========================
+   Garden Daily Schedule Generator
+========================= */
+
+const GARDEN_DAILY_SCHEDULE_SCHEMA =
+  "nanaharaGardenDailySchedule";
+
+const GARDEN_DAILY_SCHEDULE_VERSION =
+  1;
+
+const GARDEN_DAILY_SCHEDULE_ENTRY_SCHEMA =
+  "nanaharaGardenScheduleEntry";
+
+const GARDEN_DAILY_SCHEDULE_ENTRY_VERSION =
+  1;
+
+function splitGardenScheduleTimelineMinute(
+  timelineMinute
+) {
+  if (
+    !Number.isFinite(
+      timelineMinute
+    )
+  ) {
+    return null;
+  }
+
+
+  const safeMinute =
+    Math.floor(
+      timelineMinute
+    );
+
+
+  const dayOffset =
+    Math.floor(
+      safeMinute / 1440
+    );
+
+
+  const minuteOfDay =
+    (
+      safeMinute % 1440 +
+      1440
+    ) % 1440;
+
+
+  return Object.freeze({
+    timelineMinute:
+      safeMinute,
+
+    dayOffset,
+
+    minuteOfDay,
+
+    time:
+      formatGardenScheduleMinute(
+        minuteOfDay
+      ),
+  });
+}
+
+
+function generateGardenDailyScheduleDuration(
+  definition,
+  dateKey
+) {
+  if (
+    !isValidGardenScheduleIntentDefinition(
+      definition
+    )
+  ) {
+    return null;
+  }
+
+
+  const {
+    minMinutes,
+    maxMinutes,
+  } =
+    definition.duration;
+
+
+  /*
+    固定 Duration 不需要 Random。
+  */
+  if (
+    minMinutes ===
+    maxMinutes
+  ) {
+    return minMinutes;
+  }
+
+
+  return (
+    getGardenWorldDailyDecisionInt({
+      dateKey,
+
+      characterId:
+        definition.characterId,
+
+      domainId:
+        "schedule",
+
+      subjectId:
+        definition.intentId,
+
+      instanceId:
+        definition.instanceId,
+
+      decisionId:
+        "durationMinutes",
+
+      min:
+        minMinutes,
+
+      max:
+        maxMinutes,
+    })
+  );
+}
+
+
+
+function generateGardenDailyScheduleActivity(
+  definition,
+  dateKey
+) {
+  if (
+    !isValidGardenScheduleIntentDefinition(
+      definition
+    )
+  ) {
+    return null;
+  }
+
+
+  const activity =
+    definition.activity;
+
+
+  /*
+    明確指定 Activity：
+    直接使用，不需要抽。
+  */
+  if (
+    activity.activityId
+  ) {
+    return Object.freeze({
+      selectedActivityId:
+        activity.activityId,
+
+      source:
+        "fixed",
+
+      fallbackActivityId:
+        activity.fallbackActivityId,
+    });
+  }
+
+
+  /*
+    有候選清單：
+    用 World Decision 選今天那個。
+  */
+  if (
+    activity.candidates.length >
+    0
+  ) {
+    const selected =
+      pickGardenWorldDailyDecision(
+        activity.candidates,
+        {
+          dateKey,
+
+          characterId:
+            definition.characterId,
+
+          domainId:
+            "schedule",
+
+          subjectId:
+            definition.intentId,
+
+          instanceId:
+            definition.instanceId,
+
+          decisionId:
+            "activityChoice",
+        }
+      );
+
+
+    return Object.freeze({
+      selectedActivityId:
+        selected,
+
+      source:
+        "candidate",
+
+      fallbackActivityId:
+        activity.fallbackActivityId,
+    });
+  }
+
+
+  /*
+    沒有正式 Activity：
+    直接留下 fallback。
+  */
+  return Object.freeze({
+    selectedActivityId:
+      activity.fallbackActivityId,
+
+    source:
+      "fallback",
+
+    fallbackActivityId:
+      activity.fallbackActivityId,
+  });
+}
+
+
+
+function generateGardenDailyScheduleStartMinute(
+  definition,
+  dateKey,
+  durationMinutes
+) {
+  if (
+    !isValidGardenScheduleIntentDefinition(
+      definition
+    ) ||
+    !Number.isFinite(
+      durationMinutes
+    )
+  ) {
+    return null;
+  }
+
+
+  const window =
+    definition.window;
+
+
+  /*
+    Window 代表：
+
+    「允許開始 Activity 的時間範圍」
+
+    Duration 可以超過 Window 尾端。
+
+    例如：
+
+    Lunch Window
+    11:40 ～ 13:10
+
+    13:05 開始、
+    13:45 結束
+
+    是合法的。
+  */
+  const windowStart =
+    window.startMinute;
+
+
+  const windowEnd =
+    window.startMinute +
+    window.spanMinutes;
+
+
+  /*
+    固定開始時間。
+  */
+  if (
+    windowEnd ===
+    windowStart
+  ) {
+    return windowStart;
+  }
+
+
+  return (
+    getGardenWorldDailyDecisionInt({
+      dateKey,
+
+      characterId:
+        definition.characterId,
+
+      domainId:
+        "schedule",
+
+      subjectId:
+        definition.intentId,
+
+      instanceId:
+        definition.instanceId,
+
+      decisionId:
+        "startMinute",
+
+      min:
+        windowStart,
+
+      max:
+        windowEnd,
+    })
+  );
+}
+
+function generateGardenDailyScheduleEntry(
+  definition,
+  dateKey =
+    getGardenWorldDateKey()
+) {
+  if (
+    !isValidGardenScheduleIntentDefinition(
+      definition
+    )
+  ) {
+    return null;
+  }
+
+
+  if (
+    !dateKey ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      dateKey
+    )
+  ) {
+    return null;
+  }
+
+
+  const durationMinutes =
+    generateGardenDailyScheduleDuration(
+      definition,
+      dateKey
+    );
+
+
+  if (
+    !Number.isFinite(
+      durationMinutes
+    )
+  ) {
+    return null;
+  }
+
+
+  const startTimelineMinute =
+    generateGardenDailyScheduleStartMinute(
+      definition,
+      dateKey,
+      durationMinutes
+    );
+
+
+  if (
+    !Number.isFinite(
+      startTimelineMinute
+    )
+  ) {
+    return null;
+  }
+
+
+  const endTimelineMinute =
+    startTimelineMinute +
+    durationMinutes;
+
+
+  const start =
+    splitGardenScheduleTimelineMinute(
+      startTimelineMinute
+    );
+
+
+  const end =
+    splitGardenScheduleTimelineMinute(
+      endTimelineMinute
+    );
+
+
+  if (
+    !start ||
+    !end
+  ) {
+    return null;
+  }
+
+
+  const activity =
+    generateGardenDailyScheduleActivity(
+      definition,
+      dateKey
+    );
+
+
+  if (!activity) {
+    return null;
+  }
+
+
+  /*
+    是否完整落在原始 Window 裡。
+
+    未來 Event Resolver / Inspector
+    可以拿來判斷異常。
+  */
+  const windowStartTimeline =
+  definition.window
+    .startMinute;
+
+
+const windowEndTimeline =
+  windowStartTimeline +
+  definition.window
+    .spanMinutes;
+
+
+/*
+  Window 是 Start Window。
+
+  所以只判斷：
+  Activity 的開始時間
+  是否仍位於原本允許區間。
+*/
+const fitsOriginalWindow =
+  startTimelineMinute >=
+    windowStartTimeline &&
+  startTimelineMinute <=
+    windowEndTimeline;
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_DAILY_SCHEDULE_ENTRY_SCHEMA,
+
+    version:
+      GARDEN_DAILY_SCHEDULE_ENTRY_VERSION,
+
+    dateKey,
+
+    definitionId:
+      definition.id,
+
+    characterId:
+      definition.characterId,
+
+    intentId:
+      definition.intentId,
+
+    instanceId:
+      definition.instanceId,
+
+window:
+  definition.window,
+
+    start,
+
+    end,
+
+    durationMinutes,
+
+    priority:
+      definition.priority,
+
+    target:
+      definition.target,
+
+    activity,
+
+    flexibility:
+      definition.flexibility,
+
+    tags:
+      definition.tags,
+
+    fitsOriginalWindow,
+  });
+}
+
+
+function generateGardenDailySchedule(
+  definitions,
+  dateKey =
+    getGardenWorldDateKey()
+) {
+  if (
+    !Array.isArray(
+      definitions
+    ) ||
+    !dateKey ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      dateKey
+    )
+  ) {
+    return null;
+  }
+
+
+  const entries =
+    [];
+
+
+  for (
+    const definition of
+    definitions
+  ) {
+    if (
+      !isValidGardenScheduleIntentDefinition(
+        definition
+      )
+    ) {
+      continue;
+    }
+
+
+    const entry =
+      generateGardenDailyScheduleEntry(
+        definition,
+        dateKey
+      );
+
+
+    if (entry) {
+      entries.push(
+        entry
+      );
+    }
+  }
+
+
+  /*
+    按開始時間排序。
+
+    同時開始時：
+    高 Priority 優先。
+
+    再相同：
+    用 ID 保證排序穩定。
+  */
+  entries.sort(
+    (a, b) => {
+      const timeDiff =
+        a.start.timelineMinute -
+        b.start.timelineMinute;
+
+
+      if (
+        timeDiff !== 0
+      ) {
+        return timeDiff;
+      }
+
+
+      const priorityDiff =
+        b.priority -
+        a.priority;
+
+
+      if (
+        priorityDiff !== 0
+      ) {
+        return priorityDiff;
+      }
+
+
+      return (
+        a.definitionId.localeCompare(
+          b.definitionId
+        )
+      );
+    }
+  );
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_DAILY_SCHEDULE_SCHEMA,
+
+    version:
+      GARDEN_DAILY_SCHEDULE_VERSION,
+
+    dateKey,
+
+    entries:
+      Object.freeze(
+        entries
+      ),
+  });
+}
+
+
+function getGardenDailyScheduleGeneratorDebugReport(
+  dateKey =
+    getGardenWorldDateKey()
+) {
+  const samples =
+    getGardenScheduleDataModelDebugSamples();
+
+
+  if (
+    !samples ||
+    !samples.allValid
+  ) {
+    return null;
+  }
+
+
+  const definitions = [
+    samples.lunch,
+    samples.afternoonFree,
+    samples.eveningBridge,
+  ];
+
+
+  const schedule =
+    generateGardenDailySchedule(
+      definitions,
+      dateKey
+    );
+
+
+  if (!schedule) {
+    return null;
+  }
+
+
+  return {
+    debugOnly:
+      true,
+
+    dateKey,
+
+    schedule,
+
+    summary:
+      schedule.entries.map(
+        (entry) => ({
+          character:
+            entry.characterId,
+
+          intent:
+            entry.intentId,
+
+          start:
+            (
+              entry.start.dayOffset >
+              0
+                ? `+${entry.start.dayOffset} `
+                : ""
+            ) +
+            entry.start.time,
+
+          end:
+            (
+              entry.end.dayOffset >
+              0
+                ? `+${entry.end.dayOffset} `
+                : ""
+            ) +
+            entry.end.time,
+
+          duration:
+            entry.durationMinutes,
+
+          activity:
+            entry.activity
+              .selectedActivityId,
+
+          scene:
+            entry.target
+              .sceneId,
+
+          priority:
+            entry.priority,
+        })
+      ),
+  };
+}
+
+/* =========================
+   Garden Schedule Override Model
+========================= */
+
+const GARDEN_SCHEDULE_OVERRIDE_SCHEMA =
+  "nanaharaGardenScheduleOverride";
+
+const GARDEN_SCHEDULE_OVERRIDE_VERSION =
+  1;
+
+
+const GARDEN_SCHEDULE_OVERRIDE_ACTION =
+  Object.freeze({
+    CANCEL:
+      "cancel",
+
+    SHIFT:
+      "shift",
+  });
+
+function createGardenScheduleOverrideDefinition(
+  options = {}
+) {
+  const id =
+    normalizeGardenWorldDecisionToken(
+      options.id
+    );
+
+
+  const eventId =
+    normalizeGardenWorldDecisionToken(
+      options.eventId
+    );
+
+
+  const action =
+    normalizeGardenWorldDecisionToken(
+      options.action
+    );
+
+
+  if (
+    !id ||
+    !eventId ||
+    !Object.values(
+      GARDEN_SCHEDULE_OVERRIDE_ACTION
+    ).includes(
+      action
+    )
+  ) {
+    return null;
+  }
+
+
+  const target =
+    Object.freeze({
+      definitionId:
+        normalizeGardenWorldDecisionToken(
+          options.targetDefinitionId
+        ),
+
+      characterId:
+        normalizeGardenWorldDecisionToken(
+          options.targetCharacterId
+        ),
+
+      intentId:
+        normalizeGardenWorldDecisionToken(
+          options.targetIntentId
+        ),
+
+      instanceId:
+        normalizeGardenWorldDecisionToken(
+          options.targetInstanceId
+        ),
+    });
+
+
+  /*
+    至少必須指定一種 Target。
+  */
+  if (
+    !target.definitionId &&
+    !target.characterId &&
+    !target.intentId &&
+    !target.instanceId
+  ) {
+    return null;
+  }
+
+
+  const priority =
+    Number.isFinite(
+      options.priority
+    )
+      ? options.priority
+      : 50;
+
+
+  let shiftMinutes =
+    0;
+
+
+  if (
+    action ===
+      GARDEN_SCHEDULE_OVERRIDE_ACTION
+        .SHIFT
+  ) {
+    if (
+      !Number.isFinite(
+        options.shiftMinutes
+      )
+    ) {
+      return null;
+    }
+
+
+    shiftMinutes =
+      Math.trunc(
+        options.shiftMinutes
+      );
+  }
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_SCHEDULE_OVERRIDE_SCHEMA,
+
+    version:
+      GARDEN_SCHEDULE_OVERRIDE_VERSION,
+
+    id,
+
+    eventId,
+
+    action,
+
+    priority,
+
+    target,
+
+    shiftMinutes,
+
+    tags:
+      Object.freeze(
+        Array.isArray(
+          options.tags
+        )
+          ? [
+              ...new Set(
+                options.tags
+                  .map(
+                    (value) =>
+                      normalizeGardenWorldDecisionToken(
+                        value
+                      )
+                  )
+                  .filter(Boolean)
+              ),
+            ]
+          : []
+      ),
+  });
+}
+
+function doesGardenScheduleOverrideMatchEntry(
+  override,
+  entry
+) {
+  if (
+    !override ||
+    override.schema !==
+      GARDEN_SCHEDULE_OVERRIDE_SCHEMA ||
+    !entry
+  ) {
+    return false;
+  }
+
+
+  const target =
+    override.target;
+
+
+  if (
+    target.definitionId &&
+    entry.definitionId !==
+      target.definitionId
+  ) {
+    return false;
+  }
+
+
+  if (
+    target.characterId &&
+    entry.characterId !==
+      target.characterId
+  ) {
+    return false;
+  }
+
+
+  if (
+    target.intentId &&
+    entry.intentId !==
+      target.intentId
+  ) {
+    return false;
+  }
+
+
+  if (
+    target.instanceId &&
+    entry.instanceId !==
+      target.instanceId
+  ) {
+    return false;
+  }
+
+
+  return true;
+}
+
+function getActiveGardenScheduleOverrides(
+  overrideDefinitions,
+  eventResolution
+) {
+  if (
+    !Array.isArray(
+      overrideDefinitions
+    ) ||
+    !eventResolution ||
+    !Array.isArray(
+      eventResolution.triggeredEvents
+    )
+  ) {
+    return [];
+  }
+
+
+  const triggeredEventIds =
+    new Set(
+      eventResolution
+        .triggeredEvents
+        .map(
+          (event) =>
+            event.eventId
+        )
+    );
+
+
+  return (
+    overrideDefinitions
+      .filter(
+        (override) =>
+          override &&
+          override.schema ===
+            GARDEN_SCHEDULE_OVERRIDE_SCHEMA &&
+          triggeredEventIds.has(
+            override.eventId
+          )
+      )
+      .sort(
+        (a, b) => {
+          const priorityDiff =
+            b.priority -
+            a.priority;
+
+
+          if (
+            priorityDiff !== 0
+          ) {
+            return priorityDiff;
+          }
+
+
+          return (
+            a.id.localeCompare(
+              b.id
+            )
+          );
+        }
+      )
+  );
+}
+
+
+function shiftGardenScheduleEntry(
+  entry,
+  override
+) {
+  if (
+    !entry ||
+    !override ||
+    override.action !==
+      GARDEN_SCHEDULE_OVERRIDE_ACTION
+        .SHIFT
+  ) {
+    return null;
+  }
+
+
+  const shiftMinutes =
+    override.shiftMinutes;
+
+
+  const startTimelineMinute =
+    entry.start.timelineMinute +
+    shiftMinutes;
+
+
+  const endTimelineMinute =
+    entry.end.timelineMinute +
+    shiftMinutes;
+
+
+  const start =
+    splitGardenScheduleTimelineMinute(
+      startTimelineMinute
+    );
+
+
+  const end =
+    splitGardenScheduleTimelineMinute(
+      endTimelineMinute
+    );
+
+
+  if (
+    !start ||
+    !end
+  ) {
+    return null;
+  }
+
+
+  /*
+    Override 後重新判斷
+    是否還落在原始 Window。
+  */
+  let fitsOriginalWindow =
+    entry.fitsOriginalWindow;
+
+
+  if (entry.window) {
+    const windowStart =
+      entry.window.startMinute;
+
+    const windowEnd =
+      windowStart +
+      entry.window.spanMinutes;
+
+
+    fitsOriginalWindow =
+  startTimelineMinute >=
+    windowStart &&
+  startTimelineMinute <=
+    windowEnd;
+  }
+
+
+  const previousHistory =
+    Array.isArray(
+      entry.overrideHistory
+    )
+      ? entry.overrideHistory
+      : [];
+
+
+  return Object.freeze({
+    ...entry,
+
+    start,
+
+    end,
+
+    fitsOriginalWindow,
+
+    overrideHistory:
+      Object.freeze([
+        ...previousHistory,
+
+        Object.freeze({
+          overrideId:
+            override.id,
+
+          eventId:
+            override.eventId,
+
+          action:
+            override.action,
+
+          shiftMinutes,
+        }),
+      ]),
+  });
+}
+
+function applyGardenScheduleOverrides(
+  schedule,
+  overrideDefinitions,
+  eventResolution
+) {
+  if (
+    !isValidGardenDailySchedule(
+      schedule
+    )
+  ) {
+    return null;
+  }
+
+
+  const activeOverrides =
+    getActiveGardenScheduleOverrides(
+      overrideDefinitions,
+      eventResolution
+    );
+
+
+  const effectiveEntries =
+    [];
+
+
+  const appliedOverrides =
+    [];
+
+
+  const cancelledEntries =
+    [];
+
+
+  for (
+    const entry of
+    schedule.entries
+  ) {
+    const matching =
+      activeOverrides.filter(
+        (override) =>
+          doesGardenScheduleOverrideMatchEntry(
+            override,
+            entry
+          )
+      );
+
+
+    /*
+      同一 Entry 同時命中多個 Override：
+
+      高 Priority 的第一個勝出。
+
+      暫時不做多個 Override 疊加，
+      避免結果變得難以追蹤。
+    */
+    const winner =
+      matching[0] ??
+      null;
+
+
+    if (!winner) {
+      effectiveEntries.push(
+        entry
+      );
+
+      continue;
+    }
+
+
+    if (
+      winner.action ===
+        GARDEN_SCHEDULE_OVERRIDE_ACTION
+          .CANCEL
+    ) {
+      cancelledEntries.push(
+        entry
+      );
+
+
+      appliedOverrides.push({
+        overrideId:
+          winner.id,
+
+        eventId:
+          winner.eventId,
+
+        action:
+          winner.action,
+
+        definitionId:
+          entry.definitionId,
+      });
+
+
+      continue;
+    }
+
+
+    if (
+      winner.action ===
+        GARDEN_SCHEDULE_OVERRIDE_ACTION
+          .SHIFT
+    ) {
+      const shiftedEntry =
+        shiftGardenScheduleEntry(
+          entry,
+          winner
+        );
+
+
+      if (shiftedEntry) {
+        effectiveEntries.push(
+          shiftedEntry
+        );
+
+
+        appliedOverrides.push({
+          overrideId:
+            winner.id,
+
+          eventId:
+            winner.eventId,
+
+          action:
+            winner.action,
+
+          definitionId:
+            entry.definitionId,
+
+          shiftMinutes:
+            winner.shiftMinutes,
+        });
+
+
+        continue;
+      }
+    }
+
+
+    /*
+      Override 失敗時保守保留原 Entry。
+    */
+    effectiveEntries.push(
+      entry
+    );
+  }
+
+
+  /*
+    SHIFT 後時間順序可能改變，
+    所以重新排序。
+  */
+  effectiveEntries.sort(
+    (a, b) => {
+      const timeDiff =
+        a.start.timelineMinute -
+        b.start.timelineMinute;
+
+
+      if (
+        timeDiff !== 0
+      ) {
+        return timeDiff;
+      }
+
+
+      const priorityDiff =
+        b.priority -
+        a.priority;
+
+
+      if (
+        priorityDiff !== 0
+      ) {
+        return priorityDiff;
+      }
+
+
+      return (
+        a.definitionId.localeCompare(
+          b.definitionId
+        )
+      );
+    }
+  );
+
+
+  const effectiveSchedule =
+    Object.freeze({
+      schema:
+        schedule.schema,
+
+      version:
+        schedule.version,
+
+      dateKey:
+        schedule.dateKey,
+
+      entries:
+        Object.freeze(
+          effectiveEntries
+        ),
+
+      derivedFromOverrides:
+        true,
+  });
+
+
+  return Object.freeze({
+    sourceSchedule:
+      schedule,
+
+    effectiveSchedule,
+
+    activeOverrides:
+      Object.freeze(
+        activeOverrides
+      ),
+
+    appliedOverrides:
+      Object.freeze(
+        appliedOverrides
+      ),
+
+    cancelledEntries:
+      Object.freeze(
+        cancelledEntries
+      ),
+  });
+}
+
+function runGardenScheduleOverrideSelfTest() {
+  const dateKey =
+    "2026-09-23";
+
+
+  /*
+    =========================
+    Original Schedule
+    =========================
+  */
+
+  const swordPractice =
+    createGardenScheduleIntentDefinition({
+      id:
+        "test-chifuyu-sword-practice",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "swordPractice",
+
+      windowStart:
+        "10:00",
+
+      windowEnd:
+        "10:00",
+
+      durationMinMinutes:
+        60,
+
+      durationMaxMinutes:
+        60,
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .NORMAL,
+
+      activityId:
+        "swordPractice",
+
+      fallbackActivityId:
+        "wander",
+    });
+
+
+  const dinner =
+    createGardenScheduleIntentDefinition({
+      id:
+        "test-chinatsu-dinner",
+
+      characterId:
+        "chinatsu",
+
+      intentId:
+        "dinner",
+
+      windowStart:
+        "18:00",
+
+      windowEnd:
+        "18:00",
+
+      durationMinMinutes:
+        45,
+
+      durationMaxMinutes:
+        45,
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .HIGH,
+
+      activityId:
+        "meal",
+
+      fallbackActivityId:
+        "wander",
+    });
+
+
+  const sourceSchedule =
+    generateGardenDailySchedule(
+      [
+        swordPractice,
+        dinner,
+      ],
+      dateKey
+    );
+
+
+  /*
+    =========================
+    Conditions
+    =========================
+  */
+
+  const snapshot =
+    createGardenWorldConditionSnapshot({
+      dateKey,
+
+      characters: {
+        chinatsu: {
+          stress:
+            0.80,
+        },
+
+        chifuyu: {
+          fatigue:
+            0.90,
+        },
+      },
+    });
+
+
+  /*
+    =========================
+    Events
+    =========================
+  */
+
+  const heavyPaperwork =
+    createGardenWorldEventDefinition({
+      id:
+        "heavyPaperwork",
+
+      characterId:
+        "chinatsu",
+
+      probability:
+        1,
+
+      priority:
+        70,
+
+      conditions: [
+        createGardenWorldEventCondition({
+          scope:
+            GARDEN_WORLD_EVENT_CONDITION_SCOPE
+              .CHARACTER,
+
+          characterId:
+            "chinatsu",
+
+          key:
+            "stress",
+
+          operator:
+            GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+              .GTE,
+
+          value:
+            0.60,
+        }),
+      ],
+    });
+
+
+  const trainingForbidden =
+    createGardenWorldEventDefinition({
+      id:
+        "trainingForbidden",
+
+      characterId:
+        "chifuyu",
+
+      probability:
+        1,
+
+      priority:
+        90,
+
+      conditions: [
+        createGardenWorldEventCondition({
+          scope:
+            GARDEN_WORLD_EVENT_CONDITION_SCOPE
+              .CHARACTER,
+
+          characterId:
+            "chifuyu",
+
+          key:
+            "fatigue",
+
+          operator:
+            GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+              .GTE,
+
+          value:
+            0.80,
+        }),
+      ],
+    });
+
+
+  const eventResolution =
+    resolveGardenWorldDailyEvents(
+      [
+        heavyPaperwork,
+        trainingForbidden,
+      ],
+      snapshot,
+      dateKey
+    );
+
+
+  /*
+    =========================
+    Overrides
+    =========================
+  */
+
+  const dinnerDelay =
+    createGardenScheduleOverrideDefinition({
+      id:
+        "heavy-paperwork-delay-dinner",
+
+      eventId:
+        "heavyPaperwork",
+
+      action:
+        GARDEN_SCHEDULE_OVERRIDE_ACTION
+          .SHIFT,
+
+      targetDefinitionId:
+        "test-chinatsu-dinner",
+
+      shiftMinutes:
+        60,
+
+      priority:
+        70,
+    });
+
+
+  const cancelTraining =
+    createGardenScheduleOverrideDefinition({
+      id:
+        "fatigue-cancel-training",
+
+      eventId:
+        "trainingForbidden",
+
+      action:
+        GARDEN_SCHEDULE_OVERRIDE_ACTION
+          .CANCEL,
+
+      targetDefinitionId:
+        "test-chifuyu-sword-practice",
+
+      priority:
+        90,
+    });
+
+
+  const first =
+    applyGardenScheduleOverrides(
+      sourceSchedule,
+      [
+        dinnerDelay,
+        cancelTraining,
+      ],
+      eventResolution
+    );
+
+
+  const second =
+    applyGardenScheduleOverrides(
+      sourceSchedule,
+      [
+        dinnerDelay,
+        cancelTraining,
+      ],
+      eventResolution
+    );
+
+
+  const sourceDinner =
+    sourceSchedule.entries.find(
+      (entry) =>
+        entry.intentId ===
+        "dinner"
+    );
+
+
+  const effectiveDinner =
+    first
+      ?.effectiveSchedule
+      ?.entries
+      ?.find(
+        (entry) =>
+          entry.intentId ===
+          "dinner"
+      );
+
+
+  const effectiveTraining =
+    first
+      ?.effectiveSchedule
+      ?.entries
+      ?.find(
+        (entry) =>
+          entry.intentId ===
+          "swordPractice"
+      );
+
+
+  const checks = {
+    sourceScheduleExists:
+      !!sourceSchedule,
+
+    bothEventsTriggered:
+      eventResolution
+        ?.triggeredCount ===
+      2,
+
+    sourceTrainingStillExists:
+      sourceSchedule.entries.some(
+        (entry) =>
+          entry.intentId ===
+          "swordPractice"
+      ),
+
+    effectiveTrainingCancelled:
+      !effectiveTraining,
+
+    dinnerStillExists:
+      !!effectiveDinner,
+
+    dinnerShifted60Minutes:
+      effectiveDinner
+        ?.start
+        ?.timelineMinute ===
+      sourceDinner
+        ?.start
+        ?.timelineMinute +
+        60,
+
+    dinnerDurationPreserved:
+      effectiveDinner
+        ?.durationMinutes ===
+      sourceDinner
+        ?.durationMinutes,
+
+    twoOverridesApplied:
+      first
+        ?.appliedOverrides
+        ?.length ===
+      2,
+
+    originalScheduleUnchanged:
+      sourceDinner
+        ?.start
+        ?.time ===
+      "18:00",
+
+    deterministic:
+      JSON.stringify(first) ===
+      JSON.stringify(second),
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    eventResolution,
+
+    sourceSchedule:
+
+      sourceSchedule,
+
+    effectiveSchedule:
+      first
+        ?.effectiveSchedule,
+
+    appliedOverrides:
+      first
+        ?.appliedOverrides,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Schedule Override Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Schedule Override Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+/* =========================
+   Garden Schedule Conflict Resolver
+========================= */
+
+function doGardenScheduleEntriesOverlap(
+  a,
+  b
+) {
+  if (
+    !a ||
+    !b ||
+    a.characterId !==
+      b.characterId
+  ) {
+    return false;
+  }
+
+
+  return (
+    a.start.timelineMinute <
+      b.end.timelineMinute &&
+    b.start.timelineMinute <
+      a.end.timelineMinute
+  );
+}
+
+function resolveGardenScheduleConflicts(
+  schedule
+) {
+  if (
+    !isValidGardenDailySchedule(
+      schedule
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    Winner Ranking：
+
+    1. Priority 高
+    2. 相同 Priority → 較晚開始
+    3. 再相同 → definitionId
+
+    和 12D Resolver 的原則一致。
+  */
+  const ranked =
+    [...schedule.entries].sort(
+      (a, b) => {
+        const priorityDiff =
+          b.priority -
+          a.priority;
+
+
+        if (
+          priorityDiff !== 0
+        ) {
+          return priorityDiff;
+        }
+
+
+        const startDiff =
+          b.start.timelineMinute -
+          a.start.timelineMinute;
+
+
+        if (
+          startDiff !== 0
+        ) {
+          return startDiff;
+        }
+
+
+        return (
+          a.definitionId.localeCompare(
+            b.definitionId
+          )
+        );
+      }
+    );
+
+
+  const accepted =
+    [];
+
+  const suppressedEntries =
+    [];
+
+  const conflicts =
+    [];
+
+
+  for (
+    const candidate of
+    ranked
+  ) {
+    const winner =
+      accepted.find(
+        (entry) =>
+          doGardenScheduleEntriesOverlap(
+            candidate,
+            entry
+          )
+      );
+
+
+    if (!winner) {
+      accepted.push(
+        candidate
+      );
+
+      continue;
+    }
+
+
+    suppressedEntries.push(
+      candidate
+    );
+
+
+    conflicts.push(
+      Object.freeze({
+        characterId:
+          candidate.characterId,
+
+        winnerDefinitionId:
+          winner.definitionId,
+
+        winnerIntentId:
+          winner.intentId,
+
+        loserDefinitionId:
+          candidate.definitionId,
+
+        loserIntentId:
+          candidate.intentId,
+
+        winnerPriority:
+          winner.priority,
+
+        loserPriority:
+          candidate.priority,
+      })
+    );
+  }
+
+
+  /*
+    最後重新恢復時間順序。
+  */
+  accepted.sort(
+    (a, b) =>
+      a.start.timelineMinute -
+        b.start.timelineMinute ||
+      b.priority -
+        a.priority ||
+      a.definitionId.localeCompare(
+        b.definitionId
+      )
+  );
+
+
+  const effectiveSchedule =
+    Object.freeze({
+      schema:
+        schedule.schema,
+
+      version:
+        schedule.version,
+
+      dateKey:
+        schedule.dateKey,
+
+      entries:
+        Object.freeze(
+          accepted
+        ),
+
+      derivedFromConflictResolution:
+        true,
+  });
+
+
+  return Object.freeze({
+    sourceSchedule:
+      schedule,
+
+    effectiveSchedule,
+
+    conflicts:
+      Object.freeze(
+        conflicts
+      ),
+
+    suppressedEntries:
+      Object.freeze(
+        suppressedEntries
+      ),
+
+    conflictCount:
+      conflicts.length,
+  });
+}
+
+const GARDEN_SCHEDULE_COMPENSATION_TRIGGER =
+  Object.freeze({
+    CANCELLED:
+      "cancelled",
+
+    OUTSIDE_START_WINDOW:
+      "outsideStartWindow",
+
+    CONFLICT_LOSER:
+      "conflictLoser",
+  });
+
+
+function createGardenScheduleCompensationDefinition(
+  options = {}
+) {
+  const id =
+    normalizeGardenWorldDecisionToken(
+      options.id
+    );
+
+
+  const trigger =
+    normalizeGardenWorldDecisionToken(
+      options.trigger
+    );
+
+
+  const replacementIntentId =
+    normalizeGardenWorldDecisionToken(
+      options.replacementIntentId
+    );
+
+
+  if (
+    !id ||
+    !replacementIntentId ||
+    !Object.values(
+      GARDEN_SCHEDULE_COMPENSATION_TRIGGER
+    ).includes(
+      trigger
+    )
+  ) {
+    return null;
+  }
+
+
+  const target =
+    Object.freeze({
+      definitionId:
+        normalizeGardenWorldDecisionToken(
+          options.targetDefinitionId
+        ),
+
+      characterId:
+        normalizeGardenWorldDecisionToken(
+          options.targetCharacterId
+        ),
+
+      intentId:
+        normalizeGardenWorldDecisionToken(
+          options.targetIntentId
+        ),
+    });
+
+
+  const sourceEventId =
+    normalizeGardenWorldDecisionToken(
+      options.sourceEventId
+    );
+
+
+  const sourceOverrideId =
+    normalizeGardenWorldDecisionToken(
+      options.sourceOverrideId
+    );
+
+
+  /*
+    防止規則過於廣泛，
+    至少要指定 Event / Override / Target 之一。
+  */
+  if (
+    !sourceEventId &&
+    !sourceOverrideId &&
+    !target.definitionId &&
+    !target.characterId &&
+    !target.intentId
+  ) {
+    return null;
+  }
+
+
+  const activityCandidates =
+    normalizeGardenScheduleActivityCandidates(
+      options.activityCandidates
+    );
+
+
+  return Object.freeze({
+    id,
+
+    trigger,
+
+    sourceEventId,
+
+    sourceOverrideId,
+
+    target,
+
+    replacementIntentId,
+
+    priority:
+      Number.isFinite(
+        options.priority
+      )
+        ? options.priority
+        : GARDEN_SCHEDULE_PRIORITY
+            .NORMAL,
+
+    activityId:
+      normalizeGardenWorldDecisionToken(
+        options.activityId
+      ),
+
+    activityCandidates,
+
+    fallbackActivityId:
+      normalizeGardenWorldDecisionToken(
+        options.fallbackActivityId,
+        "wander"
+      ),
+
+    targetSceneId:
+      normalizeGardenWorldDecisionToken(
+        options.targetSceneId
+      ),
+
+    targetSpotId:
+      normalizeGardenWorldDecisionToken(
+        options.targetSpotId
+      ),
+
+    /*
+      OUTSIDE_WINDOW 常用：
+
+      原 Dinner Entry
+      → 換成 LateDinner Entry
+    */
+    replaceSource:
+      options.replaceSource ??
+      (
+        trigger ===
+        GARDEN_SCHEDULE_COMPENSATION_TRIGGER
+          .OUTSIDE_START_WINDOW
+      ),
+
+    tags:
+      Object.freeze(
+        Array.isArray(
+          options.tags
+        )
+          ? options.tags
+              .map(
+                (value) =>
+                  normalizeGardenWorldDecisionToken(
+                    value
+                  )
+              )
+              .filter(Boolean)
+          : []
+      ),
+  });
+}
+
+
+function collectGardenScheduleCompensationContexts(
+  overrideResult,
+  conflictResult = null
+) {
+  if (!overrideResult) {
+    return [];
+  }
+
+
+  const contexts =
+    [];
+
+
+  /*
+    =========================
+    CANCELLED
+    =========================
+  */
+  for (
+    const applied of
+    overrideResult.appliedOverrides ??
+    []
+  ) {
+    if (
+      applied.action !==
+        GARDEN_SCHEDULE_OVERRIDE_ACTION
+          .CANCEL
+    ) {
+      continue;
+    }
+
+
+    const sourceEntry =
+      overrideResult.sourceSchedule
+        ?.entries
+        ?.find(
+          (entry) =>
+            entry.definitionId ===
+            applied.definitionId
+        );
+
+
+    if (!sourceEntry) {
+      continue;
+    }
+
+
+    contexts.push(
+      Object.freeze({
+        trigger:
+          GARDEN_SCHEDULE_COMPENSATION_TRIGGER
+            .CANCELLED,
+
+        entry:
+          sourceEntry,
+
+        eventId:
+          applied.eventId,
+
+        overrideId:
+          applied.overrideId,
+      })
+    );
+  }
+
+
+  /*
+    =========================
+    OUTSIDE START WINDOW
+    =========================
+  */
+  for (
+    const entry of
+    overrideResult.effectiveSchedule
+      ?.entries ??
+    []
+  ) {
+    if (
+      entry.fitsOriginalWindow !==
+        false ||
+      !Array.isArray(
+        entry.overrideHistory
+      ) ||
+      entry.overrideHistory.length ===
+        0
+    ) {
+      continue;
+    }
+
+
+    const lastOverride =
+      entry.overrideHistory[
+        entry.overrideHistory.length -
+        1
+      ];
+
+
+    contexts.push(
+      Object.freeze({
+        trigger:
+          GARDEN_SCHEDULE_COMPENSATION_TRIGGER
+            .OUTSIDE_START_WINDOW,
+
+        entry,
+
+        eventId:
+          lastOverride.eventId,
+
+        overrideId:
+          lastOverride.overrideId,
+      })
+    );
+  }
+
+
+  /*
+    =========================
+    CONFLICT LOSER
+    =========================
+  */
+  for (
+    const entry of
+    conflictResult
+      ?.suppressedEntries ??
+    []
+  ) {
+    const lastOverride =
+      Array.isArray(
+        entry.overrideHistory
+      ) &&
+      entry.overrideHistory.length > 0
+        ? entry.overrideHistory[
+            entry.overrideHistory.length -
+            1
+          ]
+        : null;
+
+
+    contexts.push(
+      Object.freeze({
+        trigger:
+          GARDEN_SCHEDULE_COMPENSATION_TRIGGER
+            .CONFLICT_LOSER,
+
+        entry,
+
+        eventId:
+          lastOverride?.eventId ??
+          null,
+
+        overrideId:
+          lastOverride?.overrideId ??
+          null,
+      })
+    );
+  }
+
+
+  return contexts;
+}
+
+
+function doesGardenScheduleCompensationMatch(
+  definition,
+  context
+) {
+  if (
+    !definition ||
+    !context ||
+    definition.trigger !==
+      context.trigger
+  ) {
+    return false;
+  }
+
+
+  if (
+    definition.sourceEventId &&
+    definition.sourceEventId !==
+      context.eventId
+  ) {
+    return false;
+  }
+
+
+  if (
+    definition.sourceOverrideId &&
+    definition.sourceOverrideId !==
+      context.overrideId
+  ) {
+    return false;
+  }
+
+
+  const entry =
+    context.entry;
+
+
+  if (
+    definition.target.definitionId &&
+    definition.target.definitionId !==
+      entry.definitionId
+  ) {
+    return false;
+  }
+
+
+  if (
+    definition.target.characterId &&
+    definition.target.characterId !==
+      entry.characterId
+  ) {
+    return false;
+  }
+
+
+  if (
+    definition.target.intentId &&
+    definition.target.intentId !==
+      entry.intentId
+  ) {
+    return false;
+  }
+
+
+  return true;
+}
+
+
+function createGardenScheduleCompensationEntry(
+  definition,
+  context,
+  dateKey
+) {
+  const source =
+    context?.entry;
+
+
+  if (
+    !definition ||
+    !source ||
+    !dateKey
+  ) {
+    return null;
+  }
+
+
+  let selectedActivityId =
+    definition.activityId;
+
+
+  if (
+    !selectedActivityId &&
+    definition.activityCandidates
+      .length > 0
+  ) {
+    selectedActivityId =
+      pickGardenWorldDailyDecision(
+        definition.activityCandidates,
+        {
+          dateKey,
+
+          characterId:
+            source.characterId,
+
+          domainId:
+            "compensation",
+
+          subjectId:
+            definition.id,
+
+          instanceId:
+            source.definitionId,
+
+          decisionId:
+            "activityChoice",
+        }
+      );
+  }
+
+
+  if (!selectedActivityId) {
+    selectedActivityId =
+      definition.fallbackActivityId;
+  }
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_DAILY_SCHEDULE_ENTRY_SCHEMA,
+
+    version:
+      GARDEN_DAILY_SCHEDULE_ENTRY_VERSION,
+
+    dateKey,
+
+    definitionId:
+      `compensation:${definition.id}:${source.definitionId}`,
+
+    characterId:
+      source.characterId,
+
+    intentId:
+      definition.replacementIntentId,
+
+    instanceId:
+      `compensation:${source.instanceId}`,
+
+    /*
+      Compensation 自己不是原 Routine Window，
+      因此不沿用 source window。
+    */
+    window:
+      null,
+
+    start:
+      source.start,
+
+    end:
+      source.end,
+
+    durationMinutes:
+      source.durationMinutes,
+
+    priority:
+      definition.priority,
+
+    target:
+      Object.freeze({
+        sceneId:
+          definition.targetSceneId ??
+          source.target?.sceneId ??
+          null,
+
+        spotId:
+          definition.targetSpotId ??
+          source.target?.spotId ??
+          null,
+      }),
+
+    activity:
+      Object.freeze({
+        selectedActivityId,
+
+        source:
+          "compensation",
+
+        fallbackActivityId:
+          definition.fallbackActivityId,
+      }),
+
+    flexibility:
+      Object.freeze({
+        canDelay:
+          false,
+
+        canBeOverridden:
+          true,
+
+        latePolicy:
+          GARDEN_SCHEDULE_LATE_POLICY
+            .SKIP,
+
+        maxDelayMinutes:
+          null,
+      }),
+
+    tags:
+      Object.freeze([
+        ...new Set([
+          ...(source.tags ?? []),
+          ...definition.tags,
+          "compensation",
+        ]),
+      ]),
+
+    fitsOriginalWindow:
+      true,
+
+    overrideHistory:
+      source.overrideHistory ??
+      Object.freeze([]),
+
+    compensation:
+      Object.freeze({
+        definitionId:
+          definition.id,
+
+        trigger:
+          context.trigger,
+
+        sourceDefinitionId:
+          source.definitionId,
+
+        sourceIntentId:
+          source.intentId,
+
+        sourceEventId:
+          context.eventId,
+
+        sourceOverrideId:
+          context.overrideId,
+      }),
+  });
+}
+
+function applyGardenScheduleCompensations(
+  overrideResult,
+  conflictResult,
+  compensationDefinitions
+) {
+  const baseSchedule =
+    conflictResult
+      ?.effectiveSchedule ??
+    overrideResult
+      ?.effectiveSchedule;
+
+
+  if (
+    !isValidGardenDailySchedule(
+      baseSchedule
+    ) ||
+    !Array.isArray(
+      compensationDefinitions
+    )
+  ) {
+    return null;
+  }
+
+
+  const contexts =
+    collectGardenScheduleCompensationContexts(
+      overrideResult,
+      conflictResult
+    );
+
+
+  const definitions =
+    compensationDefinitions
+      .filter(Boolean)
+      .sort(
+        (a, b) =>
+          b.priority -
+            a.priority ||
+          a.id.localeCompare(
+            b.id
+          )
+      );
+
+
+  const generatedEntries =
+    [];
+
+  const appliedCompensations =
+    [];
+
+  const replaceDefinitionIds =
+    new Set();
+
+
+  for (
+    const context of
+    contexts
+  ) {
+    /*
+      每一個後果只選最高 Priority
+      的一條 Compensation Rule。
+    */
+    const definition =
+      definitions.find(
+        (item) =>
+          doesGardenScheduleCompensationMatch(
+            item,
+            context
+          )
+      );
+
+
+    if (!definition) {
+      continue;
+    }
+
+
+    const entry =
+      createGardenScheduleCompensationEntry(
+        definition,
+        context,
+        baseSchedule.dateKey
+      );
+
+
+    if (!entry) {
+      continue;
+    }
+
+
+    if (
+      definition.replaceSource
+    ) {
+      replaceDefinitionIds.add(
+        context.entry.definitionId
+      );
+    }
+
+
+    generatedEntries.push(
+      entry
+    );
+
+
+    appliedCompensations.push(
+      Object.freeze({
+        compensationId:
+          definition.id,
+
+        trigger:
+          context.trigger,
+
+        sourceDefinitionId:
+          context.entry.definitionId,
+
+        generatedDefinitionId:
+          entry.definitionId,
+      })
+    );
+  }
+
+
+  const mergedEntries = [
+    ...baseSchedule.entries.filter(
+      (entry) =>
+        !replaceDefinitionIds.has(
+          entry.definitionId
+        )
+    ),
+
+    ...generatedEntries,
+  ];
+
+
+  mergedEntries.sort(
+    (a, b) =>
+      a.start.timelineMinute -
+        b.start.timelineMinute ||
+      b.priority -
+        a.priority ||
+      a.definitionId.localeCompare(
+        b.definitionId
+      )
+  );
+
+
+  const preConflictSchedule =
+    Object.freeze({
+      schema:
+        GARDEN_DAILY_SCHEDULE_SCHEMA,
+
+      version:
+        GARDEN_DAILY_SCHEDULE_VERSION,
+
+      dateKey:
+        baseSchedule.dateKey,
+
+      entries:
+        Object.freeze(
+          mergedEntries
+        ),
+
+      derivedFromCompensation:
+        true,
+  });
+
+
+  /*
+    Compensation 本身也可能撞到別的行程，
+    所以最後再跑一次 Conflict Resolver。
+  */
+  const finalConflictResolution =
+    resolveGardenScheduleConflicts(
+      preConflictSchedule
+    );
+
+
+  return Object.freeze({
+    baseSchedule,
+
+    contexts:
+      Object.freeze(
+        contexts
+      ),
+
+    generatedEntries:
+      Object.freeze(
+        generatedEntries
+      ),
+
+    appliedCompensations:
+      Object.freeze(
+        appliedCompensations
+      ),
+
+    preConflictSchedule,
+
+    finalConflictResolution,
+
+    effectiveSchedule:
+      finalConflictResolution
+        ?.effectiveSchedule ??
+      preConflictSchedule,
+  });
+}
+
+
+function runGardenScheduleConsequenceSelfTest() {
+  const dateKey =
+    "2026-09-23";
+
+
+  const training =
+    createGardenScheduleIntentDefinition({
+      id:
+        "test-training",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "swordPractice",
+
+      windowStart:
+        "10:00",
+
+      windowEnd:
+        "10:00",
+
+      durationMinMinutes:
+        60,
+
+      activityId:
+        "swordPractice",
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .NORMAL,
+    });
+
+
+  const dinner =
+    createGardenScheduleIntentDefinition({
+      id:
+        "test-dinner",
+
+      characterId:
+        "chinatsu",
+
+      intentId:
+        "dinner",
+
+      windowStart:
+        "18:00",
+
+      windowEnd:
+        "18:30",
+
+      durationMinMinutes:
+        45,
+
+      activityId:
+        "meal",
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .HIGH,
+    });
+
+
+  const tea =
+    createGardenScheduleIntentDefinition({
+      id:
+        "test-evening-tea",
+
+      characterId:
+        "chinatsu",
+
+      intentId:
+        "eveningTea",
+
+      windowStart:
+        "19:15",
+
+      windowEnd:
+        "19:15",
+
+      durationMinMinutes:
+        45,
+
+      activityId:
+        "tea",
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .LOW,
+    });
+
+
+  const sourceSchedule =
+    generateGardenDailySchedule(
+      [
+        training,
+        dinner,
+        tea,
+      ],
+      dateKey
+    );
+
+
+  /*
+    Self-Test 專用：
+    視為兩事件都已 Trigger。
+  */
+  const eventResolution =
+    Object.freeze({
+      triggeredEvents:
+        Object.freeze([
+          {
+            eventId:
+              "heavyPaperwork",
+          },
+          {
+            eventId:
+              "trainingForbidden",
+          },
+        ]),
+    });
+
+
+  const delayDinner =
+    createGardenScheduleOverrideDefinition({
+      id:
+        "delay-dinner",
+
+      eventId:
+        "heavyPaperwork",
+
+      action:
+        GARDEN_SCHEDULE_OVERRIDE_ACTION
+          .SHIFT,
+
+      targetDefinitionId:
+        "test-dinner",
+
+      shiftMinutes:
+        60,
+
+      priority:
+        70,
+    });
+
+
+  const cancelTraining =
+    createGardenScheduleOverrideDefinition({
+      id:
+        "cancel-training",
+
+      eventId:
+        "trainingForbidden",
+
+      action:
+        GARDEN_SCHEDULE_OVERRIDE_ACTION
+          .CANCEL,
+
+      targetDefinitionId:
+        "test-training",
+
+      priority:
+        90,
+    });
+
+
+  const overrideResult =
+    applyGardenScheduleOverrides(
+      sourceSchedule,
+      [
+        delayDinner,
+        cancelTraining,
+      ],
+      eventResolution
+    );
+
+
+  const conflictResult =
+    resolveGardenScheduleConflicts(
+      overrideResult
+        .effectiveSchedule
+    );
+
+
+  const cancelledTrainingRest =
+    createGardenScheduleCompensationDefinition({
+      id:
+        "training-rest",
+
+      trigger:
+        GARDEN_SCHEDULE_COMPENSATION_TRIGGER
+          .CANCELLED,
+
+      sourceOverrideId:
+        "cancel-training",
+
+      targetDefinitionId:
+        "test-training",
+
+      replacementIntentId:
+        "recoveryRest",
+
+      activityCandidates: [
+        "rest",
+        "read",
+      ],
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .NORMAL,
+    });
+
+
+  const lateDinner =
+    createGardenScheduleCompensationDefinition({
+      id:
+        "late-dinner",
+
+      trigger:
+        GARDEN_SCHEDULE_COMPENSATION_TRIGGER
+          .OUTSIDE_START_WINDOW,
+
+      sourceOverrideId:
+        "delay-dinner",
+
+      targetDefinitionId:
+        "test-dinner",
+
+      replacementIntentId:
+        "lateDinner",
+
+      activityId:
+        "meal",
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .HIGH,
+
+      replaceSource:
+        true,
+    });
+
+
+  const first =
+    applyGardenScheduleCompensations(
+      overrideResult,
+      conflictResult,
+      [
+        cancelledTrainingRest,
+        lateDinner,
+      ]
+    );
+
+
+  const second =
+    applyGardenScheduleCompensations(
+      overrideResult,
+      conflictResult,
+      [
+        cancelledTrainingRest,
+        lateDinner,
+      ]
+    );
+
+
+  const entries =
+    first
+      ?.effectiveSchedule
+      ?.entries ??
+    [];
+
+
+  const checks = {
+    sourceHasTraining:
+      sourceSchedule.entries.some(
+        (entry) =>
+          entry.intentId ===
+          "swordPractice"
+      ),
+
+    trainingCancelled:
+      !overrideResult
+        .effectiveSchedule
+        .entries
+        .some(
+          (entry) =>
+            entry.intentId ===
+            "swordPractice"
+        ),
+
+    shiftedDinnerOutsideWindow:
+      overrideResult
+        .effectiveSchedule
+        .entries
+        .find(
+          (entry) =>
+            entry.intentId ===
+            "dinner"
+        )
+        ?.fitsOriginalWindow ===
+      false,
+
+    teaSuppressedByConflict:
+      conflictResult
+        .suppressedEntries
+        .some(
+          (entry) =>
+            entry.intentId ===
+            "eveningTea"
+        ),
+
+    recoveryGenerated:
+      entries.some(
+        (entry) =>
+          entry.intentId ===
+          "recoveryRest"
+      ),
+
+    lateDinnerGenerated:
+      entries.some(
+        (entry) =>
+          entry.intentId ===
+          "lateDinner"
+      ),
+
+    originalDinnerReplaced:
+      !entries.some(
+        (entry) =>
+          entry.intentId ===
+          "dinner"
+      ),
+
+    teaStillSuppressed:
+      !entries.some(
+        (entry) =>
+          entry.intentId ===
+          "eveningTea"
+      ),
+
+    twoCompensationsApplied:
+      first
+        ?.appliedCompensations
+        ?.length ===
+      2,
+
+    finalNoConflict:
+      first
+        ?.finalConflictResolution
+        ?.conflictCount ===
+      0,
+
+    deterministic:
+      JSON.stringify(first) ===
+      JSON.stringify(second),
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    sourceSchedule,
+
+    overrideResult,
+
+    conflictResult,
+
+    compensationResult:
+      first,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Schedule Consequence Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Schedule Consequence Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+
+
+
+/* =========================
+   Garden Schedule Inspector
+========================= */
+
+function isValidGardenDailySchedule(
+  schedule
+) {
+  if (
+    !schedule ||
+    typeof schedule !==
+      "object"
+  ) {
+    return false;
+  }
+
+
+  if (
+    schedule.schema !==
+      GARDEN_DAILY_SCHEDULE_SCHEMA ||
+    schedule.version !==
+      GARDEN_DAILY_SCHEDULE_VERSION
+  ) {
+    return false;
+  }
+
+
+  if (
+    !schedule.dateKey ||
+    !Array.isArray(
+      schedule.entries
+    )
+  ) {
+    return false;
+  }
+
+
+  for (
+    const entry of
+    schedule.entries
+  ) {
+    if (
+      !entry ||
+      entry.schema !==
+        GARDEN_DAILY_SCHEDULE_ENTRY_SCHEMA ||
+      entry.version !==
+        GARDEN_DAILY_SCHEDULE_ENTRY_VERSION
+    ) {
+      return false;
+    }
+
+
+    if (
+      !entry.characterId ||
+      !entry.intentId ||
+      !entry.start ||
+      !entry.end
+    ) {
+      return false;
+    }
+
+
+    if (
+      !Number.isFinite(
+        entry.start.timelineMinute
+      ) ||
+      !Number.isFinite(
+        entry.end.timelineMinute
+      ) ||
+      entry.end.timelineMinute <
+        entry.start.timelineMinute
+    ) {
+      return false;
+    }
+  }
+
+
+  return true;
+}
+
+
+
+function formatGardenScheduleTimelinePoint(
+  point
+) {
+  if (
+    !point ||
+    !Number.isFinite(
+      point.timelineMinute
+    )
+  ) {
+    return null;
+  }
+
+
+  const prefix =
+    point.dayOffset > 0
+      ? `+${point.dayOffset} `
+      : point.dayOffset < 0
+        ? `${point.dayOffset} `
+        : "";
+
+
+  return (
+    `${prefix}${point.time}`
+  );
+}
+
+
+function getGardenDailyScheduleEntriesForCharacter(
+  schedule,
+  characterId
+) {
+  if (
+    !isValidGardenDailySchedule(
+      schedule
+    )
+  ) {
+    return [];
+  }
+
+
+  const safeCharacterId =
+    normalizeGardenWorldDecisionToken(
+      characterId
+    );
+
+
+  if (!safeCharacterId) {
+    return [];
+  }
+
+
+  return (
+    schedule.entries.filter(
+      (entry) =>
+        entry.characterId ===
+        safeCharacterId
+    )
+  );
+}
+
+function createGardenScheduleInspectorRows(
+  schedule
+) {
+  if (
+    !isValidGardenDailySchedule(
+      schedule
+    )
+  ) {
+    return [];
+  }
+
+
+  return (
+    schedule.entries.map(
+      (entry) => ({
+        character:
+          entry.characterId,
+
+        intent:
+          entry.intentId,
+
+        instance:
+          entry.instanceId,
+
+        start:
+          formatGardenScheduleTimelinePoint(
+            entry.start
+          ),
+
+        end:
+          formatGardenScheduleTimelinePoint(
+            entry.end
+          ),
+
+        durationMin:
+          entry.durationMinutes,
+
+        activity:
+          entry.activity
+            ?.selectedActivityId ??
+          null,
+
+        activitySource:
+          entry.activity
+            ?.source ??
+          null,
+
+        scene:
+          entry.target
+            ?.sceneId ??
+          null,
+
+        spot:
+          entry.target
+            ?.spotId ??
+          null,
+
+        priority:
+          entry.priority,
+
+        latePolicy:
+          entry.flexibility
+            ?.latePolicy ??
+          null,
+
+        fitsWindow:
+          entry.fitsOriginalWindow,
+      })
+    )
+  );
+}
+
+
+function findGardenScheduleOverlaps(
+  schedule
+) {
+  if (
+    !isValidGardenDailySchedule(
+      schedule
+    )
+  ) {
+    return [];
+  }
+
+
+  const byCharacter =
+    new Map();
+
+
+  for (
+    const entry of
+    schedule.entries
+  ) {
+    if (
+      !byCharacter.has(
+        entry.characterId
+      )
+    ) {
+      byCharacter.set(
+        entry.characterId,
+        []
+      );
+    }
+
+
+    byCharacter
+      .get(
+        entry.characterId
+      )
+      .push(
+        entry
+      );
+  }
+
+
+  const overlaps =
+    [];
+
+
+  for (
+    const [
+      characterId,
+      entries,
+    ] of byCharacter
+  ) {
+    const sorted =
+      [...entries].sort(
+        (a, b) =>
+          a.start.timelineMinute -
+          b.start.timelineMinute
+      );
+
+
+    for (
+      let i = 0;
+      i < sorted.length;
+      i++
+    ) {
+      const current =
+        sorted[i];
+
+
+      /*
+        不只比較下一個。
+
+        因為一個很長的 Activity
+        有可能同時壓到後面兩三個。
+      */
+      for (
+        let j = i + 1;
+        j < sorted.length;
+        j++
+      ) {
+        const next =
+          sorted[j];
+
+
+        /*
+          後面的 Activity
+          已經在 current 結束之後，
+          再往後也不可能重疊。
+        */
+        if (
+          next.start.timelineMinute >=
+          current.end.timelineMinute
+        ) {
+          break;
+        }
+
+
+        const overlapStart =
+          Math.max(
+            current.start
+              .timelineMinute,
+
+            next.start
+              .timelineMinute
+          );
+
+
+        const overlapEnd =
+          Math.min(
+            current.end
+              .timelineMinute,
+
+            next.end
+              .timelineMinute
+          );
+
+
+        overlaps.push({
+          characterId,
+
+          firstIntent:
+            current.intentId,
+
+          secondIntent:
+            next.intentId,
+
+          overlapMinutes:
+            Math.max(
+              0,
+              overlapEnd -
+              overlapStart
+            ),
+
+          firstStart:
+            formatGardenScheduleTimelinePoint(
+              current.start
+            ),
+
+          firstEnd:
+            formatGardenScheduleTimelinePoint(
+              current.end
+            ),
+
+          secondStart:
+            formatGardenScheduleTimelinePoint(
+              next.start
+            ),
+
+          secondEnd:
+            formatGardenScheduleTimelinePoint(
+              next.end
+            ),
+        });
+      }
+    }
+  }
+
+
+  return overlaps;
+}
+
+
+function inspectGardenDailySchedule(
+  schedule,
+  options = {}
+) {
+  const valid =
+    isValidGardenDailySchedule(
+      schedule
+    );
+
+
+  if (!valid) {
+    const invalidReport = {
+      valid:
+        false,
+
+      reason:
+        "invalidSchedule",
+    };
+
+
+    if (
+      options.print !==
+      false
+    ) {
+      console.warn(
+        "[Garden Schedule Inspector] invalid schedule"
+      );
+    }
+
+
+    return invalidReport;
+  }
+
+
+  const rows =
+    createGardenScheduleInspectorRows(
+      schedule
+    );
+
+
+  const overlaps =
+    findGardenScheduleOverlaps(
+      schedule
+    );
+
+
+  const characters =
+    [
+      ...new Set(
+        schedule.entries.map(
+          (entry) =>
+            entry.characterId
+        )
+      ),
+    ];
+
+
+  const report = {
+    valid:
+      true,
+
+    dateKey:
+      schedule.dateKey,
+
+    entryCount:
+      schedule.entries.length,
+
+    characters,
+
+    overlapCount:
+      overlaps.length,
+
+    overlaps,
+
+    rows,
+  };
+
+
+  if (
+    options.print !==
+    false
+  ) {
+    console.log(
+      `[Garden Schedule] ${schedule.dateKey}`
+    );
+
+
+    console.table(
+      rows
+    );
+
+
+    if (
+      overlaps.length > 0
+    ) {
+      console.warn(
+        "[Garden Schedule] overlaps detected:",
+        overlaps
+      );
+
+      console.table(
+        overlaps
+      );
+
+    } else {
+      console.log(
+        "[Garden Schedule] no overlaps"
+      );
+    }
+  }
+
+
+  return report;
+}
+
+
+
+function inspectGardenCharacterDailySchedule(
+  schedule,
+  characterId,
+  options = {}
+) {
+  if (
+    !isValidGardenDailySchedule(
+      schedule
+    )
+  ) {
+    return null;
+  }
+
+
+  const entries =
+    getGardenDailyScheduleEntriesForCharacter(
+      schedule,
+      characterId
+    );
+
+
+  const characterSchedule =
+    Object.freeze({
+      schema:
+        GARDEN_DAILY_SCHEDULE_SCHEMA,
+
+      version:
+        GARDEN_DAILY_SCHEDULE_VERSION,
+
+      dateKey:
+        schedule.dateKey,
+
+      entries:
+        Object.freeze(
+          [...entries]
+        ),
+    });
+
+
+  const report =
+    inspectGardenDailySchedule(
+      characterSchedule,
+      {
+        print:
+          false,
+      }
+    );
+
+
+  if (
+    options.print !==
+    false
+  ) {
+    console.log(
+      `[Garden Schedule] ${schedule.dateKey} / ${characterId}`
+    );
+
+
+    console.table(
+      report?.rows ??
+      []
+    );
+  }
+
+
+  return report;
+}
+
+
+function inspectGardenScheduleDebugDay(
+  dateKey =
+    getGardenWorldDateKey(),
+  options = {}
+) {
+  const samples =
+    getGardenScheduleDataModelDebugSamples();
+
+
+  if (
+    !samples ||
+    !samples.allValid
+  ) {
+    return null;
+  }
+
+
+  const definitions = [
+    samples.lunch,
+    samples.afternoonFree,
+    samples.eveningBridge,
+  ];
+
+
+  const schedule =
+    generateGardenDailySchedule(
+      definitions,
+      dateKey
+    );
+
+
+  if (!schedule) {
+    return null;
+  }
+
+
+  return (
+    inspectGardenDailySchedule(
+      schedule,
+      options
+    )
+  );
+}
+
+
+function runGardenScheduleInspectorSelfTest() {
+  const samples =
+    getGardenScheduleDataModelDebugSamples();
+
+
+  const normalSchedule =
+    samples?.allValid
+      ? generateGardenDailySchedule(
+          [
+            samples.lunch,
+            samples.afternoonFree,
+            samples.eveningBridge,
+          ],
+          "2026-09-23"
+        )
+      : null;
+
+
+  const firstJson =
+    normalSchedule
+      ? JSON.stringify(
+          normalSchedule
+        )
+      : null;
+
+
+  const secondSchedule =
+    samples?.allValid
+      ? generateGardenDailySchedule(
+          [
+            samples.lunch,
+            samples.afternoonFree,
+            samples.eveningBridge,
+          ],
+          "2026-09-23"
+        )
+      : null;
+
+
+  const secondJson =
+    secondSchedule
+      ? JSON.stringify(
+          secondSchedule
+        )
+      : null;
+
+
+  const normalReport =
+    normalSchedule
+      ? inspectGardenDailySchedule(
+          normalSchedule,
+          {
+            print: false,
+          }
+        )
+      : null;
+
+
+  /*
+    固定做一組 overlap probe。
+  */
+  const overlapA =
+    createGardenScheduleIntentDefinition({
+      id:
+        "selftest-overlap-a",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "overlapA",
+
+      windowStart:
+        "10:00",
+
+      windowEnd:
+        "10:00",
+
+      durationMinMinutes:
+        60,
+
+      activityId:
+        "walk",
+    });
+
+
+  const overlapB =
+    createGardenScheduleIntentDefinition({
+      id:
+        "selftest-overlap-b",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "overlapB",
+
+      windowStart:
+        "10:30",
+
+      windowEnd:
+        "10:30",
+
+      durationMinMinutes:
+        60,
+
+      activityId:
+        "read",
+    });
+
+
+  const overlapSchedule =
+    generateGardenDailySchedule(
+      [
+        overlapA,
+        overlapB,
+      ],
+      "2026-09-23"
+    );
+
+
+  const overlapReport =
+    inspectGardenDailySchedule(
+      overlapSchedule,
+      {
+        print: false,
+      }
+    );
+
+
+  const checks = {
+    samplesValid:
+      samples?.allValid ===
+      true,
+
+    normalScheduleValid:
+      normalReport?.valid ===
+      true,
+
+    deterministic:
+      firstJson !== null &&
+      firstJson ===
+        secondJson,
+
+    normalEntryCount:
+      normalReport
+        ?.entryCount ===
+      3,
+
+    normalNoOverlap:
+      normalReport
+        ?.overlapCount ===
+      0,
+
+    overlapDetected:
+      overlapReport
+        ?.overlapCount ===
+      1,
+
+    overlapMinutesCorrect:
+      overlapReport
+        ?.overlaps?.[0]
+        ?.overlapMinutes ===
+      30,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    normal:
+      normalReport,
+
+    overlapProbe:
+      overlapReport,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Schedule Inspector Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Schedule Inspector Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+/* =========================
+   Garden Schedule Resolver
+========================= */
+
+const GARDEN_SCHEDULE_RESOLUTION_STATE =
+  Object.freeze({
+    ACTIVE:
+      "active",
+
+    GAP:
+      "gap",
+  });
+
+
+
+function shiftGardenScheduleDateKey(
+  dateKey,
+  dayOffset
+) {
+  const dayNumber =
+    getGardenScheduleDateDayNumber(
+      dateKey
+    );
+
+
+  if (
+    !Number.isInteger(
+      dayNumber
+    ) ||
+    !Number.isInteger(
+      dayOffset
+    )
+  ) {
+    return null;
+  }
+
+
+  const date =
+    new Date(
+      (
+        dayNumber +
+        dayOffset
+      ) *
+      86400000
+    );
+
+
+  const year =
+    date.getUTCFullYear();
+
+  const month =
+    String(
+      date.getUTCMonth() + 1
+    ).padStart(
+      2,
+      "0"
+    );
+
+  const day =
+    String(
+      date.getUTCDate()
+    ).padStart(
+      2,
+      "0"
+    );
+
+
+  return (
+    `${year}-${month}-${day}`
+  );
+}
+
+
+function getGardenScheduleDateDayNumber(
+  dateKey
+) {
+  if (
+    typeof dateKey !==
+      "string"
+  ) {
+    return null;
+  }
+
+
+  const match =
+    dateKey.match(
+      /^(\d{4})-(\d{2})-(\d{2})$/
+    );
+
+
+  if (!match) {
+    return null;
+  }
+
+
+  const year =
+    Number(
+      match[1]
+    );
+
+  const month =
+    Number(
+      match[2]
+    );
+
+  const day =
+    Number(
+      match[3]
+    );
+
+
+  const utc =
+    Date.UTC(
+      year,
+      month - 1,
+      day
+    );
+
+
+  const check =
+    new Date(
+      utc
+    );
+
+
+  /*
+    防止：
+
+    2026-02-31
+
+    被 Date 自動變成三月。
+  */
+  if (
+    check.getUTCFullYear() !==
+      year ||
+    check.getUTCMonth() !==
+      month - 1 ||
+    check.getUTCDate() !==
+      day
+  ) {
+    return null;
+  }
+
+
+  return Math.floor(
+    utc /
+    86400000
+  );
+}
+
+
+function createGardenScheduleWorldPoint(
+  dateKey,
+  minuteOfDay,
+  second = 0
+) {
+  const dayNumber =
+    getGardenScheduleDateDayNumber(
+      dateKey
+    );
+
+
+  if (
+    !Number.isInteger(
+      dayNumber
+    ) ||
+    !Number.isFinite(
+      minuteOfDay
+    ) ||
+    !Number.isFinite(
+      second
+    )
+  ) {
+    return null;
+  }
+
+
+  if (
+    minuteOfDay < 0 ||
+    minuteOfDay >= 1440 ||
+    second < 0 ||
+    second >= 60
+  ) {
+    return null;
+  }
+
+
+  const preciseMinute =
+    minuteOfDay +
+    second / 60;
+
+
+  return Object.freeze({
+    dateKey,
+
+    dayNumber,
+
+    minuteOfDay,
+
+    second,
+
+    /*
+      全世界日曆上的連續分鐘。
+
+      不是 Unix timestamp，
+      是 Resolver 比較用座標。
+    */
+    absoluteMinute:
+      dayNumber * 1440 +
+      preciseMinute,
+  });
+}
+
+
+
+function getGardenScheduleWorldPoint(
+  timestamp =
+    getGardenWorldNow()
+) {
+  const calendar =
+    getGardenWorldCalendarParts(
+      timestamp
+    );
+
+
+  if (!calendar) {
+    return null;
+  }
+
+
+  return (
+    createGardenScheduleWorldPoint(
+      calendar.dateKey,
+      calendar.minuteOfDay,
+      calendar.second
+    )
+  );
+}
+
+function getGardenScheduleEntryAbsoluteRange(
+  schedule,
+  entry
+) {
+  if (
+    !isValidGardenDailySchedule(
+      schedule
+    ) ||
+    !entry
+  ) {
+    return null;
+  }
+
+
+  const dayNumber =
+    getGardenScheduleDateDayNumber(
+      schedule.dateKey
+    );
+
+
+  if (
+    !Number.isInteger(
+      dayNumber
+    ) ||
+    !Number.isFinite(
+      entry.start
+        ?.timelineMinute
+    ) ||
+    !Number.isFinite(
+      entry.end
+        ?.timelineMinute
+    )
+  ) {
+    return null;
+  }
+
+
+  const baseMinute =
+    dayNumber * 1440;
+
+
+  return Object.freeze({
+    scheduleDateKey:
+      schedule.dateKey,
+
+    startAbsoluteMinute:
+      baseMinute +
+      entry.start.timelineMinute,
+
+    endAbsoluteMinute:
+      baseMinute +
+      entry.end.timelineMinute,
+
+    entry,
+  });
+}
+
+
+function normalizeGardenDailyScheduleCollection(
+  schedules
+) {
+  const list =
+    Array.isArray(
+      schedules
+    )
+      ? schedules
+      : [schedules];
+
+
+  return list.filter(
+    isValidGardenDailySchedule
+  );
+}
+
+
+function resolveGardenCharacterScheduleAtWorldPoint(
+  schedules,
+  characterId,
+  worldPoint
+) {
+  const safeSchedules =
+    normalizeGardenDailyScheduleCollection(
+      schedules
+    );
+
+
+  const safeCharacterId =
+    normalizeGardenWorldDecisionToken(
+      characterId
+    );
+
+
+  if (
+    safeSchedules.length === 0 ||
+    !safeCharacterId ||
+    !worldPoint ||
+    !Number.isFinite(
+      worldPoint.absoluteMinute
+    )
+  ) {
+    return null;
+  }
+
+
+  const candidates =
+    [];
+
+
+  for (
+    const schedule of
+    safeSchedules
+  ) {
+    for (
+      const entry of
+      schedule.entries
+    ) {
+      if (
+        entry.characterId !==
+        safeCharacterId
+      ) {
+        continue;
+      }
+
+
+      const range =
+        getGardenScheduleEntryAbsoluteRange(
+          schedule,
+          entry
+        );
+
+
+      if (!range) {
+        continue;
+      }
+
+
+      candidates.push(
+        range
+      );
+    }
+  }
+
+
+  /*
+    Resolver 使用：
+
+    start <= now < end
+
+    所以正好抵達 end 的瞬間，
+    Activity 已視為完成。
+  */
+  const active =
+    candidates.filter(
+      (candidate) =>
+        worldPoint.absoluteMinute >=
+          candidate.startAbsoluteMinute &&
+        worldPoint.absoluteMinute <
+          candidate.endAbsoluteMinute
+    );
+
+
+  /*
+    若有 Schedule overlap：
+
+    1. 高 Priority 優先
+    2. Priority 相同：
+       較晚開始的優先
+    3. 還相同：
+       definitionId 保證 deterministic
+  */
+  active.sort(
+    (a, b) => {
+      const priorityDiff =
+        b.entry.priority -
+        a.entry.priority;
+
+
+      if (
+        priorityDiff !== 0
+      ) {
+        return priorityDiff;
+      }
+
+
+      const startDiff =
+        b.startAbsoluteMinute -
+        a.startAbsoluteMinute;
+
+
+      if (
+        startDiff !== 0
+      ) {
+        return startDiff;
+      }
+
+
+      return (
+        a.entry.definitionId.localeCompare(
+          b.entry.definitionId
+        )
+      );
+    }
+  );
+
+
+  const selected =
+    active[0] ??
+    null;
+
+
+  /*
+    找上一件已結束 Activity。
+  */
+  const previous =
+    candidates
+      .filter(
+        (candidate) =>
+          candidate.endAbsoluteMinute <=
+          worldPoint.absoluteMinute
+      )
+      .sort(
+        (a, b) =>
+          b.endAbsoluteMinute -
+          a.endAbsoluteMinute
+      )[0] ??
+    null;
+
+
+  /*
+    找下一件尚未開始 Activity。
+  */
+  const next =
+    candidates
+      .filter(
+        (candidate) =>
+          candidate.startAbsoluteMinute >
+          worldPoint.absoluteMinute
+      )
+      .sort(
+        (a, b) =>
+          a.startAbsoluteMinute -
+          b.startAbsoluteMinute
+      )[0] ??
+    null;
+
+
+  return Object.freeze({
+    characterId:
+      safeCharacterId,
+
+    worldPoint,
+
+    state:
+      selected
+        ? GARDEN_SCHEDULE_RESOLUTION_STATE
+            .ACTIVE
+        : GARDEN_SCHEDULE_RESOLUTION_STATE
+            .GAP,
+
+    activeEntry:
+      selected?.entry ??
+      null,
+
+    activeScheduleDateKey:
+      selected
+        ?.scheduleDateKey ??
+      null,
+
+    activeCandidateCount:
+      active.length,
+
+    /*
+      若 > 1，
+      代表 Schedule 本身有 overlap。
+
+      Resolver 已選 winner，
+      但保留資訊供 Inspector / Event 使用。
+    */
+    hasConflict:
+      active.length > 1,
+
+    activeCandidates:
+      Object.freeze(
+        active.map(
+          (item) =>
+            item.entry
+        )
+      ),
+
+    previousEntry:
+      previous?.entry ??
+      null,
+
+    nextEntry:
+      next?.entry ??
+      null,
+  });
+}
+
+
+function resolveGardenCharacterScheduleAtTimestamp(
+  schedules,
+  characterId,
+  timestamp =
+    getGardenWorldNow()
+) {
+  const worldPoint =
+    getGardenScheduleWorldPoint(
+      timestamp
+    );
+
+
+  if (!worldPoint) {
+    return null;
+  }
+
+
+  return (
+    resolveGardenCharacterScheduleAtWorldPoint(
+      schedules,
+      characterId,
+      worldPoint
+    )
+  );
+}
+
+function createGardenScheduleWorldPointFromTimeline(
+  baseDateKey,
+  timelineMinute
+) {
+  const baseDayNumber =
+    getGardenScheduleDateDayNumber(
+      baseDateKey
+    );
+
+
+  if (
+    !Number.isInteger(
+      baseDayNumber
+    ) ||
+    !Number.isFinite(
+      timelineMinute
+    )
+  ) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    dateKey:
+      baseDateKey,
+
+    dayNumber:
+      baseDayNumber,
+
+    minuteOfDay:
+      null,
+
+    second:
+      0,
+
+    absoluteMinute:
+      baseDayNumber * 1440 +
+      timelineMinute,
+  });
+}
+
+function runGardenScheduleResolverSelfTest() {
+  const dateKey =
+    "2026-09-23";
+
+
+  const samples =
+    getGardenScheduleDataModelDebugSamples();
+
+
+  if (
+    !samples ||
+    !samples.allValid
+  ) {
+    return {
+      pass: false,
+
+      reason:
+        "invalidSamples",
+    };
+  }
+
+
+  const schedule =
+    generateGardenDailySchedule(
+      [
+        samples.lunch,
+        samples.afternoonFree,
+        samples.eveningBridge,
+      ],
+      dateKey
+    );
+
+
+  /*
+    =========================
+    Test 1：
+    Lunch 中間點應該 ACTIVE
+    =========================
+  */
+  const lunchEntry =
+    schedule.entries.find(
+      (entry) =>
+        entry.intentId ===
+        "lunch"
+    );
+
+
+  const lunchMiddleMinute =
+    lunchEntry.start.timelineMinute +
+    lunchEntry.durationMinutes / 2;
+
+
+  const lunchPoint =
+    createGardenScheduleWorldPointFromTimeline(
+      dateKey,
+      lunchMiddleMinute
+    );
+
+
+  const lunchResolution =
+    resolveGardenCharacterScheduleAtWorldPoint(
+      schedule,
+      "chifuyu",
+      lunchPoint
+    );
+
+
+  /*
+    =========================
+    Test 2：
+    end 邊界應已結束
+    =========================
+  */
+  const lunchEndPoint =
+    createGardenScheduleWorldPointFromTimeline(
+      dateKey,
+      lunchEntry.end.timelineMinute
+    );
+
+
+  const lunchEndResolution =
+    resolveGardenCharacterScheduleAtWorldPoint(
+      schedule,
+      "chifuyu",
+      lunchEndPoint
+    );
+
+
+  /*
+    =========================
+    Test 3：
+    Priority Conflict
+    =========================
+  */
+  const low =
+    createGardenScheduleIntentDefinition({
+      id:
+        "resolver-low",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "lowPriority",
+
+      windowStart:
+        "10:00",
+
+      windowEnd:
+        "10:00",
+
+      durationMinMinutes:
+        60,
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .LOW,
+
+      activityId:
+        "walk",
+    });
+
+
+  const high =
+    createGardenScheduleIntentDefinition({
+      id:
+        "resolver-high",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "highPriority",
+
+      windowStart:
+        "10:00",
+
+      windowEnd:
+        "10:00",
+
+      durationMinMinutes:
+        60,
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .HIGH,
+
+      activityId:
+        "read",
+    });
+
+
+  const conflictSchedule =
+    generateGardenDailySchedule(
+      [
+        low,
+        high,
+      ],
+      dateKey
+    );
+
+
+  const conflictPoint =
+    createGardenScheduleWorldPoint(
+      dateKey,
+      10 * 60 + 30
+    );
+
+
+  const conflictResolution =
+    resolveGardenCharacterScheduleAtWorldPoint(
+      conflictSchedule,
+      "chifuyu",
+      conflictPoint
+    );
+
+
+  /*
+    =========================
+    Test 4：
+    昨日 Activity 跨午夜
+    =========================
+  */
+  const yesterdayKey =
+    shiftGardenScheduleDateKey(
+      dateKey,
+      -1
+    );
+
+
+  const overnightDefinition =
+    createGardenScheduleIntentDefinition({
+      id:
+        "resolver-overnight",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "overnight",
+
+      windowStart:
+        "23:30",
+
+      windowEnd:
+        "00:30",
+
+      durationMinMinutes:
+        60,
+
+      durationMaxMinutes:
+        60,
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .NORMAL,
+
+      activityId:
+        "read",
+    });
+
+
+  const yesterdaySchedule =
+    generateGardenDailySchedule(
+      [
+        overnightDefinition,
+      ],
+      yesterdayKey
+    );
+
+
+  /*
+    今天 00:10。
+  */
+  const afterMidnightPoint =
+    createGardenScheduleWorldPoint(
+      dateKey,
+      10
+    );
+
+
+  const overnightResolution =
+    resolveGardenCharacterScheduleAtWorldPoint(
+      [
+        yesterdaySchedule,
+        schedule,
+      ],
+      "chifuyu",
+      afterMidnightPoint
+    );
+
+
+  /*
+    =========================
+    Results
+    =========================
+  */
+  const checks = {
+    lunchActive:
+      lunchResolution?.state ===
+        GARDEN_SCHEDULE_RESOLUTION_STATE
+          .ACTIVE,
+
+    lunchSelected:
+      lunchResolution
+        ?.activeEntry
+        ?.intentId ===
+      "lunch",
+
+    endBoundaryClosed:
+      lunchEndResolution
+        ?.activeEntry
+        ?.intentId !==
+      "lunch",
+
+    conflictDetected:
+      conflictResolution
+        ?.hasConflict ===
+      true,
+
+    priorityWins:
+      conflictResolution
+        ?.activeEntry
+        ?.intentId ===
+      "highPriority",
+
+    yesterdayKeyCorrect:
+      yesterdayKey ===
+      "2026-09-22",
+
+    overnightActive:
+      overnightResolution
+        ?.activeEntry
+        ?.intentId ===
+      "overnight",
+
+    overnightComesFromYesterday:
+      overnightResolution
+        ?.activeScheduleDateKey ===
+      "2026-09-22",
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    lunch:
+      lunchResolution,
+
+    lunchEnd:
+      lunchEndResolution,
+
+    conflict:
+      conflictResolution,
+
+    overnight:
+      overnightResolution,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Schedule Resolver Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Schedule Resolver Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+/* =========================
+   Garden World Schedule Context
+========================= */
+
+const GARDEN_WORLD_SCHEDULE_CONTEXT_SCHEMA =
+  "nanaharaGardenWorldScheduleContext";
+
+const GARDEN_WORLD_SCHEDULE_CONTEXT_VERSION =
+  1;
+
+
+function createGardenWorldScheduleContext(
+  definitions,
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !Array.isArray(
+      definitions
+    )
+  ) {
+    return null;
+  }
+
+
+  const calendar =
+    getGardenWorldCalendarParts(
+      timestamp
+    );
+
+
+  const worldPoint =
+    getGardenScheduleWorldPoint(
+      timestamp
+    );
+
+
+  if (
+    !calendar ||
+    !worldPoint
+  ) {
+    return null;
+  }
+
+
+  const currentDateKey =
+    calendar.dateKey;
+
+
+  const previousDateKey =
+    shiftGardenScheduleDateKey(
+      currentDateKey,
+      -1
+    );
+
+
+  if (!previousDateKey) {
+    return null;
+  }
+
+
+  /*
+    只讓合法 Intent
+    進入 World Schedule。
+  */
+  const validDefinitions =
+    definitions.filter(
+      isValidGardenScheduleIntentDefinition
+    );
+
+
+  const previousSchedule =
+    generateGardenDailySchedule(
+      validDefinitions,
+      previousDateKey
+    );
+
+
+  const currentSchedule =
+    generateGardenDailySchedule(
+      validDefinitions,
+      currentDateKey
+    );
+
+
+  if (
+    !previousSchedule ||
+    !currentSchedule
+  ) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_WORLD_SCHEDULE_CONTEXT_SCHEMA,
+
+    version:
+      GARDEN_WORLD_SCHEDULE_CONTEXT_VERSION,
+
+    timestamp,
+
+    calendar,
+
+    worldPoint,
+
+    previousDateKey,
+
+    currentDateKey,
+
+    previousSchedule,
+
+    currentSchedule,
+
+    /*
+      Resolver 可以直接吃這個陣列。
+    */
+    schedules:
+      Object.freeze([
+        previousSchedule,
+        currentSchedule,
+      ]),
+  });
+}
+
+
+
+function resolveGardenCharacterWorldSchedule(
+  definitions,
+  characterId,
+  timestamp =
+    getGardenWorldNow()
+) {
+  const context =
+    createGardenWorldScheduleContext(
+      definitions,
+      timestamp
+    );
+
+
+  if (!context) {
+    return null;
+  }
+
+
+  const resolution =
+    resolveGardenCharacterScheduleAtWorldPoint(
+      context.schedules,
+      characterId,
+      context.worldPoint
+    );
+
+
+  if (!resolution) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    contextDateKey:
+      context.currentDateKey,
+
+    previousDateKey:
+      context.previousDateKey,
+
+    ...resolution,
+  });
+}
+
+function resolveGardenWorldSchedule(
+  definitions,
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !Array.isArray(
+      definitions
+    )
+  ) {
+    return null;
+  }
+
+
+  const context =
+    createGardenWorldScheduleContext(
+      definitions,
+      timestamp
+    );
+
+
+  if (!context) {
+    return null;
+  }
+
+
+  /*
+    從 Intent Definition 自動找出
+    這份 Schedule 涉及哪些角色。
+  */
+  const characterIds =
+    [
+      ...new Set(
+        definitions
+          .filter(
+            isValidGardenScheduleIntentDefinition
+          )
+          .map(
+            (definition) =>
+              definition.characterId
+          )
+      ),
+    ];
+
+
+  const characters = {};
+
+
+  for (
+    const characterId of
+    characterIds
+  ) {
+    characters[
+      characterId
+    ] =
+      resolveGardenCharacterScheduleAtWorldPoint(
+        context.schedules,
+        characterId,
+        context.worldPoint
+      );
+  }
+
+
+  return Object.freeze({
+    context,
+
+    characters:
+      Object.freeze(
+        characters
+      ),
+  });
+}
+
+function getGardenScheduleDebugDefinitions() {
+  const samples =
+    getGardenScheduleDataModelDebugSamples();
+
+
+  if (
+    !samples ||
+    !samples.allValid
+  ) {
+    return [];
+  }
+
+
+  return [
+    samples.lunch,
+    samples.afternoonFree,
+    samples.eveningBridge,
+  ];
+}
+
+
+function inspectGardenWorldScheduleDebug(
+  timestamp =
+    getGardenWorldNow()
+) {
+  const definitions =
+    getGardenScheduleDebugDefinitions();
+
+
+  const result =
+    resolveGardenWorldSchedule(
+      definitions,
+      timestamp
+    );
+
+
+  if (!result) {
+    return null;
+  }
+
+
+  const rows =
+    Object.entries(
+      result.characters
+    ).map(
+      ([
+        characterId,
+        resolution,
+      ]) => ({
+        character:
+          characterId,
+
+        date:
+          result.context
+            .currentDateKey,
+
+        time:
+          result.context
+            .calendar
+            .timeKey,
+
+        state:
+          resolution?.state ??
+          null,
+
+        activeIntent:
+          resolution
+            ?.activeEntry
+            ?.intentId ??
+          null,
+
+        activity:
+          resolution
+            ?.activeEntry
+            ?.activity
+            ?.selectedActivityId ??
+          null,
+
+        scene:
+          resolution
+            ?.activeEntry
+            ?.target
+            ?.sceneId ??
+          null,
+
+        fromScheduleDate:
+          resolution
+            ?.activeScheduleDateKey ??
+          null,
+
+        conflict:
+          resolution
+            ?.hasConflict ??
+          false,
+      })
+    );
+
+
+  console.log(
+    "[Garden World Schedule Debug]",
+    result.context
+      .calendar
+  );
+
+
+  console.table(
+    rows
+  );
+
+
+  return result;
+}
+
+
+function runGardenWorldScheduleContextSelfTest() {
+  /*
+    UTC：
+    2026-09-23 15:10
+
+    JST：
+    2026-09-24 00:10
+  */
+  const testTimestamp =
+    Date.parse(
+      "2026-09-23T15:10:00Z"
+    );
+
+
+  const overnight =
+    createGardenScheduleIntentDefinition({
+      id:
+        "context-test-overnight",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "overnight",
+
+      windowStart:
+        "23:30",
+
+      windowEnd:
+        "23:30",
+
+      durationMinMinutes:
+        60,
+
+      durationMaxMinutes:
+        60,
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .NORMAL,
+
+      activityId:
+        "read",
+
+      fallbackActivityId:
+        "wander",
+    });
+
+
+  const definitions = [
+    overnight,
+  ];
+
+
+  const context =
+    createGardenWorldScheduleContext(
+      definitions,
+      testTimestamp
+    );
+
+
+  const first =
+    resolveGardenCharacterWorldSchedule(
+      definitions,
+      "chifuyu",
+      testTimestamp
+    );
+
+
+  /*
+    再算一次，
+    確認 Context / Schedule
+    仍然 deterministic。
+  */
+  const secondContext =
+    createGardenWorldScheduleContext(
+      definitions,
+      testTimestamp
+    );
+
+
+  const checks = {
+    contextCreated:
+      !!context,
+
+    canonicalDateCorrect:
+      context
+        ?.currentDateKey ===
+      "2026-09-24",
+
+    canonicalTimeCorrect:
+      context
+        ?.calendar
+        ?.timeKey ===
+      "00:10:00",
+
+    previousDateCorrect:
+      context
+        ?.previousDateKey ===
+      "2026-09-23",
+
+    previousScheduleCorrect:
+      context
+        ?.previousSchedule
+        ?.dateKey ===
+      "2026-09-23",
+
+    currentScheduleCorrect:
+      context
+        ?.currentSchedule
+        ?.dateKey ===
+      "2026-09-24",
+
+    hasTwoSchedules:
+      context
+        ?.schedules
+        ?.length ===
+      2,
+
+    overnightStillActive:
+      first
+        ?.activeEntry
+        ?.intentId ===
+      "overnight",
+
+    overnightFromYesterday:
+      first
+        ?.activeScheduleDateKey ===
+      "2026-09-23",
+
+    deterministic:
+      JSON.stringify(
+        context?.schedules
+      ) ===
+      JSON.stringify(
+        secondContext?.schedules
+      ),
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    context,
+
+    resolution:
+      first,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden World Schedule Context Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden World Schedule Context Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+/* =========================
+   Garden World Condition / Event Resolver
+========================= */
+
+const GARDEN_WORLD_CONDITION_SNAPSHOT_SCHEMA =
+  "nanaharaGardenWorldConditionSnapshot";
+
+const GARDEN_WORLD_CONDITION_SNAPSHOT_VERSION =
+  1;
+
+const GARDEN_WORLD_EVENT_SCHEMA =
+  "nanaharaGardenWorldEvent";
+
+const GARDEN_WORLD_EVENT_VERSION =
+  1;
+
+
+const GARDEN_WORLD_EVENT_CONDITION_SCOPE =
+  Object.freeze({
+    CHARACTER:
+      "character",
+
+    WORLD:
+      "world",
+  });
+
+
+const GARDEN_WORLD_EVENT_CONDITION_OPERATOR =
+  Object.freeze({
+    EQ:
+      "eq",
+
+    NE:
+      "ne",
+
+    GT:
+      "gt",
+
+    GTE:
+      "gte",
+
+    LT:
+      "lt",
+
+    LTE:
+      "lte",
+
+    TRUTHY:
+      "truthy",
+
+    FALSY:
+      "falsy",
+  });
+
+
+function createGardenWorldConditionSnapshot(
+  options = {}
+) {
+  const dateKey =
+    normalizeGardenWorldDecisionToken(
+      options.dateKey,
+      getGardenWorldDateKey()
+    );
+
+
+  if (
+    !dateKey ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      dateKey
+    )
+  ) {
+    return null;
+  }
+
+
+  const sourceCharacters =
+    options.characters &&
+    typeof options.characters ===
+      "object"
+      ? options.characters
+      : {};
+
+
+  const characters = {};
+
+
+  for (
+    const [
+      characterId,
+      state,
+    ] of Object.entries(
+      sourceCharacters
+    )
+  ) {
+    if (
+      !state ||
+      typeof state !==
+        "object"
+    ) {
+      continue;
+    }
+
+
+    characters[
+      characterId
+    ] =
+      Object.freeze({
+        ...state,
+      });
+  }
+
+
+  const world =
+    options.world &&
+    typeof options.world ===
+      "object"
+      ? Object.freeze({
+          ...options.world,
+        })
+      : Object.freeze({});
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_WORLD_CONDITION_SNAPSHOT_SCHEMA,
+
+    version:
+      GARDEN_WORLD_CONDITION_SNAPSHOT_VERSION,
+
+    dateKey,
+
+    characters:
+      Object.freeze(
+        characters
+      ),
+
+    world,
+  });
+}
+
+
+function createGardenWorldEventCondition(
+  options = {}
+) {
+  const scope =
+    normalizeGardenWorldDecisionToken(
+      options.scope,
+      GARDEN_WORLD_EVENT_CONDITION_SCOPE
+        .WORLD
+    );
+
+
+  const key =
+    normalizeGardenWorldDecisionToken(
+      options.key
+    );
+
+
+  const characterId =
+    normalizeGardenWorldDecisionToken(
+      options.characterId
+    );
+
+
+  const operator =
+    normalizeGardenWorldDecisionToken(
+      options.operator,
+      GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+        .EQ
+    );
+
+
+  if (!key) {
+    return null;
+  }
+
+
+  if (
+    scope ===
+      GARDEN_WORLD_EVENT_CONDITION_SCOPE
+        .CHARACTER &&
+    !characterId
+  ) {
+    return null;
+  }
+
+
+  const validOperators =
+    Object.values(
+      GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+    );
+
+
+  if (
+    !validOperators.includes(
+      operator
+    )
+  ) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    scope,
+
+    characterId,
+
+    key,
+
+    operator,
+
+    value:
+      options.value,
+  });
+}
+
+
+function getGardenWorldConditionValue(
+  snapshot,
+  condition
+) {
+  if (
+    !snapshot ||
+    snapshot.schema !==
+      GARDEN_WORLD_CONDITION_SNAPSHOT_SCHEMA ||
+    !condition
+  ) {
+    return undefined;
+  }
+
+
+  if (
+    condition.scope ===
+      GARDEN_WORLD_EVENT_CONDITION_SCOPE
+        .CHARACTER
+  ) {
+    return (
+      snapshot.characters
+        ?.[
+          condition.characterId
+        ]
+        ?.[
+          condition.key
+        ]
+    );
+  }
+
+
+  return (
+    snapshot.world
+      ?.[
+        condition.key
+      ]
+  );
+}
+
+
+function evaluateGardenWorldEventCondition(
+  snapshot,
+  condition
+) {
+  const actual =
+    getGardenWorldConditionValue(
+      snapshot,
+      condition
+    );
+
+
+  const expected =
+    condition?.value;
+
+
+  switch (
+    condition?.operator
+  ) {
+    case GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+      .EQ:
+      return actual ===
+        expected;
+
+
+    case GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+      .NE:
+      return actual !==
+        expected;
+
+
+    case GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+      .GT:
+      return (
+        Number.isFinite(actual) &&
+        Number.isFinite(expected) &&
+        actual > expected
+      );
+
+
+    case GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+      .GTE:
+      return (
+        Number.isFinite(actual) &&
+        Number.isFinite(expected) &&
+        actual >= expected
+      );
+
+
+    case GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+      .LT:
+      return (
+        Number.isFinite(actual) &&
+        Number.isFinite(expected) &&
+        actual < expected
+      );
+
+
+    case GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+      .LTE:
+      return (
+        Number.isFinite(actual) &&
+        Number.isFinite(expected) &&
+        actual <= expected
+      );
+
+
+    case GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+      .TRUTHY:
+      return Boolean(
+        actual
+      );
+
+
+    case GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+      .FALSY:
+      return !actual;
+
+
+    default:
+      return false;
+  }
+}
+
+
+function createGardenWorldEventDefinition(
+  options = {}
+) {
+  const id =
+    normalizeGardenWorldDecisionToken(
+      options.id
+    );
+
+
+  const characterId =
+    normalizeGardenWorldDecisionToken(
+      options.characterId,
+      "world"
+    );
+
+
+  const instanceId =
+    normalizeGardenWorldDecisionToken(
+      options.instanceId,
+      "main"
+    );
+
+
+  if (!id) {
+    return null;
+  }
+
+
+  const probability =
+    Number.isFinite(
+      options.probability
+    )
+      ? Math.max(
+          0,
+          Math.min(
+            1,
+            options.probability
+          )
+        )
+      : 1;
+
+
+  const priority =
+    Number.isFinite(
+      options.priority
+    )
+      ? options.priority
+      : 50;
+
+
+  const conditions =
+    Array.isArray(
+      options.conditions
+    )
+      ? options.conditions.filter(
+          Boolean
+        )
+      : [];
+
+
+  const participants =
+    Array.isArray(
+      options.participants
+    )
+      ? [
+          ...new Set(
+            options.participants
+              .map(
+                (value) =>
+                  normalizeGardenWorldDecisionToken(
+                    value
+                  )
+              )
+              .filter(Boolean)
+          ),
+        ]
+      : [];
+
+
+  const tags =
+    Array.isArray(
+      options.tags
+    )
+      ? [
+          ...new Set(
+            options.tags
+              .map(
+                (value) =>
+                  normalizeGardenWorldDecisionToken(
+                    value
+                  )
+              )
+              .filter(Boolean)
+          ),
+        ]
+      : [];
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_WORLD_EVENT_SCHEMA,
+
+    version:
+      GARDEN_WORLD_EVENT_VERSION,
+
+    id,
+
+    characterId,
+
+    instanceId,
+
+    probability,
+
+    priority,
+
+    conditions:
+      Object.freeze(
+        conditions
+      ),
+
+    participants:
+      Object.freeze(
+        participants
+      ),
+
+    tags:
+      Object.freeze(
+        tags
+      ),
+  });
+}
+
+
+function resolveGardenWorldDailyEvent(
+  definition,
+  conditionSnapshot,
+  dateKey =
+    conditionSnapshot?.dateKey ??
+    getGardenWorldDateKey()
+) {
+  if (
+    !definition ||
+    definition.schema !==
+      GARDEN_WORLD_EVENT_SCHEMA ||
+    !conditionSnapshot ||
+    conditionSnapshot.schema !==
+      GARDEN_WORLD_CONDITION_SNAPSHOT_SCHEMA ||
+    !dateKey
+  ) {
+    return null;
+  }
+
+
+  /*
+    Snapshot 不能拿錯日期。
+  */
+  if (
+    conditionSnapshot.dateKey !==
+    dateKey
+  ) {
+    return null;
+  }
+
+
+  const conditionResults =
+    definition.conditions.map(
+      (condition) => ({
+        condition,
+
+        passed:
+          evaluateGardenWorldEventCondition(
+            conditionSnapshot,
+            condition
+          ),
+
+        actual:
+          getGardenWorldConditionValue(
+            conditionSnapshot,
+            condition
+          ),
+      })
+    );
+
+
+  const conditionsPassed =
+    conditionResults.every(
+      (result) =>
+        result.passed
+    );
+
+
+  /*
+    Chance 本身仍然無條件算出來。
+
+    這樣 Debug 時可以知道：
+
+    條件沒過，
+    但今天這顆 deterministic roll
+    本來是多少。
+  */
+  const unit =
+    getGardenWorldDailyDecisionUnit({
+      dateKey,
+
+      characterId:
+        definition.characterId,
+
+      domainId:
+        "event",
+
+      subjectId:
+        definition.id,
+
+      instanceId:
+        definition.instanceId,
+
+      decisionId:
+        "trigger",
+    });
+
+
+  const chancePassed =
+    Number.isFinite(unit) &&
+    unit <
+      definition.probability;
+
+
+  const triggered =
+    conditionsPassed &&
+    chancePassed;
+
+
+  return Object.freeze({
+    dateKey,
+
+    eventId:
+      definition.id,
+
+    characterId:
+      definition.characterId,
+
+    instanceId:
+      definition.instanceId,
+
+    priority:
+      definition.priority,
+
+    probability:
+      definition.probability,
+
+    deterministicUnit:
+      unit,
+
+    conditionsPassed,
+
+    chancePassed,
+
+    triggered,
+
+    conditionResults:
+      Object.freeze(
+        conditionResults
+      ),
+
+    participants:
+      definition.participants,
+
+    tags:
+      definition.tags,
+  });
+}
+
+
+function resolveGardenWorldDailyEvents(
+  definitions,
+  conditionSnapshot,
+  dateKey =
+    conditionSnapshot?.dateKey ??
+    getGardenWorldDateKey()
+) {
+  if (
+    !Array.isArray(
+      definitions
+    ) ||
+    !conditionSnapshot
+  ) {
+    return null;
+  }
+
+
+  const resolutions =
+    [];
+
+
+  for (
+    const definition of
+    definitions
+  ) {
+    const resolution =
+      resolveGardenWorldDailyEvent(
+        definition,
+        conditionSnapshot,
+        dateKey
+      );
+
+
+    if (resolution) {
+      resolutions.push(
+        resolution
+      );
+    }
+  }
+
+
+  /*
+    Triggered Event：
+
+    高 priority 優先，
+    再用 Event ID 保證排序穩定。
+  */
+  const triggeredEvents =
+    resolutions
+      .filter(
+        (item) =>
+          item.triggered
+      )
+      .sort(
+        (a, b) => {
+          const priorityDiff =
+            b.priority -
+            a.priority;
+
+
+          if (
+            priorityDiff !== 0
+          ) {
+            return priorityDiff;
+          }
+
+
+          return (
+            a.eventId.localeCompare(
+              b.eventId
+            )
+          );
+        }
+      );
+
+
+  return Object.freeze({
+    dateKey,
+
+    resolutions:
+      Object.freeze(
+        resolutions
+      ),
+
+    triggeredEvents:
+      Object.freeze(
+        triggeredEvents
+      ),
+
+    triggeredCount:
+      triggeredEvents.length,
+  });
+}
+
+function runGardenWorldEventResolverSelfTest() {
+  const dateKey =
+    "2026-09-23";
+
+
+  const snapshot =
+    createGardenWorldConditionSnapshot({
+      dateKey,
+
+      characters: {
+        chinatsu: {
+          fatigue:
+            0.35,
+
+          stress:
+            0.72,
+        },
+
+        chifuyu: {
+          fatigue:
+            0.88,
+
+          stress:
+            0.20,
+        },
+      },
+
+      world: {
+        festivalDay:
+          false,
+      },
+    });
+
+
+  const heavyPaperwork =
+    createGardenWorldEventDefinition({
+      id:
+        "heavyPaperwork",
+
+      characterId:
+        "chinatsu",
+
+      participants: [
+        "chinatsu",
+        "chifuyu",
+      ],
+
+      /*
+        Self-Test 固定 100%，
+        避免測試依賴碰巧抽中。
+      */
+      probability:
+        1,
+
+      priority:
+        70,
+
+      conditions: [
+        createGardenWorldEventCondition({
+          scope:
+            GARDEN_WORLD_EVENT_CONDITION_SCOPE
+              .CHARACTER,
+
+          characterId:
+            "chinatsu",
+
+          key:
+            "stress",
+
+          operator:
+            GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+              .GTE,
+
+          value:
+            0.60,
+        }),
+      ],
+    });
+
+
+  const trainingForbidden =
+    createGardenWorldEventDefinition({
+      id:
+        "trainingForbidden",
+
+      characterId:
+        "chifuyu",
+
+      probability:
+        1,
+
+      priority:
+        90,
+
+      conditions: [
+        createGardenWorldEventCondition({
+          scope:
+            GARDEN_WORLD_EVENT_CONDITION_SCOPE
+              .CHARACTER,
+
+          characterId:
+            "chifuyu",
+
+          key:
+            "fatigue",
+
+          operator:
+            GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+              .GTE,
+
+          value:
+            0.80,
+        }),
+      ],
+    });
+
+
+  /*
+    條件故意不成立。
+  */
+  const lowFatigueEvent =
+    createGardenWorldEventDefinition({
+      id:
+        "lowFatigueShouldFail",
+
+      characterId:
+        "chinatsu",
+
+      probability:
+        1,
+
+      conditions: [
+        createGardenWorldEventCondition({
+          scope:
+            GARDEN_WORLD_EVENT_CONDITION_SCOPE
+              .CHARACTER,
+
+          characterId:
+            "chinatsu",
+
+          key:
+            "fatigue",
+
+          operator:
+            GARDEN_WORLD_EVENT_CONDITION_OPERATOR
+              .GTE,
+
+          value:
+            0.90,
+        }),
+      ],
+    });
+
+
+  /*
+    Chance 故意 0。
+  */
+  const impossibleEvent =
+    createGardenWorldEventDefinition({
+      id:
+        "zeroChance",
+
+      characterId:
+        "chinatsu",
+
+      probability:
+        0,
+    });
+
+
+  const definitions = [
+    heavyPaperwork,
+    trainingForbidden,
+    lowFatigueEvent,
+    impossibleEvent,
+  ];
+
+
+  const first =
+    resolveGardenWorldDailyEvents(
+      definitions,
+      snapshot,
+      dateKey
+    );
+
+
+  const second =
+    resolveGardenWorldDailyEvents(
+      definitions,
+      snapshot,
+      dateKey
+    );
+
+
+  const heavy =
+    first?.resolutions.find(
+      (item) =>
+        item.eventId ===
+        "heavyPaperwork"
+    );
+
+
+  const training =
+    first?.resolutions.find(
+      (item) =>
+        item.eventId ===
+        "trainingForbidden"
+    );
+
+
+  const lowFatigue =
+    first?.resolutions.find(
+      (item) =>
+        item.eventId ===
+        "lowFatigueShouldFail"
+    );
+
+
+  const zeroChance =
+    first?.resolutions.find(
+      (item) =>
+        item.eventId ===
+        "zeroChance"
+    );
+
+
+  const checks = {
+    snapshotCreated:
+      !!snapshot,
+
+    heavyConditionsPass:
+      heavy?.conditionsPassed ===
+      true,
+
+    heavyTriggered:
+      heavy?.triggered ===
+      true,
+
+    trainingTriggered:
+      training?.triggered ===
+      true,
+
+    failedConditionBlocked:
+      lowFatigue?.conditionsPassed ===
+        false &&
+      lowFatigue?.triggered ===
+        false,
+
+    zeroChanceBlocked:
+      zeroChance?.chancePassed ===
+        false &&
+      zeroChance?.triggered ===
+        false,
+
+    triggeredCountCorrect:
+      first?.triggeredCount ===
+      2,
+
+    priorityOrderingCorrect:
+      first
+        ?.triggeredEvents
+        ?.[0]
+        ?.eventId ===
+      "trainingForbidden",
+
+    deterministic:
+      JSON.stringify(first) ===
+      JSON.stringify(second),
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    snapshot,
+
+    events:
+      first,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden World Event Resolver Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden World Event Resolver Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
 
 
 /*
@@ -24359,6 +38550,27 @@ function setGardenWorldClockTestNow(
     timestamp;
 
 
+  /*
+    Test Clock 改變後，
+    如果玩家正在 Garden，
+    立刻同步當前場景日夜素材。
+  */
+  if (
+    typeof updateDayNightMode ===
+      "function"
+  ) {
+    updateDayNightMode();
+  }
+
+
+  if (
+    typeof updateMoonBridgeMoonPosition ===
+      "function"
+  ) {
+    updateMoonBridgeMoonPosition();
+  }
+
+
   return true;
 }
 
@@ -24404,6 +38616,27 @@ function advanceGardenWorldClockTestBy(
 function clearGardenWorldClockTestNow() {
   gardenWorldClockTestNow =
     null;
+
+
+  /*
+    離開 Test Clock 後，
+    如果玩家正在 Garden，
+    立刻同步回正式世界時間的日夜素材。
+  */
+  if (
+    typeof updateDayNightMode ===
+      "function"
+  ) {
+    updateDayNightMode();
+  }
+
+
+  if (
+    typeof updateMoonBridgeMoonPosition ===
+      "function"
+  ) {
+    updateMoonBridgeMoonPosition();
+  }
 
 
   return true;
@@ -25047,6 +39280,165 @@ gardenWorldLastReconciliationResults =
 return result;
 }
 
+
+function reconcileGardenWorldAtCurrentTime(
+  reason =
+    "currentTime",
+
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    沒有真正 Suspend。
+
+    用同一個 timestamp
+    建立 0 elapsed 的 Context，
+    讓所有 Reconciliation Handler
+    都能使用既有介面。
+  */
+  const context =
+    createGardenWorldResumeContext(
+      timestamp,
+      timestamp,
+      reason,
+      reason
+    );
+
+
+  if (!context) {
+    return null;
+  }
+
+
+  const reconciliationResults =
+    runGardenWorldReconciliation(
+      context
+    );
+
+
+  gardenWorldLastReconciliationResults =
+    reconciliationResults;
+
+
+  return Object.freeze({
+    ...context,
+
+    reconciliation:
+      reconciliationResults,
+  });
+}
+
+
+/* =========================
+   Garden World Live Tick
+========================= */
+
+const GARDEN_WORLD_LIVE_TICK_MS =
+  30 * 1000;
+
+
+function runGardenWorldLiveTick() {
+  /*
+    Garden 沒有開著時，
+    不需要持續執行 World Reconciliation。
+  */
+  if (
+    !isGardenWorldViewActive()
+  ) {
+    return null;
+  }
+
+
+  /*
+    Menu / 背景頁面等 Suspend 狀態，
+    交給既有 Resume 系統處理。
+  */
+  if (
+    gardenWorldSuspendState
+      .isSuspended
+  ) {
+    return null;
+  }
+
+
+  /*
+    同一個 Live Tick 全部使用
+    完全相同的 Canonical Timestamp。
+
+    避免剛好跨分鐘時：
+    Schedule 還在上一分鐘，
+    Chat 卻已經進下一分鐘。
+  */
+  const timestamp =
+    getGardenWorldNow();
+
+
+  /*
+    先做正式 World Reconciliation。
+
+    這一步負責：
+    - Schedule
+    - Travel
+    - Activity
+    - Wander
+  */
+  const reconciliation =
+    reconcileGardenWorldAtCurrentTime(
+      "liveTick",
+      timestamp
+    );
+
+
+  if (!reconciliation) {
+    return null;
+  }
+
+
+  /*
+    Reconciliation 完成後，
+    才嘗試 deterministic
+    Moon Bridge Night Chat。
+
+    如果角色還在 Travel、
+    不在賞月橋、
+    不是 Wander、
+    沒有命中 Chat event，
+    函式都會安全地什麼也不做。
+  */
+  tryStartGardenMoonBridgeNightChat(
+    timestamp
+  );
+
+
+  /*
+    保持舊 API 不變。
+
+    外部如果原本依賴
+    runGardenWorldLiveTick()
+    的 reconciliation result，
+    不需要跟著修改。
+  */
+  return reconciliation;
+}
+
+
+setInterval(
+  runGardenWorldLiveTick,
+  GARDEN_WORLD_LIVE_TICK_MS
+);
+
+
+
+
 function getGardenWorldSuspendSnapshot() {
   return {
     isSuspended:
@@ -25078,6 +39470,10 @@ function getGardenWorldSuspendSnapshot() {
         .resumeCount,
   };
 }
+
+
+
+
 
 /*
   只給開發測試使用。
@@ -25126,34 +39522,5165 @@ const GARDEN_CHARACTER_ACTIVITY =
     WANDER: "wander",
     TRAVEL: "travel",
     CHAT: "chat",
+
+    REST: "rest",
   });
 
 
 const gardenCharacterWorldState = {
-  chifuyu: {
-    sceneId: "courtyard",
+ chifuyu: {
+  sceneId: "courtyard",
 
-    activity:
-      GARDEN_CHARACTER_ACTIVITY
-        .WANDER,
+  activity:
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER,
 
-    activityData: null,
+  activityData: null,
 
-    travel: null,
-  },
+  /*
+    Travel → Wander 的
+    Canonical Spatial Handoff。
+
+    null：
+    目前直接使用 Standard Wander Timeline。
+  */
+  wanderContinuity: null,
+
+  activitySpotApproach: null,
+
+  travel: null,
+},
 
   chinatsu: {
-    sceneId: "courtyard",
+  sceneId: "courtyard",
+
+  activity:
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER,
+
+  activityData: null,
+
+  wanderContinuity: null,
+
+  activitySpotApproach: null,
+
+  travel: null,
+},
+};
+
+
+/* =========================
+   12I-1
+   Garden Activity Spot Registry
+========================= */
+
+const GARDEN_ACTIVITY_SPOT_SCHEMA =
+  "nanaharaGardenActivitySpot";
+
+const GARDEN_ACTIVITY_SPOT_VERSION =
+  1;
+
+
+/*
+  第一個 Spot 先使用庭院既有、
+  已確認可作為 Auto Target 的座標。
+
+  目前只是 Runtime / Router 測試點。
+  之後真正決定「休息要坐哪裡」時，
+  可以直接換座標或增加正式 Spot。
+*/
+const COURTYARD_ACTIVITY_SPOTS =
+  Object.freeze({
+    "courtyard-rest-01":
+      Object.freeze({
+        schema:
+          GARDEN_ACTIVITY_SPOT_SCHEMA,
+
+        version:
+          GARDEN_ACTIVITY_SPOT_VERSION,
+
+        id:
+          "courtyard-rest-01",
+
+        sceneId:
+          "courtyard",
+
+        x:
+          790,
+
+        y:
+          985,
+
+        direction:
+          -1,
+
+        activities:
+          Object.freeze([
+            GARDEN_CHARACTER_ACTIVITY
+              .REST,
+          ]),
+      }),
+
+    "courtyard-rest-02":
+      Object.freeze({
+        schema:
+          GARDEN_ACTIVITY_SPOT_SCHEMA,
+
+        version:
+          GARDEN_ACTIVITY_SPOT_VERSION,
+
+        id:
+          "courtyard-rest-02",
+
+        sceneId:
+          "courtyard",
+
+        x:
+          620,
+
+        y:
+          1080,
+
+        direction:
+          1,
+
+        activities:
+          Object.freeze([
+            GARDEN_CHARACTER_ACTIVITY
+              .REST,
+          ]),
+      }),
+
+  });
+
+
+const MOON_BRIDGE_ACTIVITY_SPOTS =
+  Object.freeze({});
+
+
+function isGardenActivitySpotUsable(
+  spot,
+  sceneId = null,
+  activityId = null
+) {
+  if (
+    !spot ||
+    typeof spot !==
+      "object"
+  ) {
+    return false;
+  }
+
+
+  if (
+    spot.schema !==
+      GARDEN_ACTIVITY_SPOT_SCHEMA ||
+    spot.version !==
+      GARDEN_ACTIVITY_SPOT_VERSION
+  ) {
+    return false;
+  }
+
+
+  if (
+    !spot.id ||
+    !spot.sceneId ||
+    !Number.isFinite(
+      spot.x
+    ) ||
+    !Number.isFinite(
+      spot.y
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    spot.direction !== 1 &&
+    spot.direction !== -1
+  ) {
+    return false;
+  }
+
+
+  if (
+    !Array.isArray(
+      spot.activities
+    ) ||
+    spot.activities.length ===
+      0
+  ) {
+    return false;
+  }
+
+
+  if (
+    sceneId &&
+    spot.sceneId !==
+      sceneId
+  ) {
+    return false;
+  }
+
+
+  if (
+    activityId &&
+    !spot.activities.includes(
+      activityId
+    )
+  ) {
+    return false;
+  }
+
+
+  /*
+    Spot 必須真的位於
+    該 Scene 可走區。
+  */
+  if (
+    !isGardenWalkablePointInScene(
+      spot.sceneId,
+      spot.x,
+      spot.y
+    )
+  ) {
+    return false;
+  }
+
+
+  return true;
+}
+
+
+
+function getGardenActivitySpot(
+  sceneId,
+  spotId,
+  activityId = null
+) {
+  if (
+    !sceneId ||
+    !spotId
+  ) {
+    return null;
+  }
+
+
+  const scene =
+    getGardenSceneById(
+      sceneId
+    );
+
+
+  const spot =
+    scene
+      ?.activitySpots
+      ?.[spotId] ??
+    null;
+
+
+  if (
+    !isGardenActivitySpotUsable(
+      spot,
+      sceneId,
+      activityId
+    )
+  ) {
+    return null;
+  }
+
+
+  return spot;
+}
+
+
+function runGardenActivitySpotRegistrySelfTest() {
+  const restSpot =
+    getGardenActivitySpot(
+      "courtyard",
+      "courtyard-rest-01",
+      GARDEN_CHARACTER_ACTIVITY
+        .REST
+    );
+
+
+  const wrongActivity =
+    getGardenActivitySpot(
+      "courtyard",
+      "courtyard-rest-01",
+      GARDEN_CHARACTER_ACTIVITY
+        .CHAT
+    );
+
+
+  const missingSpot =
+    getGardenActivitySpot(
+      "courtyard",
+      "missing-spot",
+      GARDEN_CHARACTER_ACTIVITY
+        .REST
+    );
+
+
+  const scene =
+    getGardenSceneById(
+      "courtyard"
+    );
+
+
+  const checks = {
+    spotFound:
+      !!restSpot,
+
+    correctScene:
+      restSpot?.sceneId ===
+        "courtyard",
+
+    correctId:
+      restSpot?.id ===
+        "courtyard-rest-01",
+
+    restAllowed:
+      restSpot?.activities
+        ?.includes(
+          GARDEN_CHARACTER_ACTIVITY
+            .REST
+        ) === true,
+
+    wrongActivityRejected:
+      wrongActivity ===
+        null,
+
+    missingRejected:
+      missingSpot ===
+        null,
+
+    walkable:
+      !!restSpot &&
+      isGardenWalkablePointInScene(
+        "courtyard",
+        restSpot.x,
+        restSpot.y
+      ),
+
+    registeredInScene:
+      scene?.activitySpots ===
+        COURTYARD_ACTIVITY_SPOTS,
+
+    moonBridgeRegistryExists:
+      getGardenSceneById(
+        "moonBridge"
+      )?.activitySpots ===
+        MOON_BRIDGE_ACTIVITY_SPOTS,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(
+      Boolean
+    );
+
+
+  const result = {
+    pass,
+    checks,
+    restSpot,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Activity Spot Registry Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Activity Spot Registry Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+/* =========================
+   12I-2
+   Canonical Activity Spot Approach
+========================= */
+
+const GARDEN_ACTIVITY_SPOT_APPROACH_SCHEMA =
+  "nanaharaGardenActivitySpotApproach";
+
+const GARDEN_ACTIVITY_SPOT_APPROACH_VERSION =
+  1;
+
+
+function createGardenCanonicalActivitySpotApproachPlan({
+  characterId,
+
+  sceneId,
+
+  spotId,
+
+  activityId,
+
+  startPoint,
+
+  startDirection = 1,
+
+  startedAt =
+    getGardenWorldNow(),
+} = {}) {
+  if (
+    !characterId ||
+    !sceneId ||
+    !spotId ||
+    !activityId ||
+    !startPoint ||
+    !Number.isFinite(
+      startPoint.x
+    ) ||
+    !Number.isFinite(
+      startPoint.y
+    ) ||
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    Spot 必須：
+    - 存在
+    - 屬於正確 Scene
+    - 支援這個 Activity
+    - 位於可走區
+  */
+  const spot =
+    getGardenActivitySpot(
+      sceneId,
+      spotId,
+      activityId
+    );
+
+
+  if (!spot) {
+    return null;
+  }
+
+
+  /*
+    起點也必須真的位於
+    角色所在 Scene 的可走區。
+  */
+  if (
+    !isGardenWalkablePointInScene(
+      sceneId,
+      startPoint.x,
+      startPoint.y
+    )
+  ) {
+    return null;
+  }
+
+
+  const targetPoint = {
+    x:
+      spot.x,
+
+    y:
+      spot.y,
+  };
+
+
+  /*
+    使用 Scene-aware path finder。
+
+    它不看玩家目前畫面，
+    而是明確指定 character scene。
+  */
+  const path =
+    findGardenPath(
+      startPoint,
+      targetPoint,
+      sceneId
+    );
+
+
+  if (!path) {
+    return null;
+  }
+
+
+  /*
+    重用 Travel 已驗證的
+    Canonical Path-Time Model。
+  */
+  const pathRecord =
+    createGardenCanonicalTravelPathRecord(
+      characterId,
+      startPoint,
+      path
+    );
+
+
+  if (!pathRecord) {
+    return null;
+  }
+
+
+  const durationMs =
+    pathRecord.totalDurationMs;
+
+
+  const endsAt =
+    startedAt +
+    durationMs;
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_ACTIVITY_SPOT_APPROACH_SCHEMA,
+
+    version:
+      GARDEN_ACTIVITY_SPOT_APPROACH_VERSION,
+
+
+    characterId,
+
+    sceneId,
+
+    spotId,
+
+    activityId,
+
+
+    startedAt,
+
+    endsAt,
+
+    durationMs,
+
+
+    startPoint:
+      Object.freeze({
+        x:
+          startPoint.x,
+
+        y:
+          startPoint.y,
+      }),
+
+
+    startDirection:
+      startDirection === -1
+        ? -1
+        : 1,
+
+
+    /*
+      把目標 Spot 的空間資料
+      固定進 Plan。
+
+      之後即使 Runtime 不直接查 Registry，
+      也能從這份 Canonical Plan
+      重建抵達位置。
+    */
+    targetSpot:
+      Object.freeze({
+        id:
+          spot.id,
+
+        sceneId:
+          spot.sceneId,
+
+        x:
+          spot.x,
+
+        y:
+          spot.y,
+
+        direction:
+          spot.direction,
+      }),
+
+
+    path:
+      pathRecord,
+  });
+}
+
+function isGardenCanonicalActivitySpotApproachPlanUsable(
+  plan,
+  characterId = null,
+  sceneId = null,
+  activityId = null
+) {
+  if (
+    !plan ||
+    typeof plan !==
+      "object"
+  ) {
+    return false;
+  }
+
+
+  if (
+    plan.schema !==
+      GARDEN_ACTIVITY_SPOT_APPROACH_SCHEMA ||
+    plan.version !==
+      GARDEN_ACTIVITY_SPOT_APPROACH_VERSION
+  ) {
+    return false;
+  }
+
+
+  if (
+    !plan.characterId ||
+    !plan.sceneId ||
+    !plan.spotId ||
+    !plan.activityId
+  ) {
+    return false;
+  }
+
+
+  if (
+    characterId &&
+    plan.characterId !==
+      characterId
+  ) {
+    return false;
+  }
+
+
+  if (
+    sceneId &&
+    plan.sceneId !==
+      sceneId
+  ) {
+    return false;
+  }
+
+
+  if (
+    activityId &&
+    plan.activityId !==
+      activityId
+  ) {
+    return false;
+  }
+
+
+  if (
+    !isValidGardenWorldTimestamp(
+      plan.startedAt
+    ) ||
+    !isValidGardenWorldTimestamp(
+      plan.endsAt
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    plan.endsAt <
+    plan.startedAt
+  ) {
+    return false;
+  }
+
+
+  if (
+    !Number.isFinite(
+      plan.durationMs
+    ) ||
+    plan.durationMs <
+      0
+  ) {
+    return false;
+  }
+
+
+  if (
+    Math.abs(
+      (
+        plan.endsAt -
+        plan.startedAt
+      ) -
+      plan.durationMs
+    ) >
+      0.001
+  ) {
+    return false;
+  }
+
+
+  if (
+    !Number.isFinite(
+      plan.startPoint?.x
+    ) ||
+    !Number.isFinite(
+      plan.startPoint?.y
+    ) ||
+    !Number.isFinite(
+      plan.targetSpot?.x
+    ) ||
+    !Number.isFinite(
+      plan.targetSpot?.y
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    plan.targetSpot?.direction !==
+      1 &&
+    plan.targetSpot?.direction !==
+      -1
+  ) {
+    return false;
+  }
+
+
+  if (
+    !plan.path ||
+    !Array.isArray(
+      plan.path.points
+    ) ||
+    plan.path.points.length ===
+      0 ||
+    !Number.isFinite(
+      plan.path.totalDurationMs
+    )
+  ) {
+    return false;
+  }
+
+
+  if (
+    Math.abs(
+      plan.path.totalDurationMs -
+      plan.durationMs
+    ) >
+      0.001
+  ) {
+    return false;
+  }
+
+
+  /*
+    Path 最後一點
+    必須真的就是 Spot。
+  */
+  const lastPoint =
+    plan.path.points[
+      plan.path.points.length -
+      1
+    ];
+
+
+  if (
+    !lastPoint ||
+    Math.abs(
+      lastPoint.x -
+      plan.targetSpot.x
+    ) >
+      0.001 ||
+    Math.abs(
+      lastPoint.y -
+      plan.targetSpot.y
+    ) >
+      0.001
+  ) {
+    return false;
+  }
+
+
+  return true;
+}
+
+
+
+function resolveGardenCanonicalActivitySpotApproach(
+  plan,
+
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !isGardenCanonicalActivitySpotApproachPlanUsable(
+      plan
+    ) ||
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    =========================
+    尚未開始
+    =========================
+  */
+  if (
+    timestamp <
+    plan.startedAt
+  ) {
+    return Object.freeze({
+      phase:
+        "pending",
+
+      completed:
+        false,
+
+      sceneId:
+        plan.sceneId,
+
+      spotId:
+        plan.spotId,
+
+      x:
+        plan.startPoint.x,
+
+      y:
+        plan.startPoint.y,
+
+      direction:
+        plan.startDirection,
+
+      isMoving:
+        false,
+
+      progress:
+        0,
+    });
+  }
+
+
+  /*
+    =========================
+    已抵達 Spot
+    =========================
+
+    最終朝向使用 Spot 自己指定的
+    direction，而不是最後 path segment。
+  */
+  if (
+    timestamp >=
+    plan.endsAt
+  ) {
+    return Object.freeze({
+      phase:
+        "completed",
+
+      completed:
+        true,
+
+      sceneId:
+        plan.sceneId,
+
+      spotId:
+        plan.spotId,
+
+      x:
+        plan.targetSpot.x,
+
+      y:
+        plan.targetSpot.y,
+
+      direction:
+        plan.targetSpot.direction,
+
+      isMoving:
+        false,
+
+      progress:
+        1,
+    });
+  }
+
+
+  /*
+    =========================
+    Approach 中
+    =========================
+  */
+  const sample =
+    sampleGardenCanonicalTravelPath(
+      plan.path,
+
+      timestamp -
+      plan.startedAt
+    );
+
+
+  if (!sample) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    phase:
+      "approach",
+
+    completed:
+      false,
+
+    sceneId:
+      plan.sceneId,
+
+    spotId:
+      plan.spotId,
+
+    x:
+      sample.x,
+
+    y:
+      sample.y,
+
+    direction:
+      sample.direction ??
+      plan.startDirection,
+
+    isMoving:
+      true,
+
+    progress:
+      sample.progress,
+
+    sample,
+  });
+}
+
+function runGardenActivitySpotApproachSelfTest() {
+  const characterId =
+    "chifuyu";
+
+  const sceneId =
+    "courtyard";
+
+  const spotId =
+    "courtyard-rest-01";
+
+  const activityId =
+    GARDEN_CHARACTER_ACTIVITY
+      .REST;
+
+
+  /*
+    使用庭院既有的安全出生位置。
+  */
+  const startPoint = {
+    x:
+      600,
+
+    y:
+      1725,
+  };
+
+
+  const startedAt =
+    Date.parse(
+      "2026-09-23T12:00:00+09:00"
+    );
+
+
+  const plan =
+    createGardenCanonicalActivitySpotApproachPlan({
+      characterId,
+
+      sceneId,
+
+      spotId,
+
+      activityId,
+
+      startPoint,
+
+      startDirection:
+        1,
+
+      startedAt,
+    });
+
+
+  if (!plan) {
+    const result = {
+      pass:
+        false,
+
+      reason:
+        "planBuildFailed",
+    };
+
+
+    console.warn(
+      "[Garden Activity Spot Approach Self-Test] FAIL",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  const before =
+    resolveGardenCanonicalActivitySpotApproach(
+      plan,
+      plan.startedAt -
+        1000
+    );
+
+
+  const atStart =
+    resolveGardenCanonicalActivitySpotApproach(
+      plan,
+      plan.startedAt
+    );
+
+
+  const midpoint =
+    resolveGardenCanonicalActivitySpotApproach(
+      plan,
+      plan.startedAt +
+        plan.durationMs *
+          0.5
+    );
+
+
+  const atEnd =
+    resolveGardenCanonicalActivitySpotApproach(
+      plan,
+      plan.endsAt
+    );
+
+
+  /*
+    JSON round-trip：
+    未來 Snapshot / Reload
+    必須仍可使用同一份 Plan。
+  */
+  const serialized =
+    JSON.stringify(
+      plan
+    );
+
+
+  const restored =
+    JSON.parse(
+      serialized
+    );
+
+
+  const restoredEnd =
+    resolveGardenCanonicalActivitySpotApproach(
+      restored,
+      restored.endsAt
+    );
+
+
+  const epsilon =
+    0.000001;
+
+
+  const checks = {
+    planCreated:
+      !!plan,
+
+
+    planValid:
+      isGardenCanonicalActivitySpotApproachPlanUsable(
+        plan,
+        characterId,
+        sceneId,
+        activityId
+      ),
+
+
+    positiveDuration:
+      plan.durationMs >
+      0,
+
+
+    beforePending:
+      before?.phase ===
+        "pending" &&
+      before?.isMoving ===
+        false,
+
+
+    startsApproach:
+      atStart?.phase ===
+        "approach",
+
+
+    midpointApproach:
+      midpoint?.phase ===
+        "approach" &&
+      midpoint?.isMoving ===
+        true,
+
+
+    endsCompleted:
+      atEnd?.phase ===
+        "completed" &&
+      atEnd?.completed ===
+        true &&
+      atEnd?.isMoving ===
+        false,
+
+
+    endsAtSpotX:
+      Math.abs(
+        atEnd.x -
+        plan.targetSpot.x
+      ) <
+        epsilon,
+
+
+    endsAtSpotY:
+      Math.abs(
+        atEnd.y -
+        plan.targetSpot.y
+      ) <
+        epsilon,
+
+
+    finalDirectionMatchesSpot:
+      atEnd.direction ===
+        plan.targetSpot.direction,
+
+
+    serializable:
+      !!serialized,
+
+
+    restoredValid:
+      isGardenCanonicalActivitySpotApproachPlanUsable(
+        restored,
+        characterId,
+        sceneId,
+        activityId
+      ),
+
+
+    reloadStableX:
+      Math.abs(
+        restoredEnd.x -
+        atEnd.x
+      ) <
+        epsilon,
+
+
+    reloadStableY:
+      Math.abs(
+        restoredEnd.y -
+        atEnd.y
+      ) <
+        epsilon,
+
+
+    reloadStableDirection:
+      restoredEnd.direction ===
+        atEnd.direction,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(
+      Boolean
+    );
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    plan,
+
+    before,
+
+    atStart,
+
+    midpoint,
+
+    atEnd,
+
+    restoredEnd,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Activity Spot Approach Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Activity Spot Approach Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+/* =========================
+   12I-3
+   Canonical Activity Spot Runtime
+========================= */
+
+const GARDEN_CANONICAL_ACTIVITY_SPOT_RUNTIME_ENABLED =
+  true;
+
+
+function canGardenCharacterUseCanonicalActivitySpotRuntime(
+  characterId,
+  worldStateOverride = null
+) {
+  if (
+    !GARDEN_CANONICAL_ACTIVITY_SPOT_RUNTIME_ENABLED
+  ) {
+    return false;
+  }
+
+
+  const worldState =
+    worldStateOverride ??
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  if (!worldState) {
+    return false;
+  }
+
+
+  /*
+    Travel 永遠有更高 Spatial Priority。
+  */
+  if (
+    worldState.travel ||
+    worldState.activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .TRAVEL
+  ) {
+    return false;
+  }
+
+
+  const plan =
+    worldState.activitySpotApproach;
+
+
+  if (!plan) {
+    return false;
+  }
+
+
+  /*
+    Approach 必須仍然屬於
+    角色目前真正的 Activity / Scene。
+  */
+  if (
+    worldState.activity !==
+      plan.activityId ||
+    worldState.sceneId !==
+      plan.sceneId
+  ) {
+    return false;
+  }
+
+
+  return (
+    isGardenCanonicalActivitySpotApproachPlanUsable(
+      plan,
+      characterId,
+      worldState.sceneId,
+      worldState.activity
+    )
+  );
+}
+
+function applyGardenCanonicalActivitySpotRuntimeForCharacter(
+  characterId,
+
+  timestamp =
+    getGardenWorldNow()
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  if (
+    !worldState ||
+    !runtime?.moveState
+  ) {
+    return Object.freeze({
+      characterId,
+
+      owned:
+        false,
+
+      applied:
+        false,
+
+      completed:
+        false,
+
+      reason:
+        "runtimeUnavailable",
+    });
+  }
+
+
+  const owned =
+    canGardenCharacterUseCanonicalActivitySpotRuntime(
+      characterId,
+      worldState
+    );
+
+
+  if (!owned) {
+    return Object.freeze({
+      characterId,
+
+      owned:
+        false,
+
+      applied:
+        false,
+
+      completed:
+        false,
+
+      reason:
+        "notActivitySpotApproach",
+    });
+  }
+
+
+  const plan =
+    worldState.activitySpotApproach;
+
+
+  const sample =
+    resolveGardenCanonicalActivitySpotApproach(
+      plan,
+      timestamp
+    );
+
+
+  /*
+    Canonical Owner 已取得，
+    就絕不能掉回 local path。
+  */
+  runtime.setPath?.([]);
+
+  runtime.moveState.path =
+    [];
+
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  if (!sample) {
+    runtime.moveState.isMoving =
+      false;
+
+
+    return Object.freeze({
+      characterId,
+
+      owned:
+        true,
+
+      applied:
+        false,
+
+      completed:
+        false,
+
+      reason:
+        "sampleUnavailable",
+
+      plan,
+    });
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  state.x =
+    sample.x;
+
+  state.y =
+    sample.y;
+
+
+  if (
+    sample.direction === 1 ||
+    sample.direction === -1
+  ) {
+    state.direction =
+      sample.direction;
+  }
+
+
+  state.isMoving =
+    sample.isMoving === true;
+
+
+  worldState.sceneId =
+    sample.sceneId;
+
+
+  /*
+    =========================
+    Spot Reached
+    =========================
+
+    Activity 本身不結束。
+
+    例如 REST：
+    Approach 完成後仍然是 REST，
+    只是 spatial approach 已完成。
+  */
+  if (
+    sample.completed
+  ) {
+    state.isMoving =
+      false;
+
+
+    worldState.activitySpotApproach =
+      null;
+
+
+    return Object.freeze({
+      characterId,
+
+      owned:
+        true,
+
+      applied:
+        true,
+
+      completed:
+        true,
+
+      reason:
+        "activitySpotReached",
+
+      sceneId:
+        worldState.sceneId,
+
+      spotId:
+        plan.spotId,
+
+      activityId:
+        worldState.activity,
+
+      sample,
+    });
+  }
+
+
+  return Object.freeze({
+    characterId,
+
+    owned:
+      true,
+
+    applied:
+      true,
+
+    completed:
+      false,
+
+    reason:
+      "canonicalActivitySpotApproach",
+
+    sceneId:
+      worldState.sceneId,
+
+    spotId:
+      plan.spotId,
+
+    activityId:
+      worldState.activity,
+
+    sample,
+  });
+}
+
+
+function updateGardenCanonicalActivitySpotRuntime(
+  timestamp =
+    getGardenWorldNow()
+) {
+  const chifuyu =
+    applyGardenCanonicalActivitySpotRuntimeForCharacter(
+      "chifuyu",
+      timestamp
+    );
+
+
+  const chinatsu =
+    applyGardenCanonicalActivitySpotRuntimeForCharacter(
+      "chinatsu",
+      timestamp
+    );
+
+
+  return Object.freeze({
+    chifuyu,
+    chinatsu,
+  });
+}
+
+
+function startGardenCharacterActivitySpotApproach(
+  characterId,
+  {
+    sceneId,
+    spotId,
+    activityId,
+    activityData = null,
+
+    startedAt =
+      getGardenWorldNow(),
+  } = {}
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  if (
+    !worldState ||
+    !runtime?.moveState ||
+    !sceneId ||
+    !spotId ||
+    !activityId
+  ) {
+    return null;
+  }
+
+
+  /*
+    跨場景必須先走 Travel。
+  */
+  if (
+    worldState.travel ||
+    worldState.sceneId !==
+      sceneId
+  ) {
+    return null;
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  const plan =
+    createGardenCanonicalActivitySpotApproachPlan({
+      characterId,
+
+      sceneId,
+
+      spotId,
+
+      activityId,
+
+      startPoint: {
+        x:
+          state.x,
+
+        y:
+          state.y,
+      },
+
+      startDirection:
+        state.direction,
+
+      startedAt,
+    });
+
+
+  if (!plan) {
+    return null;
+  }
+
+
+  /*
+    先進入真正 Activity。
+
+    REST 等 Activity 的 local path
+    會被 setGardenCharacterActivity
+    清乾淨。
+  */
+  const changed =
+    setGardenCharacterActivity(
+      characterId,
+      activityId,
+      activityData
+    );
+
+
+  if (
+    changed === false
+  ) {
+    return null;
+  }
+
+
+  /*
+    Activity 切換完成之後，
+    再掛上 Canonical Spatial Plan。
+  */
+  worldState.activitySpotApproach =
+    plan;
+
+
+  return plan;
+}
+
+
+function inspectGardenActivitySpotRuntime(
+  characterId =
+    "chifuyu"
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  const result =
+    applyGardenCanonicalActivitySpotRuntimeForCharacter(
+      characterId,
+      getGardenWorldNow()
+    );
+
+
+  const info = {
+    character:
+      characterId,
+
+    activity:
+      worldState?.activity ??
+      null,
+
+    sceneId:
+      worldState?.sceneId ??
+      null,
+
+    hasApproach:
+      !!worldState
+        ?.activitySpotApproach,
+
+    owned:
+      result.owned,
+
+    applied:
+      result.applied,
+
+    completed:
+      result.completed,
+
+    reason:
+      result.reason,
+
+    spotId:
+      result.spotId ??
+      worldState
+        ?.activitySpotApproach
+        ?.spotId ??
+      null,
+
+    x:
+      runtime?.moveState?.x ??
+      null,
+
+    y:
+      runtime?.moveState?.y ??
+      null,
+
+    isMoving:
+      runtime?.moveState
+        ?.isMoving ??
+      null,
+
+    localPathLength:
+      runtime?.moveState
+        ?.path
+        ?.length ??
+      0,
+  };
+
+
+  console.table([
+    info,
+  ]);
+
+
+  return info;
+}
+
+
+function reconcileGardenActivitySpotApproachSystem(
+  context
+) {
+  if (
+    !context ||
+    !isValidGardenWorldTimestamp(
+      context.resumedAt
+    )
+  ) {
+    return Object.freeze({
+      ok:
+        false,
+
+      reason:
+        "invalidContext",
+
+      results:
+        Object.freeze([]),
+    });
+  }
+
+
+  const results =
+    [];
+
+
+  for (
+    const characterId of
+    Object.keys(
+      gardenCharacterWorldState
+    )
+  ) {
+    const worldState =
+      gardenCharacterWorldState[
+        characterId
+      ];
+
+
+    /*
+      沒有 Approach 的角色
+      不需要做任何事情。
+    */
+    if (
+      !worldState
+        ?.activitySpotApproach
+    ) {
+      results.push(
+        Object.freeze({
+          characterId,
+
+          action:
+            "none",
+
+          reason:
+            "noActivitySpotApproach",
+        })
+      );
+
+      continue;
+    }
+
+
+    /*
+      關鍵：
+
+      不使用 Snapshot 的舊 x / y
+      推進。
+
+      直接拿同一份 Canonical Plan，
+      問 resumedAt 這一刻
+      應該在哪裡。
+    */
+    const result =
+      applyGardenCanonicalActivitySpotRuntimeForCharacter(
+        characterId,
+        context.resumedAt
+      );
+
+
+    results.push(
+      Object.freeze({
+        characterId,
+
+        action:
+          result.completed
+            ? "completed"
+            : result.applied
+              ? "resumed"
+              : "none",
+
+        reason:
+          result.reason,
+
+        owned:
+          result.owned,
+
+        applied:
+          result.applied,
+
+        completed:
+          result.completed,
+      })
+    );
+  }
+
+
+  return Object.freeze({
+    ok:
+      true,
+
+    reason:
+      "reconciled",
+
+    timestamp:
+      context.resumedAt,
+
+    results:
+      Object.freeze(
+        results
+      ),
+  });
+}
+
+
+registerGardenWorldReconciliationHandler(
+  "activitySpotApproach",
+  reconcileGardenActivitySpotApproachSystem,
+  {
+    priority:
+      150,
+  }
+);
+
+
+function runGardenActivitySpotResumeSelfTest() {
+  const characterId =
+    "chifuyu";
+
+  const sceneId =
+    "courtyard";
+
+  const spotId =
+    "courtyard-rest-01";
+
+  const activityId =
+    GARDEN_CHARACTER_ACTIVITY
+      .REST;
+
+
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  if (
+    !worldState ||
+    !runtime?.moveState
+  ) {
+    console.warn(
+      "[Garden Activity Spot Resume Self-Test] FAIL: runtime unavailable"
+    );
+
+    return {
+      pass:false,
+      reason:"runtimeUnavailable",
+    };
+  }
+
+
+  /*
+    =========================
+    Backup
+    =========================
+
+    Self-Test 結束後會完整放回去，
+    不污染目前正式世界狀態。
+  */
+  const originalWorldState =
+    cloneGardenWorldSerializableValue(
+      worldState
+    );
+
+  const originalMoveState =
+    cloneGardenWorldSerializableValue({
+      x:
+        runtime.moveState.x,
+
+      y:
+        runtime.moveState.y,
+
+      direction:
+        runtime.moveState.direction,
+
+      isMoving:
+        runtime.moveState.isMoving,
+
+      path:
+        runtime.moveState.path ??
+        [],
+    });
+
+  const originalAutoWasMoving =
+    runtime.autoState
+      ?.wasMoving;
+
+
+  let result = null;
+
+
+  try {
+    const startedAt =
+      Date.parse(
+        "2026-09-23T12:00:00+09:00"
+      );
+
+
+    const plan =
+      createGardenCanonicalActivitySpotApproachPlan({
+        characterId,
+
+        sceneId,
+
+        spotId,
+
+        activityId,
+
+        startPoint: {
+          x:600,
+          y:1725,
+        },
+
+        startDirection:
+          1,
+
+        startedAt,
+      });
+
+
+    if (!plan) {
+      throw new Error(
+        "failedToCreatePlan"
+      );
+    }
+
+
+    /*
+      模擬：
+
+      Snapshot
+      → JSON.stringify
+      → localStorage
+      → JSON.parse
+    */
+    const storedPlan =
+      JSON.parse(
+        JSON.stringify(
+          plan
+        )
+      );
+
+
+    const fakeSnapshot = {
+      sceneId,
+
+      activity:
+        activityId,
+
+      activityData: {
+        source:
+          "selfTest",
+      },
+
+      wanderContinuity:
+        null,
+
+      activitySpotApproach:
+        storedPlan,
+
+      travel:
+        null,
+
+      position: {
+        x:600,
+        y:1725,
+        direction:1,
+      },
+    };
+
+
+    /*
+      =========================
+      1. 模擬新頁面 Restore
+      =========================
+    */
+    const restored =
+      restoreGardenCharacterFromSnapshot(
+        characterId,
+        fakeSnapshot
+      );
+
+
+    const restoreKeepsApproach =
+      worldState
+        .activitySpotApproach
+        ?.spotId ===
+      spotId;
+
+
+    /*
+      =========================
+      2. 模擬 Reload 發生在途中
+      =========================
+    */
+    const midpointAt =
+      startedAt +
+      Math.floor(
+        plan.durationMs / 2
+      );
+
+
+    const expectedMidpoint =
+      resolveGardenCanonicalActivitySpotApproach(
+        plan,
+        midpointAt
+      );
+
+
+    const midpointContext =
+      createGardenWorldResumeContext(
+        startedAt,
+        midpointAt,
+        "selfTest",
+        "selfTest"
+      );
+
+
+    const midpointReconciliation =
+      reconcileGardenActivitySpotApproachSystem(
+        midpointContext
+      );
+
+
+    const midpointX =
+      runtime.moveState.x;
+
+    const midpointY =
+      runtime.moveState.y;
+
+
+    /*
+      =========================
+      3. 模擬離開時間已超過 endsAt
+      =========================
+    */
+    const completedAt =
+      plan.endsAt +
+      1;
+
+
+    const completedContext =
+      createGardenWorldResumeContext(
+        midpointAt,
+        completedAt,
+        "selfTest",
+        "selfTest"
+      );
+
+
+    const completedReconciliation =
+      reconcileGardenActivitySpotApproachSystem(
+        completedContext
+      );
+
+
+    const checks = {
+      planCreated:
+        !!plan,
+
+      restored:
+        restored === true,
+
+      restoreKeepsApproach,
+
+      restoreKeepsActivity:
+        worldState.activity ===
+          activityId,
+
+      midpointResolved:
+        !!expectedMidpoint,
+
+      midpointIsApproach:
+        expectedMidpoint
+          ?.phase ===
+        "approach",
+
+      midpointPositionMatches:
+        Math.abs(
+          midpointX -
+          expectedMidpoint.x
+        ) < 0.001 &&
+        Math.abs(
+          midpointY -
+          expectedMidpoint.y
+        ) < 0.001,
+
+      midpointReconciled:
+        midpointReconciliation
+          ?.ok ===
+        true,
+
+      completedReconciled:
+        completedReconciliation
+          ?.ok ===
+        true,
+
+      approachClearedAtEnd:
+        worldState
+          .activitySpotApproach ===
+        null,
+
+      activityStillRest:
+        worldState.activity ===
+          activityId,
+
+      finalXCorrect:
+        Math.abs(
+          runtime.moveState.x -
+          plan.targetSpot.x
+        ) < 0.001,
+
+      finalYCorrect:
+        Math.abs(
+          runtime.moveState.y -
+          plan.targetSpot.y
+        ) < 0.001,
+
+      finalDirectionCorrect:
+        runtime.moveState
+          .direction ===
+        plan.targetSpot.direction,
+
+      stoppedAtSpot:
+        runtime.moveState
+          .isMoving ===
+        false,
+
+      localPathEmpty:
+        runtime.moveState
+          .path
+          ?.length ===
+        0,
+    };
+
+
+    const pass =
+      Object.values(
+        checks
+      ).every(Boolean);
+
+
+    result = {
+      pass,
+
+      checks,
+
+      plan,
+
+      expectedMidpoint,
+
+      midpointReconciliation,
+
+      completedReconciliation,
+    };
+
+
+    if (pass) {
+      console.log(
+        "[Garden Activity Spot Resume Self-Test] PASS",
+        result
+      );
+
+    } else {
+      console.warn(
+        "[Garden Activity Spot Resume Self-Test] FAIL",
+        result
+      );
+    }
+
+
+  } catch (err) {
+    result = {
+      pass:false,
+
+      reason:
+        String(
+          err?.message ||
+          err
+        ),
+
+      error:
+        err,
+    };
+
+
+    console.warn(
+      "[Garden Activity Spot Resume Self-Test] FAIL",
+      result
+    );
+
+
+  } finally {
+    /*
+      =========================
+      Restore Original State
+      =========================
+    */
+    Object.assign(
+      worldState,
+      cloneGardenWorldSerializableValue(
+        originalWorldState
+      )
+    );
+
+
+    runtime.setPath?.(
+      cloneGardenWorldSerializableValue(
+        originalMoveState.path
+      ) || []
+    );
+
+
+    runtime.moveState.x =
+      originalMoveState.x;
+
+    runtime.moveState.y =
+      originalMoveState.y;
+
+    runtime.moveState.direction =
+      originalMoveState.direction;
+
+    runtime.moveState.isMoving =
+      originalMoveState.isMoving;
+
+
+    if (
+      runtime.autoState
+    ) {
+      runtime.autoState.wasMoving =
+        originalAutoWasMoving;
+    }
+  }
+
+
+  return result;
+}
+
+
+
+
+
+function canGardenCharacterUseAmbientWander(
+  character,
+  worldStateOverride = null
+) {
+  const worldState =
+    worldStateOverride ??
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  if (!worldState) {
+    return false;
+  }
+
+
+  /*
+    Ambient 行為包括：
+
+    - 自動散步
+    - 自動旅行
+    - 自然聊天
+
+    只有真正的 WANDER
+    才允許參與。
+  */
+  if (
+    worldState.activity !==
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER
+  ) {
+    return false;
+  }
+
+
+  if (
+    worldState.travel
+  ) {
+    return false;
+  }
+
+
+  return true;
+}
+
+
+
+
+/* =========================
+   Garden Schedule → Activity Bridge
+========================= */
+
+const GARDEN_SCHEDULE_BRIDGE_ACTION =
+  Object.freeze({
+    PRESERVE_RUNTIME:
+      "preserveRuntime",
+
+    WANDER:
+      "wander",
+
+    TRAVEL:
+      "travel",
+
+    ACTIVITY:
+      "activity",
+  });
+
+
+function isGardenRuntimeActivitySupported(
+  activityId
+) {
+  if (!activityId) {
+    return false;
+  }
+
+
+  return Object.values(
+    GARDEN_CHARACTER_ACTIVITY
+  ).includes(
+    activityId
+  );
+}
+
+
+function resolveGardenScheduleRuntimeActivity(
+  entry
+) {
+  if (!entry) {
+    return (
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER
+    );
+  }
+
+
+  const selectedActivityId =
+    entry.activity
+      ?.selectedActivityId ??
+    null;
+
+
+  const fallbackActivityId =
+    entry.activity
+      ?.fallbackActivityId ??
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER;
+
+
+  /*
+    Schedule 選中的 Activity
+    已經有正式 Runtime implementation。
+  */
+  if (
+    isGardenRuntimeActivitySupported(
+      selectedActivityId
+    )
+  ) {
+    return selectedActivityId;
+  }
+
+
+  /*
+    正式 Activity 尚未實作，
+    嘗試它指定的 fallback。
+  */
+  if (
+    isGardenRuntimeActivitySupported(
+      fallbackActivityId
+    )
+  ) {
+    return fallbackActivityId;
+  }
+
+
+  /*
+    最後保險。
+  */
+  return (
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER
+  );
+}
+
+
+function createGardenScheduleBridgeDecision(
+  schedules,
+  characterId,
+  worldPoint,
+  options = {}
+) {
+  const safeCharacterId =
+    normalizeGardenWorldDecisionToken(
+      characterId
+    );
+
+
+  if (
+    !safeCharacterId ||
+    !worldPoint
+  ) {
+    return null;
+  }
+
+
+  /*
+    正式狀態：
+    使用 gardenCharacterWorldState。
+
+    Self-Test：
+    可以傳假的 worldState，
+    完全不動真角色。
+  */
+  const worldState =
+    options.worldState ??
+    gardenCharacterWorldState[
+      safeCharacterId
+    ];
+
+
+  if (!worldState) {
+    return null;
+  }
+
+
+  const resolution =
+    resolveGardenCharacterScheduleAtWorldPoint(
+      schedules,
+      safeCharacterId,
+      worldPoint
+    );
+
+
+  if (!resolution) {
+    return null;
+  }
+
+
+  const currentRuntimeActivity =
+    worldState.activity ??
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER;
+
+
+  /*
+    =========================
+    1. Travel 有最高 Runtime 保護
+    =========================
+
+    Schedule 不可以在角色走到一半時
+    突然把她切成 meal / read。
+  */
+  if (
+    worldState.travel ||
+    currentRuntimeActivity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .TRAVEL
+  ) {
+    return Object.freeze({
+      characterId:
+        safeCharacterId,
+
+      action:
+        GARDEN_SCHEDULE_BRIDGE_ACTION
+          .PRESERVE_RUNTIME,
+
+      reason:
+        "travelInProgress",
+
+      currentSceneId:
+        worldState.sceneId ??
+        null,
+
+      currentRuntimeActivity,
+
+      scheduleState:
+        resolution.state,
+
+      resolution,
+
+      activeEntry:
+        resolution.activeEntry ??
+        null,
+
+      semanticActivityId:
+        resolution.activeEntry
+          ?.activity
+          ?.selectedActivityId ??
+        null,
+
+      runtimeActivityId:
+        currentRuntimeActivity,
+
+      targetSceneId:
+        resolution.activeEntry
+          ?.target
+          ?.sceneId ??
+        null,
+
+      targetSpotId:
+        resolution.activeEntry
+          ?.target
+          ?.spotId ??
+        null,
+
+      needsTravel:
+        false,
+
+      needsSpotMovement:
+        false,
+    });
+  }
+
+
+  /*
+    =========================
+    2. Chat 也不能被 Schedule 硬切
+    =========================
+  */
+  if (
+    currentRuntimeActivity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .CHAT
+  ) {
+    return Object.freeze({
+      characterId:
+        safeCharacterId,
+
+      action:
+        GARDEN_SCHEDULE_BRIDGE_ACTION
+          .PRESERVE_RUNTIME,
+
+      reason:
+        "chatInProgress",
+
+      currentSceneId:
+        worldState.sceneId ??
+        null,
+
+      currentRuntimeActivity,
+
+      scheduleState:
+        resolution.state,
+
+      resolution,
+
+      activeEntry:
+        resolution.activeEntry ??
+        null,
+
+      semanticActivityId:
+        resolution.activeEntry
+          ?.activity
+          ?.selectedActivityId ??
+        null,
+
+      runtimeActivityId:
+        currentRuntimeActivity,
+
+      targetSceneId:
+        resolution.activeEntry
+          ?.target
+          ?.sceneId ??
+        null,
+
+      targetSpotId:
+        resolution.activeEntry
+          ?.target
+          ?.spotId ??
+        null,
+
+      needsTravel:
+        false,
+
+      needsSpotMovement:
+        false,
+    });
+  }
+
+
+  /*
+    =========================
+    3. Schedule GAP
+    =========================
+  */
+  if (
+    resolution.state ===
+      GARDEN_SCHEDULE_RESOLUTION_STATE
+        .GAP ||
+    !resolution.activeEntry
+  ) {
+    return Object.freeze({
+      characterId:
+        safeCharacterId,
+
+      action:
+        GARDEN_SCHEDULE_BRIDGE_ACTION
+          .WANDER,
+
+      reason:
+        "scheduleGap",
+
+      currentSceneId:
+        worldState.sceneId ??
+        null,
+
+      currentRuntimeActivity,
+
+      scheduleState:
+        resolution.state,
+
+      resolution,
+
+      activeEntry:
+        null,
+
+      semanticActivityId:
+        null,
+
+      runtimeActivityId:
+        GARDEN_CHARACTER_ACTIVITY
+          .WANDER,
+
+      targetSceneId:
+        null,
+
+      targetSpotId:
+        null,
+
+      needsTravel:
+        false,
+
+      needsSpotMovement:
+        false,
+    });
+  }
+
+
+  /*
+    =========================
+    4. ACTIVE Schedule Entry
+    =========================
+  */
+  const entry =
+    resolution.activeEntry;
+
+
+  const semanticActivityId =
+    entry.activity
+      ?.selectedActivityId ??
+    null;
+
+
+  const runtimeActivityId =
+    resolveGardenScheduleRuntimeActivity(
+      entry
+    );
+
+
+  const targetSceneId =
+    entry.target
+      ?.sceneId ??
+    null;
+
+
+  const targetSpotId =
+    entry.target
+      ?.spotId ??
+    null;
+
+
+  const currentSceneId =
+    worldState.sceneId ??
+    null;
+
+
+  /*
+    =========================
+    5. 不在目標 Scene
+    =========================
+  */
+  if (
+    targetSceneId &&
+    currentSceneId !==
+      targetSceneId
+  ) {
+    return Object.freeze({
+      characterId:
+        safeCharacterId,
+
+      action:
+        GARDEN_SCHEDULE_BRIDGE_ACTION
+          .TRAVEL,
+
+      reason:
+        "wrongScene",
+
+      currentSceneId,
+
+      currentRuntimeActivity,
+
+      scheduleState:
+        resolution.state,
+
+      resolution,
+
+      activeEntry:
+        entry,
+
+      semanticActivityId,
+
+      runtimeActivityId:
+        GARDEN_CHARACTER_ACTIVITY
+          .TRAVEL,
+
+      targetSceneId,
+
+      targetSpotId,
+
+      needsTravel:
+        true,
+
+      /*
+        先完成跨場景，
+        Spot movement 稍後再處理。
+      */
+      needsSpotMovement:
+        false,
+    });
+  }
+
+
+  /*
+    =========================
+    6. 已經在正確 Scene
+    =========================
+  */
+  return Object.freeze({
+    characterId:
+      safeCharacterId,
+
+    action:
+      GARDEN_SCHEDULE_BRIDGE_ACTION
+        .ACTIVITY,
+
+    reason:
+      "sceneReady",
+
+    currentSceneId,
+
+    currentRuntimeActivity,
+
+    scheduleState:
+      resolution.state,
+
+    resolution,
+
+    activeEntry:
+      entry,
+
+    semanticActivityId,
+
+    runtimeActivityId,
+
+    targetSceneId,
+
+    targetSpotId,
+
+    needsTravel:
+      false,
+
+    /*
+      目前尚未建立 Spot Router。
+
+      先把需求保留下來，
+      不在這一步擅自走位。
+    */
+    needsSpotMovement:
+      Boolean(
+        targetSpotId
+      ),
+  });
+}
+
+
+
+function createGardenScheduleBridgeDecisionAtTimestamp(
+  schedules,
+  characterId,
+  timestamp =
+    getGardenWorldNow(),
+  options = {}
+) {
+  const worldPoint =
+    getGardenScheduleWorldPoint(
+      timestamp
+    );
+
+
+  if (!worldPoint) {
+    return null;
+  }
+
+
+  return (
+    createGardenScheduleBridgeDecision(
+      schedules,
+      characterId,
+      worldPoint,
+      options
+    )
+  );
+}
+
+
+function inspectGardenScheduleBridgeDecision(
+  decision
+) {
+  if (!decision) {
+    console.warn(
+      "[Garden Schedule Bridge] no decision"
+    );
+
+    return null;
+  }
+
+
+  const summary = {
+    character:
+      decision.characterId,
+
+    action:
+      decision.action,
+
+    reason:
+      decision.reason,
+
+    scheduleState:
+      decision.scheduleState,
+
+    currentScene:
+      decision.currentSceneId,
+
+    targetScene:
+      decision.targetSceneId,
+
+    targetSpot:
+      decision.targetSpotId,
+
+    semanticActivity:
+      decision.semanticActivityId,
+
+    runtimeActivity:
+      decision.runtimeActivityId,
+
+    needsTravel:
+      decision.needsTravel,
+
+    needsSpotMovement:
+      decision.needsSpotMovement,
+
+    intent:
+      decision.activeEntry
+        ?.intentId ??
+      null,
+  };
+
+
+  console.table([
+    summary,
+  ]);
+
+
+  return summary;
+}
+
+
+function runGardenScheduleBridgeSelfTest() {
+  const dateKey =
+    "2026-09-23";
+
+
+  /*
+    12:00～13:00
+    千冬應該到賞月橋吃飯。
+
+    meal 尚未有正式 Runtime，
+    所以現在 fallback → wander。
+  */
+  const mealDefinition =
+    createGardenScheduleIntentDefinition({
+      id:
+        "bridge-test-meal",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "meal",
+
+      windowStart:
+        "12:00",
+
+      windowEnd:
+        "12:00",
+
+      durationMinMinutes:
+        60,
+
+      durationMaxMinutes:
+        60,
+
+      sceneId:
+        "moonBridge",
+
+      activityId:
+        "meal",
+
+      fallbackActivityId:
+        "wander",
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .HIGH,
+    });
+
+
+  const schedule =
+    generateGardenDailySchedule(
+      [
+        mealDefinition,
+      ],
+      dateKey
+    );
+
+
+  /*
+    11:30：
+    尚未進入 Meal。
+  */
+  const beforePoint =
+    createGardenScheduleWorldPoint(
+      dateKey,
+      11 * 60 + 30
+    );
+
+
+  /*
+    12:15：
+    Meal ACTIVE。
+  */
+  const activePoint =
+    createGardenScheduleWorldPoint(
+      dateKey,
+      12 * 60 + 15
+    );
+
+
+  /*
+    =========================
+    A. GAP → WANDER
+    =========================
+  */
+  const gapDecision =
+    createGardenScheduleBridgeDecision(
+      schedule,
+      "chifuyu",
+      beforePoint,
+      {
+        worldState: {
+          sceneId:
+            "courtyard",
+
+          activity:
+            GARDEN_CHARACTER_ACTIVITY
+              .WANDER,
+
+          activityData:
+            null,
+
+          travel:
+            null,
+        },
+      }
+    );
+
+
+  /*
+    =========================
+    B. ACTIVE + Wrong Scene
+       → TRAVEL
+    =========================
+  */
+  const travelDecision =
+    createGardenScheduleBridgeDecision(
+      schedule,
+      "chifuyu",
+      activePoint,
+      {
+        worldState: {
+          sceneId:
+            "courtyard",
+
+          activity:
+            GARDEN_CHARACTER_ACTIVITY
+              .WANDER,
+
+          activityData:
+            null,
+
+          travel:
+            null,
+        },
+      }
+    );
+
+
+  /*
+    =========================
+    C. ACTIVE + Correct Scene
+       → ACTIVITY
+    =========================
+  */
+  const activityDecision =
+    createGardenScheduleBridgeDecision(
+      schedule,
+      "chifuyu",
+      activePoint,
+      {
+        worldState: {
+          sceneId:
+            "moonBridge",
+
+          activity:
+            GARDEN_CHARACTER_ACTIVITY
+              .WANDER,
+
+          activityData:
+            null,
+
+          travel:
+            null,
+        },
+      }
+    );
+
+
+  /*
+    =========================
+    D. Travel 中
+       → PRESERVE
+    =========================
+  */
+  const preserveTravelDecision =
+    createGardenScheduleBridgeDecision(
+      schedule,
+      "chifuyu",
+      activePoint,
+      {
+        worldState: {
+          sceneId:
+            "courtyard",
+
+          activity:
+            GARDEN_CHARACTER_ACTIVITY
+              .TRAVEL,
+
+          activityData:
+            {},
+
+          travel: {
+            fromSceneId:
+              "courtyard",
+
+            toSceneId:
+              "moonBridge",
+
+            phase:
+              "walkingToExit",
+          },
+        },
+      }
+    );
+
+
+  /*
+    =========================
+    E. Chat 中
+       → PRESERVE
+    =========================
+  */
+  const preserveChatDecision =
+    createGardenScheduleBridgeDecision(
+      schedule,
+      "chifuyu",
+      activePoint,
+      {
+        worldState: {
+          sceneId:
+            "courtyard",
+
+          activity:
+            GARDEN_CHARACTER_ACTIVITY
+              .CHAT,
+
+          activityData:
+            {},
+
+          travel:
+            null,
+        },
+      }
+    );
+
+
+  /*
+    同一輸入再算一次。
+  */
+  const secondActivityDecision =
+    createGardenScheduleBridgeDecision(
+      schedule,
+      "chifuyu",
+      activePoint,
+      {
+        worldState: {
+          sceneId:
+            "moonBridge",
+
+          activity:
+            GARDEN_CHARACTER_ACTIVITY
+              .WANDER,
+
+          activityData:
+            null,
+
+          travel:
+            null,
+        },
+      }
+    );
+
+
+  const checks = {
+    scheduleExists:
+      !!schedule,
+
+    gapBecomesWander:
+      gapDecision?.action ===
+        GARDEN_SCHEDULE_BRIDGE_ACTION
+          .WANDER,
+
+    wrongSceneRequiresTravel:
+      travelDecision?.action ===
+        GARDEN_SCHEDULE_BRIDGE_ACTION
+          .TRAVEL &&
+      travelDecision
+        ?.targetSceneId ===
+        "moonBridge" &&
+      travelDecision
+        ?.needsTravel ===
+        true,
+
+    correctSceneAllowsActivity:
+      activityDecision?.action ===
+        GARDEN_SCHEDULE_BRIDGE_ACTION
+          .ACTIVITY,
+
+    semanticActivityPreserved:
+      activityDecision
+        ?.semanticActivityId ===
+      "meal",
+
+    unsupportedActivityFallsBack:
+      activityDecision
+        ?.runtimeActivityId ===
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+
+    travelIsProtected:
+      preserveTravelDecision
+        ?.action ===
+      GARDEN_SCHEDULE_BRIDGE_ACTION
+        .PRESERVE_RUNTIME,
+
+    chatIsProtected:
+      preserveChatDecision
+        ?.action ===
+      GARDEN_SCHEDULE_BRIDGE_ACTION
+        .PRESERVE_RUNTIME,
+
+    deterministic:
+      JSON.stringify(
+        activityDecision
+      ) ===
+      JSON.stringify(
+        secondActivityDecision
+      ),
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    gapDecision,
+
+    travelDecision,
+
+    activityDecision,
+
+    preserveTravelDecision,
+
+    preserveChatDecision,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Schedule Bridge Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Schedule Bridge Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+/* =========================
+   Garden Schedule Bridge Executor
+========================= */
+
+function createGardenScheduleBridgeExecutionResult(
+  options = {}
+) {
+  return Object.freeze({
+    ok:
+      options.ok !== false,
+
+    executed:
+      options.executed === true,
+
+    changed:
+      options.changed === true,
+
+    characterId:
+      options.characterId ??
+      null,
+
+    action:
+      options.action ??
+      null,
+
+    reason:
+      options.reason ??
+      null,
+
+    runtimeActivityId:
+      options.runtimeActivityId ??
+      null,
+
+    semanticActivityId:
+      options.semanticActivityId ??
+      null,
+
+    targetSceneId:
+      options.targetSceneId ??
+      null,
+
+    targetSpotId:
+      options.targetSpotId ??
+      null,
+  });
+}
+
+
+function getGardenScheduleEntryEndTimestamp(
+  entry
+) {
+  if (
+    !entry?.dateKey ||
+    !Number.isFinite(
+      entry.end?.timelineMinute
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    timelineMinute 可能超過 1440，
+    例如跨午夜的活動。
+
+    所以不能直接拿 entry.end.time
+    配原本 dateKey。
+  */
+  const end =
+    splitGardenScheduleTimelineMinute(
+      entry.end.timelineMinute
+    );
+
+
+  if (!end) {
+    return null;
+  }
+
+
+  const endDateKey =
+    shiftGardenScheduleDateKey(
+      entry.dateKey,
+      end.dayOffset
+    );
+
+
+  if (!endDateKey) {
+    return null;
+  }
+
+
+  const hour =
+    Math.floor(
+      end.minuteOfDay / 60
+    );
+
+  const minute =
+    end.minuteOfDay % 60;
+
+
+  /*
+    Garden World 固定使用 JST。
+  */
+ const hourText =
+  String(hour).padStart(
+    2,
+    "0"
+  );
+
+const minuteText =
+  String(minute).padStart(
+    2,
+    "0"
+  );
+
+
+const timestamp =
+  Date.parse(
+    `${endDateKey}T${hourText}:${minuteText}:00+09:00`
+  );
+
+
+  return (
+    isValidGardenWorldTimestamp(
+      timestamp
+    )
+      ? timestamp
+      : null
+  );
+}
+
+
+function createGardenScheduleGapWanderContinuity(
+  decision,
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !decision ||
+    decision.action !==
+      GARDEN_SCHEDULE_BRIDGE_ACTION
+        .WANDER ||
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  const previousEntry =
+    decision.resolution
+      ?.previousEntry ??
+    null;
+
+
+  if (!previousEntry) {
+    return null;
+  }
+
+
+  const sceneId =
+    previousEntry.target
+      ?.sceneId ??
+    null;
+
+  const spotId =
+    previousEntry.target
+      ?.spotId ??
+    null;
+
+
+  /*
+    沒有固定 Activity Spot，
+    就不需要這種 continuity。
+  */
+  if (
+    !sceneId ||
+    !spotId
+  ) {
+    return null;
+  }
+
+
+  const activityId =
+    resolveGardenScheduleRuntimeActivity(
+      previousEntry
+    );
+
+
+  /*
+    WANDER 本身不是
+    Activity Spot 行為。
+  */
+  if (
+    !activityId ||
+    activityId ===
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER
+  ) {
+    return null;
+  }
+
+
+  const startedAt =
+    getGardenScheduleEntryEndTimestamp(
+      previousEntry
+    );
+
+
+  if (
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    使用上一個 Schedule Entry
+    真正的 canonical end timestamp。
+
+    絕不能用：
+    - Date.now()
+    - Resume 時間
+    - 當前 frame 時間
+  */
+  const plan =
+    createGardenWanderContinuityFromActivitySpot({
+      characterId:
+        decision.characterId,
+
+      sceneId,
+
+      spotId,
+
+      activityId,
+
+      startedAt,
+    });
+
+
+  if (!plan) {
+    return null;
+  }
+
+
+  /*
+    如果現在已經晚到
+    continuity 都走完了，
+
+    就直接使用 Standard Wander，
+    不需要重新掛上一份舊 plan。
+  */
+  const state =
+    resolveGardenTravelToWanderContinuity(
+      plan,
+      timestamp
+    );
+
+
+  if (
+    !state ||
+    state.completed
+  ) {
+    return null;
+  }
+
+
+  return plan;
+}
+
+
+
+function createGardenScheduleActivityData(
+  decision
+) {
+  const entry =
+    decision?.activeEntry;
+
+
+  if (!entry) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    source:
+      "schedule",
+
+    scheduleDateKey:
+      decision.resolution
+        ?.activeScheduleDateKey ??
+      entry.dateKey ??
+      null,
+
+    definitionId:
+      entry.definitionId,
+
+    intentId:
+      entry.intentId,
+
+    instanceId:
+      entry.instanceId,
+
+    semanticActivityId:
+      decision.semanticActivityId,
+
+    runtimeActivityId:
+      decision.runtimeActivityId,
+
+    targetSceneId:
+      decision.targetSceneId,
+
+    targetSpotId:
+      decision.targetSpotId,
+
+    startTimelineMinute:
+      entry.start
+        ?.timelineMinute ??
+      null,
+
+    endTimelineMinute:
+      entry.end
+        ?.timelineMinute ??
+      null,
+  });
+}
+
+
+function isGardenScheduleActivityDataForEntry(
+  activityData,
+  entry
+) {
+  if (
+    !activityData ||
+    activityData.source !==
+      "schedule" ||
+    !entry
+  ) {
+    return false;
+  }
+
+
+  return (
+    activityData.definitionId ===
+      entry.definitionId &&
+    activityData.instanceId ===
+      entry.instanceId
+  );
+}
+
+
+function executeGardenScheduleBridgeDecision(
+  decision,
+  options = {}
+) {
+  if (!decision) {
+    return (
+      createGardenScheduleBridgeExecutionResult({
+        ok: false,
+        reason:
+          "missingDecision",
+      })
+    );
+  }
+
+
+  const characterId =
+    decision.characterId;
+
+
+  /*
+    正式執行：
+    使用真正 world state。
+
+    Self-Test：
+    可以注入假的 state。
+  */
+  const worldState =
+    options.worldState ??
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  if (!worldState) {
+    return (
+      createGardenScheduleBridgeExecutionResult({
+        ok: false,
+
+        characterId,
+
+        action:
+          decision.action,
+
+        reason:
+          "missingWorldState",
+      })
+    );
+  }
+
+
+  /*
+    可注入測試函式。
+
+    正式狀態則使用真正 API。
+  */
+  const travelFn =
+    options.travelFn ??
+    travelGardenCharacter;
+
+
+  const setActivityFn =
+    options.setActivityFn ??
+    setGardenCharacterActivity;
+
+
+const spotApproachFn =
+  options.spotApproachFn ??
+  startGardenCharacterActivitySpotApproach;
+
+
+
+  /*
+    =========================
+    Runtime Safety Recheck
+    =========================
+
+    Decision 建立後到 Executor 執行前，
+    世界狀態有可能已經改變。
+
+    所以 Executor 必須再檢查一次。
+  */
+  if (
+    worldState.travel ||
+    worldState.activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .TRAVEL
+  ) {
+    return (
+      createGardenScheduleBridgeExecutionResult({
+        characterId,
+
+        action:
+          decision.action,
+
+        reason:
+          "travelAlreadyInProgress",
+
+        runtimeActivityId:
+          worldState.activity,
+
+        semanticActivityId:
+          decision.semanticActivityId,
+
+        targetSceneId:
+          decision.targetSceneId,
+
+        targetSpotId:
+          decision.targetSpotId,
+      })
+    );
+  }
+
+
+  if (
+    worldState.activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .CHAT
+  ) {
+    return (
+      createGardenScheduleBridgeExecutionResult({
+        characterId,
+
+        action:
+          decision.action,
+
+        reason:
+          "chatInProgress",
+
+        runtimeActivityId:
+          worldState.activity,
+
+        semanticActivityId:
+          decision.semanticActivityId,
+
+        targetSceneId:
+          decision.targetSceneId,
+
+        targetSpotId:
+          decision.targetSpotId,
+      })
+    );
+  }
+
+
+  /*
+    =========================
+    PRESERVE_RUNTIME
+    =========================
+  */
+  if (
+    decision.action ===
+      GARDEN_SCHEDULE_BRIDGE_ACTION
+        .PRESERVE_RUNTIME
+  ) {
+    return (
+      createGardenScheduleBridgeExecutionResult({
+        characterId,
+
+        action:
+          decision.action,
+
+        reason:
+          decision.reason ??
+          "preserveRuntime",
+
+        runtimeActivityId:
+          worldState.activity,
+
+        semanticActivityId:
+          decision.semanticActivityId,
+
+        targetSceneId:
+          decision.targetSceneId,
+
+        targetSpotId:
+          decision.targetSpotId,
+      })
+    );
+  }
+
+
+  /*
+  =========================
+  GAP → WANDER
+  =========================
+*/
+if (
+  decision.action ===
+    GARDEN_SCHEDULE_BRIDGE_ACTION
+      .WANDER
+) {
+  /*
+    Reconciliation 時優先使用
+    context.resumedAt 傳進來的
+    canonical world timestamp。
+
+    一般 Runtime 呼叫才 fallback
+    到目前 Garden World Time。
+  */
+  const gapTimestamp =
+    isValidGardenWorldTimestamp(
+      options.worldTimestamp
+    )
+      ? options.worldTimestamp
+      : getGardenWorldNow();
+
+
+  /*
+    如果上一個 Schedule Activity
+    是固定 Spot Activity，
+
+    在真正切回 Standard Wander 前，
+    先嘗試重建：
+
+    Activity Spot
+    → Wander Continuity
+  */
+  const continuityPlan =
+    createGardenScheduleGapWanderContinuity(
+      decision,
+      gapTimestamp
+    );
+
+
+  const alreadyWandering =
+    worldState.activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER &&
+    worldState.activityData ===
+      null;
+
+
+  /*
+    Cold Start 特別重要：
+
+    Snapshot fallback 可能已經先把
+    Activity 恢復成 WANDER。
+
+    即使語意狀態不用再切一次，
+    仍然必須補回 canonical continuity。
+  */
+  if (alreadyWandering) {
+    if (continuityPlan) {
+      worldState.wanderContinuity =
+        continuityPlan;
+    }
+
+
+    return (
+      createGardenScheduleBridgeExecutionResult({
+        characterId,
+
+        action:
+          decision.action,
+
+        reason:
+          "alreadyWandering",
+
+        runtimeActivityId:
+          GARDEN_CHARACTER_ACTIVITY
+            .WANDER,
+      })
+    );
+  }
+
+
+  const changed =
+    setActivityFn(
+      characterId,
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+      null
+    );
+
+
+  /*
+    只有 Activity transition
+    真正成功後才掛 Continuity。
+
+    setGardenCharacterActivity(WANDER)
+    本身不會清除 wanderContinuity。
+  */
+  if (
+    changed !== false &&
+    continuityPlan
+  ) {
+    worldState.wanderContinuity =
+      continuityPlan;
+  }
+
+
+  return (
+    createGardenScheduleBridgeExecutionResult({
+      ok:
+        changed !== false,
+
+      executed:
+        changed !== false,
+
+      changed:
+        changed !== false,
+
+      characterId,
+
+      action:
+        decision.action,
+
+      /*
+        保留原本 reason，
+        避免既有 Schedule Self-Test
+        因為字串改名而失敗。
+      */
+      reason:
+        changed !== false
+          ? "wanderApplied"
+          : "wanderApplyFailed",
+
+      runtimeActivityId:
+        GARDEN_CHARACTER_ACTIVITY
+          .WANDER,
+    })
+  );
+}
+
+
+  /*
+    =========================
+    TRAVEL
+    =========================
+  */
+  if (
+    decision.action ===
+      GARDEN_SCHEDULE_BRIDGE_ACTION
+        .TRAVEL
+  ) {
+    const targetSceneId =
+      decision.targetSceneId;
+
+
+    if (!targetSceneId) {
+      return (
+        createGardenScheduleBridgeExecutionResult({
+          ok: false,
+
+          characterId,
+
+          action:
+            decision.action,
+
+          reason:
+            "missingTargetScene",
+        })
+      );
+    }
+
+
+    /*
+      Decision 可能已經過時：
+      角色其實已經到目的地。
+    */
+    if (
+      worldState.sceneId ===
+        targetSceneId
+    ) {
+      return (
+        createGardenScheduleBridgeExecutionResult({
+          characterId,
+
+          action:
+            decision.action,
+
+          reason:
+            "sceneAlreadyReady",
+
+          semanticActivityId:
+            decision.semanticActivityId,
+
+          targetSceneId,
+        })
+      );
+    }
+
+
+    /*
+      注意：
+
+      不在這裡手動：
+      setActivity(TRAVEL)
+
+      因為 travelGardenCharacter()
+      本身會建立完整 Travel world state。
+    */
+    const started =
+      travelFn(
+        characterId,
+        targetSceneId
+      );
+
+
+    return (
+      createGardenScheduleBridgeExecutionResult({
+        ok:
+          started !== false,
+
+        executed:
+          started !== false,
+
+        changed:
+          started !== false,
+
+        characterId,
+
+        action:
+          decision.action,
+
+        reason:
+          started !== false
+            ? "travelStarted"
+            : "travelStartFailed",
+
+        runtimeActivityId:
+          GARDEN_CHARACTER_ACTIVITY
+            .TRAVEL,
+
+        semanticActivityId:
+          decision.semanticActivityId,
+
+        targetSceneId,
+
+        targetSpotId:
+          decision.targetSpotId,
+      })
+    );
+  }
+
+
+  /*
+    =========================
+    ACTIVITY
+    =========================
+  */
+  if (
+    decision.action ===
+      GARDEN_SCHEDULE_BRIDGE_ACTION
+        .ACTIVITY
+  ) {
+    /*
+      Executor 再確認一次 Scene。
+
+      避免 stale Decision
+      在錯誤場景啟動 Activity。
+    */
+    if (
+      decision.targetSceneId &&
+      worldState.sceneId !==
+        decision.targetSceneId
+    ) {
+      return (
+        createGardenScheduleBridgeExecutionResult({
+          ok: false,
+
+          characterId,
+
+          action:
+            decision.action,
+
+          reason:
+            "staleWrongScene",
+
+          semanticActivityId:
+            decision.semanticActivityId,
+
+          targetSceneId:
+            decision.targetSceneId,
+
+          targetSpotId:
+            decision.targetSpotId,
+        })
+      );
+    }
+
+const runtimeActivityId =
+  decision.runtimeActivityId ??
+  GARDEN_CHARACTER_ACTIVITY
+    .WANDER;
+
+
+const activityData =
+  createGardenScheduleActivityData(
+    decision
+  );
+
+
+
+
+    
+    /*
+      Spot Router 還沒建立。
+
+      如果某個 Activity 指定了 spot，
+      現在不能假裝角色已經站到那裡。
+    */
+    if (
+  decision.needsSpotMovement
+) {
+  const targetSceneId =
+    decision.targetSceneId ??
+    worldState.sceneId;
+
+  const targetSpotId =
+    decision.targetSpotId;
+
+
+  if (
+    !targetSceneId ||
+    !targetSpotId
+  ) {
+    return (
+      createGardenScheduleBridgeExecutionResult({
+        ok:
+          false,
+
+        characterId,
+
+        action:
+          decision.action,
+
+        reason:
+          "missingActivitySpotTarget",
+
+        runtimeActivityId,
+
+        semanticActivityId:
+          decision.semanticActivityId,
+
+        targetSceneId,
+
+        targetSpotId,
+      })
+    );
+  }
+
+
+  const currentApproach =
+    worldState.activitySpotApproach;
+
+
+  const sameApproach =
+    !!currentApproach &&
+    currentApproach.sceneId ===
+      targetSceneId &&
+    currentApproach.spotId ===
+      targetSpotId &&
+    currentApproach.activityId ===
+      runtimeActivityId;
+
+
+  if (sameApproach) {
+    return (
+      createGardenScheduleBridgeExecutionResult({
+        characterId,
+
+        action:
+          decision.action,
+
+        reason:
+          "spotApproachAlreadyInProgress",
+
+        runtimeActivityId:
+          worldState.activity,
+
+        semanticActivityId:
+          decision.semanticActivityId,
+
+        targetSceneId,
+
+        targetSpotId,
+      })
+    );
+  }
+
+
+  const sameEntryAlreadyApplied =
+    worldState.activity ===
+      runtimeActivityId &&
+    isGardenScheduleActivityDataForEntry(
+      worldState.activityData,
+      decision.activeEntry
+    );
+
+
+  if (
+    sameEntryAlreadyApplied &&
+    !currentApproach
+  ) {
+    return (
+      createGardenScheduleBridgeExecutionResult({
+        characterId,
+
+        action:
+          decision.action,
+
+        reason:
+          "activityAlreadyApplied",
+
+        runtimeActivityId,
+
+        semanticActivityId:
+          decision.semanticActivityId,
+
+        targetSceneId,
+
+        targetSpotId,
+      })
+    );
+  }
+
+
+  const startedAt =
+    isValidGardenWorldTimestamp(
+      options.worldTimestamp
+    )
+      ? options.worldTimestamp
+      : getGardenWorldNow();
+
+
+  const plan =
+    spotApproachFn(
+      characterId,
+      {
+        sceneId:
+          targetSceneId,
+
+        spotId:
+          targetSpotId,
+
+        activityId:
+          runtimeActivityId,
+
+        activityData,
+
+        startedAt,
+      }
+    );
+
+
+  return (
+    createGardenScheduleBridgeExecutionResult({
+      ok:
+        !!plan,
+
+      executed:
+        !!plan,
+
+      changed:
+        !!plan,
+
+      characterId,
+
+      action:
+        decision.action,
+
+      reason:
+        plan
+          ? "spotApproachStarted"
+          : "spotApproachStartFailed",
+
+      runtimeActivityId:
+        plan
+          ? runtimeActivityId
+          : worldState.activity,
+
+      semanticActivityId:
+        decision.semanticActivityId,
+
+      targetSceneId,
+
+      targetSpotId,
+    })
+  );
+}
+
+
+
+    /*
+      已經執行同一 Entry，
+      不需要重複套用。
+    */
+    if (
+      worldState.activity ===
+        runtimeActivityId &&
+      isGardenScheduleActivityDataForEntry(
+        worldState.activityData,
+        decision.activeEntry
+      )
+    ) {
+      return (
+        createGardenScheduleBridgeExecutionResult({
+          characterId,
+
+          action:
+            decision.action,
+
+          reason:
+            "activityAlreadyApplied",
+
+          runtimeActivityId,
+
+          semanticActivityId:
+            decision.semanticActivityId,
+
+          targetSceneId:
+            decision.targetSceneId,
+
+          targetSpotId:
+            decision.targetSpotId,
+        })
+      );
+    }
+
+
+    const changed =
+      setActivityFn(
+        characterId,
+        runtimeActivityId,
+        activityData
+      );
+
+
+    return (
+      createGardenScheduleBridgeExecutionResult({
+        ok:
+          changed !== false,
+
+        executed:
+          changed !== false,
+
+        changed:
+          changed !== false,
+
+        characterId,
+
+        action:
+          decision.action,
+
+        reason:
+          changed !== false
+            ? "activityApplied"
+            : "activityApplyFailed",
+
+        runtimeActivityId,
+
+        semanticActivityId:
+          decision.semanticActivityId,
+
+        targetSceneId:
+          decision.targetSceneId,
+
+        targetSpotId:
+          decision.targetSpotId,
+      })
+    );
+  }
+
+
+  return (
+    createGardenScheduleBridgeExecutionResult({
+      ok: false,
+
+      characterId,
+
+      action:
+        decision.action,
+
+      reason:
+        "unknownBridgeAction",
+    })
+  );
+}
+
+
+function executeGardenCharacterScheduleAtWorldPoint(
+  schedules,
+  characterId,
+  worldPoint,
+  options = {}
+) {
+  const decision =
+    createGardenScheduleBridgeDecision(
+      schedules,
+      characterId,
+      worldPoint,
+      options
+    );
+
+
+  if (!decision) {
+    return null;
+  }
+
+
+  const execution =
+    executeGardenScheduleBridgeDecision(
+      decision,
+      options
+    );
+
+
+  return Object.freeze({
+    decision,
+    execution,
+  });
+}
+
+
+function runGardenScheduleSpotApproachExecutorSelfTest() {
+  const worldTimestamp =
+    Date.parse(
+      "2026-09-23T12:15:00+09:00"
+    );
+
+
+  const fakeEntry = {
+    definitionId:
+      "spot-executor-test-rest",
+
+    instanceId:
+      "spot-executor-test-rest:2026-09-23",
+
+    intentId:
+      "afternoonRest",
+
+    characterId:
+      "chifuyu",
+
+    dateKey:
+      "2026-09-23",
+
+    start: {
+      timelineMinute:
+        720,
+    },
+
+    end: {
+      timelineMinute:
+        780,
+    },
+  };
+
+
+  const decision = {
+    characterId:
+      "chifuyu",
+
+    action:
+      GARDEN_SCHEDULE_BRIDGE_ACTION
+        .ACTIVITY,
+
+    reason:
+      "sceneReady",
+
+    activeEntry:
+      fakeEntry,
+
+    resolution: {
+      activeScheduleDateKey:
+        "2026-09-23",
+    },
+
+    semanticActivityId:
+      "rest",
+
+    runtimeActivityId:
+      GARDEN_CHARACTER_ACTIVITY
+        .REST,
+
+    targetSceneId:
+      "courtyard",
+
+    targetSpotId:
+      "courtyard-rest-01",
+
+    needsTravel:
+      false,
+
+    needsSpotMovement:
+      true,
+  };
+
+
+  const fakeWorldState = {
+    sceneId:
+      "courtyard",
 
     activity:
       GARDEN_CHARACTER_ACTIVITY
         .WANDER,
 
-    activityData: null,
+    activityData:
+      null,
 
-    travel: null,
-  },
-};
+    wanderContinuity:
+      null,
+
+    activitySpotApproach:
+      null,
+
+    travel:
+      null,
+  };
+
+
+  let approachCallCount =
+    0;
+
+  let receivedStartedAt =
+    null;
+
+
+  const fakeSpotApproachFn =
+    (
+      characterId,
+      options
+    ) => {
+      approachCallCount +=
+        1;
+
+
+      receivedStartedAt =
+        options.startedAt;
+
+
+      const fakePlan = {
+        characterId,
+
+        sceneId:
+          options.sceneId,
+
+        spotId:
+          options.spotId,
+
+        activityId:
+          options.activityId,
+
+        startedAt:
+          options.startedAt,
+      };
+
+
+      fakeWorldState.activity =
+        options.activityId;
+
+      fakeWorldState.activityData =
+        options.activityData;
+
+      fakeWorldState.activitySpotApproach =
+        fakePlan;
+
+
+      return fakePlan;
+    };
+
+
+  /*
+    第一次：
+    應正式開始 Spot Approach。
+  */
+  const first =
+    executeGardenScheduleBridgeDecision(
+      decision,
+      {
+        worldState:
+          fakeWorldState,
+
+        spotApproachFn:
+          fakeSpotApproachFn,
+
+        worldTimestamp,
+      }
+    );
+
+
+  /*
+    第二次：
+    同一 Approach 還存在，
+    不可以重新開始。
+  */
+  const second =
+    executeGardenScheduleBridgeDecision(
+      decision,
+      {
+        worldState:
+          fakeWorldState,
+
+        spotApproachFn:
+          fakeSpotApproachFn,
+
+        worldTimestamp,
+      }
+    );
+
+
+  const checks = {
+    firstStartsApproach:
+      first?.reason ===
+        "spotApproachStarted",
+
+    firstExecuted:
+      first?.executed ===
+        true,
+
+    approachCalledOnce:
+      approachCallCount ===
+        1,
+
+    activityChangedToRest:
+      fakeWorldState.activity ===
+        GARDEN_CHARACTER_ACTIVITY
+          .REST,
+
+    scheduleDataPreserved:
+      fakeWorldState
+        .activityData
+        ?.source ===
+      "schedule",
+
+    correctDefinition:
+      fakeWorldState
+        .activityData
+        ?.definitionId ===
+      "spot-executor-test-rest",
+
+    correctSpot:
+      fakeWorldState
+        .activitySpotApproach
+        ?.spotId ===
+      "courtyard-rest-01",
+
+    worldTimestampPreserved:
+      receivedStartedAt ===
+        worldTimestamp,
+
+    secondDoesNotRestart:
+      second?.reason ===
+        "spotApproachAlreadyInProgress",
+
+    stillOnlyOneCall:
+      approachCallCount ===
+        1,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+    checks,
+    first,
+    second,
+    approachCallCount,
+    fakeWorldState,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Schedule Spot Approach Executor Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Schedule Spot Approach Executor Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+
+
+
+
+function runGardenScheduleBridgeExecutorSelfTest() {
+  const dateKey =
+    "2026-09-23";
+
+
+  const definition =
+    createGardenScheduleIntentDefinition({
+      id:
+        "executor-test-meal",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "meal",
+
+      windowStart:
+        "12:00",
+
+      windowEnd:
+        "12:00",
+
+      durationMinMinutes:
+        60,
+
+      durationMaxMinutes:
+        60,
+
+      sceneId:
+        "moonBridge",
+
+      activityId:
+        "meal",
+
+      fallbackActivityId:
+        "wander",
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .HIGH,
+    });
+
+
+  const schedule =
+    generateGardenDailySchedule(
+      [
+        definition,
+      ],
+      dateKey
+    );
+
+
+  const activePoint =
+    createGardenScheduleWorldPoint(
+      dateKey,
+      12 * 60 + 15
+    );
+
+
+  const gapPoint =
+    createGardenScheduleWorldPoint(
+      dateKey,
+      14 * 60
+    );
+
+
+  /*
+    =========================
+    Fake Runtime
+    =========================
+  */
+  const fakeState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+
+    activityData:
+      null,
+
+    travel:
+      null,
+  };
+
+
+  let travelCallCount =
+    0;
+
+
+  let activityCallCount =
+    0;
+
+
+  const fakeTravelFn =
+    (
+      characterId,
+      targetSceneId
+    ) => {
+      travelCallCount += 1;
+
+
+      fakeState.travel = {
+        fromSceneId:
+          fakeState.sceneId,
+
+        toSceneId:
+          targetSceneId,
+
+        phase:
+          "walkingToExit",
+      };
+
+
+      fakeState.activity =
+        GARDEN_CHARACTER_ACTIVITY
+          .TRAVEL;
+
+
+      return true;
+    };
+
+
+  const fakeSetActivityFn =
+    (
+      characterId,
+      activity,
+      activityData = null
+    ) => {
+      activityCallCount += 1;
+
+
+      fakeState.activity =
+        activity;
+
+
+      fakeState.activityData =
+        activityData;
+
+
+      return true;
+    };
+
+
+  /*
+    =========================
+    1. Wrong Scene → Travel
+    =========================
+  */
+  const travelStep =
+    executeGardenCharacterScheduleAtWorldPoint(
+      schedule,
+      "chifuyu",
+      activePoint,
+      {
+        worldState:
+          fakeState,
+
+        travelFn:
+          fakeTravelFn,
+
+        setActivityFn:
+          fakeSetActivityFn,
+      }
+    );
+
+
+  /*
+    =========================
+    2. 再執行一次
+       Travel 不得重複開始
+    =========================
+  */
+  const preserveStep =
+    executeGardenCharacterScheduleAtWorldPoint(
+      schedule,
+      "chifuyu",
+      activePoint,
+      {
+        worldState:
+          fakeState,
+
+        travelFn:
+          fakeTravelFn,
+
+        setActivityFn:
+          fakeSetActivityFn,
+      }
+    );
+
+
+  /*
+    模擬旅行完成。
+  */
+  fakeState.travel =
+    null;
+
+  fakeState.sceneId =
+    "moonBridge";
+
+  fakeState.activity =
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER;
+
+  fakeState.activityData =
+    null;
+
+
+  /*
+    =========================
+    3. Correct Scene → Activity
+    =========================
+  */
+  const activityStep =
+    executeGardenCharacterScheduleAtWorldPoint(
+      schedule,
+      "chifuyu",
+      activePoint,
+      {
+        worldState:
+          fakeState,
+
+        travelFn:
+          fakeTravelFn,
+
+        setActivityFn:
+          fakeSetActivityFn,
+      }
+    );
+
+
+  /*
+    =========================
+    4. 同一 Schedule Entry
+       不得重複 Apply
+    =========================
+  */
+  const duplicateActivityStep =
+    executeGardenCharacterScheduleAtWorldPoint(
+      schedule,
+      "chifuyu",
+      activePoint,
+      {
+        worldState:
+          fakeState,
+
+        travelFn:
+          fakeTravelFn,
+
+        setActivityFn:
+          fakeSetActivityFn,
+      }
+    );
+
+
+  /*
+    =========================
+    5. Schedule 結束 → Wander
+    =========================
+  */
+  const gapStep =
+    executeGardenCharacterScheduleAtWorldPoint(
+      schedule,
+      "chifuyu",
+      gapPoint,
+      {
+        worldState:
+          fakeState,
+
+        travelFn:
+          fakeTravelFn,
+
+        setActivityFn:
+          fakeSetActivityFn,
+      }
+    );
+
+
+  const checks = {
+    scheduleExists:
+      !!schedule,
+
+    travelStarted:
+      travelStep
+        ?.execution
+        ?.reason ===
+      "travelStarted",
+
+    travelCalledOnce:
+      travelCallCount ===
+      1,
+
+    secondCallPreservesTravel:
+      preserveStep
+        ?.execution
+        ?.reason ===
+      "travelAlreadyInProgress",
+
+    activityApplied:
+      activityStep
+        ?.execution
+        ?.reason ===
+      "activityApplied",
+
+    semanticMealPreserved:
+      fakeState.activityData ===
+        null ||
+      activityStep
+        ?.decision
+        ?.semanticActivityId ===
+        "meal",
+
+    mealFallsBackToWander:
+      activityStep
+        ?.decision
+        ?.runtimeActivityId ===
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+
+    duplicateNotReapplied:
+      duplicateActivityStep
+        ?.execution
+        ?.reason ===
+      "activityAlreadyApplied",
+
+    activityAppliedOnlyOnce:
+      activityCallCount ===
+      2,
+
+    gapReturnsToWander:
+      gapStep
+        ?.execution
+        ?.reason ===
+      "wanderApplied",
+
+    finalStateWander:
+      fakeState.activity ===
+        GARDEN_CHARACTER_ACTIVITY
+          .WANDER &&
+      fakeState.activityData ===
+        null,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    travelCallCount,
+
+    activityCallCount,
+
+    travelStep,
+
+    preserveStep,
+
+    activityStep,
+
+    duplicateActivityStep,
+
+    gapStep,
+
+    finalFakeState:
+      fakeState,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Schedule Bridge Executor Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Schedule Bridge Executor Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+
+
 
 /* =========================
    Garden Travel Reconciliation
@@ -25171,7 +44698,7 @@ const gardenCharacterWorldState = {
   還沒到時間 → 繼續 transit
   已經到時間 → 直接進目的地入口
 */
-function reconcileGardenCharacterTravel(
+function reconcileGardenLegacyCharacterTravel(
   character,
   context
 ) {
@@ -25390,6 +44917,562 @@ function reconcileGardenCharacterTravel(
   };
 }
 
+
+/* =========================
+   12H-4D
+   Canonical Travel Reconciliation
+========================= */
+
+function reconcileGardenCanonicalCharacterTravel(
+  character,
+  context
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  const travel =
+    worldState?.travel;
+
+
+  if (
+    !worldState ||
+    !travel
+  ) {
+    return {
+      character,
+
+      action:
+        "none",
+
+      reason:
+        "notTraveling",
+    };
+  }
+
+
+  const resumedAt =
+    context?.resumedAt;
+
+
+  if (
+    !isValidGardenWorldTimestamp(
+      resumedAt
+    )
+  ) {
+    return {
+      character,
+
+      action:
+        "canonicalReconcileFailed",
+
+      reason:
+        "invalidResumeTimestamp",
+    };
+  }
+
+
+  const plan =
+    travel.spatialPlan;
+
+
+  if (
+    !isGardenCanonicalTravelSpatialPlanUsable(
+      plan
+    )
+  ) {
+    return {
+      character,
+
+      action:
+        "canonicalReconcileFailed",
+
+      reason:
+        "invalidSpatialPlan",
+    };
+  }
+
+
+  const canonicalState =
+    resolveGardenCanonicalTravelSpatialState(
+      plan,
+      resumedAt
+    );
+
+
+  if (!canonicalState) {
+    return {
+      character,
+
+      action:
+        "canonicalReconcileFailed",
+
+      reason:
+        "canonicalResolveFailed",
+    };
+  }
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      character
+    );
+
+
+  const state =
+    runtime?.moveState;
+
+
+  if (
+    !runtime ||
+    !state
+  ) {
+    return {
+      character,
+
+      action:
+        "canonicalReconcileFailed",
+
+      reason:
+        "runtimeUnavailable",
+    };
+  }
+
+
+  /*
+    =========================
+    Local Runtime Cleanup
+    =========================
+
+    Resume / Reload 之後，
+    Canonical Travel 不需要
+    恢復上一頁的 path queue。
+  */
+  runtime.setPath?.([]);
+
+
+  state.path =
+    [];
+
+  state.isMoving =
+    false;
+
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  /*
+    =========================
+    Travel Completed
+    =========================
+  */
+  if (
+  canonicalState.phase ===
+    "completed"
+) {
+  const completion =
+    finalizeGardenCanonicalTravelToWander(
+      character,
+      travel
+    );
+
+
+  if (!completion.ok) {
+    return {
+      character,
+
+      action:
+        "canonicalReconcileFailed",
+
+      reason:
+        "travelCompletionFailed",
+
+      resumedAt,
+
+      completedAt:
+        plan.completedAt,
+    };
+  }
+
+
+  return {
+    character,
+
+    action:
+      "canonicalCompleted",
+
+    phase:
+      "completed",
+
+    sceneId:
+      worldState.sceneId,
+
+    resumedAt,
+
+    completedAt:
+      plan.completedAt,
+
+    overdueMs:
+      Math.max(
+        0,
+
+        resumedAt -
+        plan.completedAt
+      ),
+
+    continuityCreated:
+      completion.continuityCreated,
+
+    continuityEndsAt:
+      completion.continuityEndsAt,
+  };
+}
+
+
+
+
+
+
+  /*
+    =========================
+    Active Canonical Travel
+    =========================
+  */
+
+  travel.phase =
+    canonicalState.phase;
+
+
+  /*
+    舊欄位暫時保留，
+    但全部改由 Spatial Plan
+    校正。
+  */
+  travel.startedAt =
+    plan.startedAt;
+
+
+  travel.transitStartedAt =
+    plan.transit.startedAt;
+
+
+  travel.expectedArrivalAt =
+    plan.transit.endsAt;
+
+
+  travel.transitUntil =
+    0;
+
+
+  if (
+    canonicalState.phase ===
+      "walkingToExit"
+  ) {
+    travel.phaseStartedAt =
+      plan.exit.startedAt;
+
+    travel.arrivedAt =
+      null;
+  }
+
+
+  if (
+    canonicalState.phase ===
+      "transit"
+  ) {
+    travel.phaseStartedAt =
+      plan.transit.startedAt;
+
+    travel.arrivedAt =
+      null;
+  }
+
+
+  if (
+    canonicalState.phase ===
+      "walkingFromEntrance"
+  ) {
+    travel.phaseStartedAt =
+      plan.entrance.startedAt;
+
+    travel.arrivedAt =
+      plan.entrance.startedAt;
+  }
+
+
+  /*
+    Canonical Timeline
+    直接決定 World Scene。
+  */
+  worldState.sceneId =
+    canonicalState.sceneId;
+
+
+  /*
+    Transit 沒有可觀看座標。
+
+    此時保留 moveState
+    上一個 numeric x/y，
+    只靠 sceneId = null
+    隱藏角色。
+  */
+  if (
+    Number.isFinite(
+      canonicalState.x
+    ) &&
+    Number.isFinite(
+      canonicalState.y
+    )
+  ) {
+    state.x =
+      canonicalState.x;
+
+    state.y =
+      canonicalState.y;
+  }
+
+
+  if (
+    canonicalState.direction ===
+      1 ||
+    canonicalState.direction ===
+      -1
+  ) {
+    state.direction =
+      canonicalState.direction;
+  }
+
+
+  state.isMoving =
+    canonicalState.isMoving ===
+      true;
+
+
+  return {
+    character,
+
+    action:
+      "canonicalReconciled",
+
+    phase:
+      canonicalState.phase,
+
+    sceneId:
+      canonicalState.sceneId,
+
+    phaseProgress:
+      canonicalState.phaseProgress,
+
+    resumedAt,
+
+    x:
+      canonicalState.x,
+
+    y:
+      canonicalState.y,
+  };
+}
+
+
+
+function inspectGardenWanderContinuity(
+  characterId =
+    "chifuyu"
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  const plan =
+    worldState?.wanderContinuity ??
+    null;
+
+
+  const timestamp =
+    getGardenWorldNow();
+
+
+  const state =
+    plan &&
+    isGardenWanderContinuityPlanUsable(
+      plan,
+      characterId,
+      worldState?.sceneId
+    )
+      ? resolveGardenTravelToWanderContinuity(
+          plan,
+          timestamp
+        )
+      : null;
+
+
+  const result = {
+    character:
+      characterId,
+
+    activity:
+      worldState?.activity ??
+      null,
+
+    sceneId:
+      worldState?.sceneId ??
+      null,
+
+    hasContinuity:
+      !!plan,
+
+    valid:
+      !!plan &&
+      isGardenWanderContinuityPlanUsable(
+        plan,
+        characterId,
+        worldState?.sceneId
+      ),
+
+    phase:
+      state?.phase ??
+      null,
+
+    completed:
+      state?.completed ??
+      null,
+
+    startedAt:
+      plan?.startedAt ??
+      null,
+
+    moveStartedAt:
+      plan?.moveStartedAt ??
+      null,
+
+    endsAt:
+      plan?.endsAt ??
+      null,
+
+    x:
+      state?.x ??
+      null,
+
+    y:
+      state?.y ??
+      null,
+
+    isMoving:
+      state?.isMoving ??
+      null,
+
+    plan,
+
+    state,
+  };
+
+
+  console.table([
+    {
+      character:
+        result.character,
+
+      activity:
+        result.activity,
+
+      sceneId:
+        result.sceneId,
+
+      hasContinuity:
+        result.hasContinuity,
+
+      valid:
+        result.valid,
+
+      phase:
+        result.phase,
+
+      completed:
+        result.completed,
+
+      isMoving:
+        result.isMoving,
+    },
+  ]);
+
+
+  return result;
+}
+
+
+
+/*
+  正式 Travel Reconciliation Entry。
+
+  新 Canonical Travel：
+  → Spatial Plan
+
+  舊 Travel：
+  → Legacy fallback
+*/
+function reconcileGardenCharacterTravel(
+  character,
+  context
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  const travel =
+    worldState?.travel;
+
+
+  if (
+    !worldState ||
+    !travel
+  ) {
+    return {
+      character,
+
+      action:
+        "none",
+
+      reason:
+        "notTraveling",
+    };
+  }
+
+
+  if (
+    canGardenCharacterUseCanonicalTravelRuntime(
+      character
+    )
+  ) {
+    return reconcileGardenCanonicalCharacterTravel(
+      character,
+      context
+    );
+  }
+
+
+  /*
+    舊 Snapshot / Legacy Travel
+    沒有 spatialPlan 時仍可使用。
+  */
+  return reconcileGardenLegacyCharacterTravel(
+    character,
+    context
+  );
+}
+
+
+
 /*
   一次處理 Garden 所有角色。
 
@@ -25435,6 +45518,8068 @@ registerGardenWorldReconciliationHandler(
     priority: 200,
   }
 );
+
+/* =========================
+   Garden Schedule Reconciliation
+========================= */
+
+/*
+  正式 Schedule Provider。
+
+  現在預設為 null，
+  所以不會改變目前網站行為。
+
+  12G 建立正式 Routine 後，
+  才會正式接上。
+*/
+let gardenWorldScheduleProvider =
+  null;
+
+
+function setGardenWorldScheduleProvider(
+  provider = null
+) {
+  if (
+    provider !== null &&
+    typeof provider !==
+      "function"
+  ) {
+    console.warn(
+      "[Garden Schedule] invalid provider:",
+      provider
+    );
+
+    return false;
+  }
+
+
+  gardenWorldScheduleProvider =
+    provider;
+
+
+  return true;
+}
+
+
+function clearGardenWorldScheduleProvider() {
+  gardenWorldScheduleProvider =
+    null;
+
+
+  return true;
+}
+
+
+function isGardenWorldScheduleProviderActive() {
+  return (
+    typeof gardenWorldScheduleProvider ===
+    "function"
+  );
+}
+
+
+/* =========================
+   Garden Official Routine
+========================= */
+
+const GARDEN_OFFICIAL_ROUTINE_VERSION =
+  1;
+
+
+
+/* =========================
+   Moon Bridge Night Chat Timeline
+========================= */
+
+/*
+  23:00 ～ 01:00 的散步時段內，
+  暫定每天產生 3 個聊天機會點。
+
+  每個時間點都由 dateKey 決定，
+  所以：
+  - Reload 不會改
+  - 不同裝置不會改
+  - 不使用 Math.random()
+*/
+const GARDEN_MOON_BRIDGE_NIGHT_CHAT_WINDOWS =
+  Object.freeze([
+    Object.freeze({
+      id: "early",
+      startTimelineMinute:
+        23 * 60 + 12,
+      endTimelineMinute:
+        23 * 60 + 28,
+    }),
+
+    Object.freeze({
+      id: "middle",
+      startTimelineMinute:
+        23 * 60 + 42,
+      endTimelineMinute:
+        24 * 60 + 5,
+    }),
+
+    Object.freeze({
+      id: "late",
+      startTimelineMinute:
+        24 * 60 + 20,
+      endTimelineMinute:
+        24 * 60 + 40,
+    }),
+  ]);
+
+
+function getGardenMoonBridgeNightChatTimeline(
+  dateKey
+) {
+  if (
+    typeof dateKey !==
+      "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      dateKey
+    )
+  ) {
+    return Object.freeze([]);
+  }
+
+
+  const events =
+    GARDEN_MOON_BRIDGE_NIGHT_CHAT_WINDOWS
+      .map(
+        (window, index) => {
+          const timelineMinute =
+            getGardenWorldDeterministicInt(
+              window
+                .startTimelineMinute,
+
+              window
+                .endTimelineMinute,
+
+              "officialRoutine",
+
+              GARDEN_OFFICIAL_ROUTINE_VERSION,
+
+              "moonBridgeNightChat",
+
+              dateKey,
+
+              window.id,
+
+              "start"
+            );
+
+
+          const point =
+            splitGardenScheduleTimelineMinute(
+              timelineMinute
+            );
+
+
+          if (!point) {
+            return null;
+          }
+
+
+          return Object.freeze({
+            id:
+              `moonBridgeNightChat-${window.id}`,
+
+            index,
+
+            dateKey,
+
+            timelineMinute:
+              point.timelineMinute,
+
+            dayOffset:
+              point.dayOffset,
+
+            minuteOfDay:
+              point.minuteOfDay,
+
+            time:
+              point.time,
+          });
+        }
+      )
+      .filter(Boolean);
+
+
+  return Object.freeze(
+    events
+  );
+}
+
+
+function getGardenMoonBridgeNightChatTriggerAtTimestamp(
+  timestamp =
+    getGardenWorldNow()
+) {
+  const calendar =
+    getGardenWorldCalendarParts(
+      timestamp
+    );
+
+
+  if (!calendar) {
+    return null;
+  }
+
+
+  const currentDateKey =
+    calendar.dateKey;
+
+  const previousDateKey =
+    shiftGardenScheduleDateKey(
+      currentDateKey,
+      -1
+    );
+
+
+  if (!previousDateKey) {
+    return null;
+  }
+
+
+  /*
+    23:xx：
+    → 今天夜間活動的 timeline。
+
+    00:xx：
+    → 也要檢查「昨天 23:00 開始」
+       那場夜間活動的 +1 day timeline。
+  */
+  const candidates = [
+    {
+      dateKey:
+        currentDateKey,
+
+      timelineMinute:
+        calendar.minuteOfDay,
+    },
+
+    {
+      dateKey:
+        previousDateKey,
+
+      timelineMinute:
+        calendar.minuteOfDay +
+        1440,
+    },
+  ];
+
+
+  for (
+    const candidate of
+    candidates
+  ) {
+    const events =
+      getGardenMoonBridgeNightChatTimeline(
+        candidate.dateKey
+      );
+
+
+    const matched =
+      events.find(
+        (event) =>
+          event.timelineMinute ===
+          candidate.timelineMinute
+      );
+
+
+    if (!matched) {
+      continue;
+    }
+
+
+    return Object.freeze({
+      ...matched,
+
+      sourceDateKey:
+        candidate.dateKey,
+
+      worldDateKey:
+        currentDateKey,
+
+      worldTime:
+        calendar.timeKey,
+    });
+  }
+
+
+  return null;
+}
+
+
+function getGardenMoonBridgeNightChatLoopCount(
+  dateKey,
+  eventId
+) {
+  if (
+    typeof dateKey !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      dateKey
+    ) ||
+    typeof eventId !== "string" ||
+    !eventId
+  ) {
+    return null;
+  }
+
+
+  return (
+    getGardenWorldDeterministicInt(
+      GARDEN_CHAT_LOOP_MIN,
+      GARDEN_CHAT_LOOP_MAX,
+
+      "officialRoutine",
+      GARDEN_OFFICIAL_ROUTINE_VERSION,
+      "moonBridgeNightChat",
+      dateKey,
+      eventId,
+      "loopCount"
+    )
+  );
+}
+
+function inspectGardenMoonBridgeNightChatPlan(
+  dateKey = null
+) {
+  const resolvedDateKey =
+    dateKey ??
+    getGardenWorldCalendarParts(
+      getGardenWorldNow()
+    )?.dateKey ??
+    null;
+
+
+  if (
+    typeof resolvedDateKey !==
+      "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      resolvedDateKey
+    )
+  ) {
+    console.warn(
+      "[Garden Night Chat] invalid dateKey:",
+      resolvedDateKey
+    );
+
+    return null;
+  }
+
+
+  const events =
+    getGardenMoonBridgeNightChatTimeline(
+      resolvedDateKey
+    );
+
+
+  const rows =
+    events.map(
+      (event) => {
+        const eventDateKey =
+          shiftGardenScheduleDateKey(
+            resolvedDateKey,
+            event.dayOffset
+          );
+
+
+        const spot =
+          getGardenMoonBridgeNightChatSpot(
+            event
+          );
+
+
+        const loops =
+          getGardenMoonBridgeNightChatLoopCount(
+            resolvedDateKey,
+            event.id
+          );
+
+
+        const eventForLedger = {
+          ...event,
+
+          sourceDateKey:
+            resolvedDateKey,
+        };
+
+
+        return {
+          event:
+            event.id,
+
+          date:
+            eventDateKey,
+
+          time:
+            event.time,
+
+          spot:
+            spot?.name ??
+            null,
+
+          loops,
+
+          consumed:
+            isGardenMoonBridgeNightChatEventConsumed(
+              eventForLedger
+            ),
+        };
+      }
+    );
+
+
+  console.table(
+    rows
+  );
+
+
+  return Object.freeze({
+    dateKey:
+      resolvedDateKey,
+
+    events:
+      Object.freeze(rows),
+  });
+}
+
+function inspectGardenMoonBridgeNightRoutine(
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    console.warn(
+      "[Garden Night Routine] invalid timestamp:",
+      timestamp
+    );
+
+    return null;
+  }
+
+
+  const calendar =
+    getGardenWorldCalendarParts(
+      timestamp
+    );
+
+  const worldPoint =
+    getGardenScheduleWorldPoint(
+      timestamp
+    );
+
+  const schedules =
+    provideGardenOfficialWorldSchedules(
+      timestamp
+    );
+
+
+  if (
+    !calendar ||
+    !worldPoint
+  ) {
+    return null;
+  }
+
+
+  /*
+    00:00～00:59 屬於
+    前一天 23:00 開始的夜間活動。
+
+    其他時間則把今天視為
+    今晚 Routine 的 source date。
+  */
+  const nightDateKey =
+    calendar.minuteOfDay < 60
+      ? shiftGardenScheduleDateKey(
+          calendar.dateKey,
+          -1
+        )
+      : calendar.dateKey;
+
+
+  const characterRows =
+    [
+      "chifuyu",
+      "chinatsu",
+    ].map(
+      (characterId) => {
+        const state =
+          gardenCharacterWorldState[
+            characterId
+          ];
+
+        const resolution =
+          resolveGardenCharacterScheduleAtWorldPoint(
+            schedules,
+            characterId,
+            worldPoint
+          );
+
+
+        const activeEntry =
+          resolution
+            ?.activeEntry ??
+          null;
+
+
+        return {
+          character:
+            characterId,
+
+          scene:
+            state?.sceneId ??
+            null,
+
+          activity:
+            state?.activity ??
+            null,
+
+          travelFrom:
+            state?.travel
+              ?.fromSceneId ??
+            null,
+
+          travelTo:
+            state?.travel
+              ?.toSceneId ??
+            null,
+
+          travelPhase:
+            state?.travel
+              ?.phase ??
+            null,
+
+          scheduleState:
+            resolution?.state ??
+            null,
+
+          activeIntent:
+            activeEntry?.intentId ??
+            null,
+
+          scheduleDate:
+            resolution
+              ?.activeScheduleDateKey ??
+            null,
+
+          targetScene:
+            activeEntry
+              ?.target
+              ?.sceneId ??
+            null,
+
+          targetActivity:
+            activeEntry
+              ?.activity
+              ?.selectedActivityId ??
+            null,
+
+          continuity:
+            state?.wanderContinuity
+              ? "active"
+              : null,
+        };
+      }
+    );
+
+
+  const chatEvents =
+    nightDateKey
+      ? getGardenMoonBridgeNightChatTimeline(
+          nightDateKey
+        )
+      : [];
+
+
+  const chatRows =
+    chatEvents.map(
+      (event) => {
+        const eventDateKey =
+          shiftGardenScheduleDateKey(
+            nightDateKey,
+            event.dayOffset
+          );
+
+        const ledgerEvent = {
+          ...event,
+
+          sourceDateKey:
+            nightDateKey,
+        };
+
+        const spot =
+          getGardenMoonBridgeNightChatSpot(
+            ledgerEvent
+          );
+
+
+        return {
+          event:
+            event.id,
+
+          date:
+            eventDateKey,
+
+          time:
+            event.time,
+
+          spot:
+            spot?.name ??
+            null,
+
+          loops:
+            getGardenMoonBridgeNightChatLoopCount(
+              nightDateKey,
+              event.id
+            ),
+
+          consumed:
+            isGardenMoonBridgeNightChatEventConsumed(
+              ledgerEvent
+            ),
+        };
+      }
+    );
+
+
+  const summary = {
+    timestamp,
+
+    iso:
+      new Date(
+        timestamp
+      ).toISOString(),
+
+    worldDate:
+      calendar.dateKey,
+
+    worldTime:
+      calendar.timeKey,
+
+    viewScene:
+      gardenViewSceneId,
+
+    nightDateKey,
+
+    chatMode:
+      gardenChatState.mode,
+
+    lastConsumedChat:
+      gardenMoonBridgeNightChatEventLedger
+        .lastConsumedEventKey,
+
+    characters:
+      characterRows,
+
+    nightChats:
+      chatRows,
+  };
+
+
+  console.log(
+    "[Garden Night Routine]",
+    {
+      worldDate:
+        summary.worldDate,
+
+      worldTime:
+        summary.worldTime,
+
+      viewScene:
+        summary.viewScene,
+
+      nightDateKey:
+        summary.nightDateKey,
+
+      chatMode:
+        summary.chatMode,
+
+      lastConsumedChat:
+        summary.lastConsumedChat,
+    }
+  );
+
+
+  console.table(
+    characterRows
+  );
+
+
+  console.table(
+    chatRows
+  );
+
+
+  return Object.freeze(
+    summary
+  );
+}
+
+function runGardenMoonBridgeNightRoutineSelfTest() {
+  const samples = [
+    {
+      label: "before",
+      timestamp:
+        Date.parse(
+          "2026-09-23T22:59:00+09:00"
+        ),
+      expectedActive:
+        false,
+    },
+
+    {
+      label: "start",
+      timestamp:
+        Date.parse(
+          "2026-09-23T23:00:00+09:00"
+        ),
+      expectedActive:
+        true,
+    },
+
+    {
+      label: "overnight",
+      timestamp:
+        Date.parse(
+          "2026-09-24T00:30:00+09:00"
+        ),
+      expectedActive:
+        true,
+    },
+
+    {
+      label: "end",
+      timestamp:
+        Date.parse(
+          "2026-09-24T01:00:00+09:00"
+        ),
+      expectedActive:
+        false,
+    },
+  ];
+
+
+  const rows =
+    samples.map(
+      (sample) => {
+        const schedules =
+          provideGardenOfficialWorldSchedules(
+            sample.timestamp
+          );
+
+        const worldPoint =
+          getGardenScheduleWorldPoint(
+            sample.timestamp
+          );
+
+
+        const chifuyu =
+          resolveGardenCharacterScheduleAtWorldPoint(
+            schedules,
+            "chifuyu",
+            worldPoint
+          );
+
+        const chinatsu =
+          resolveGardenCharacterScheduleAtWorldPoint(
+            schedules,
+            "chinatsu",
+            worldPoint
+          );
+
+
+        const chifuyuActive =
+          chifuyu
+            ?.activeEntry
+            ?.intentId ===
+          "moonBridgeNightWalk";
+
+        const chinatsuActive =
+          chinatsu
+            ?.activeEntry
+            ?.intentId ===
+          "moonBridgeNightWalk";
+
+
+        const active =
+          chifuyuActive &&
+          chinatsuActive;
+
+
+        return {
+          label:
+            sample.label,
+
+          expected:
+            sample.expectedActive,
+
+          chifuyu:
+            chifuyuActive,
+
+          chinatsu:
+            chinatsuActive,
+
+          pass:
+            active ===
+            sample.expectedActive,
+        };
+      }
+    );
+
+
+  console.table(
+    rows
+  );
+
+
+  const pass =
+    rows.every(
+      (row) =>
+        row.pass
+    );
+
+
+  console.log(
+    "[Garden Night Routine Self Test]",
+    pass
+      ? "PASS"
+      : "FAIL"
+  );
+
+
+  return Object.freeze({
+    pass,
+    rows:
+      Object.freeze(rows),
+  });
+}
+
+
+
+/* =========================
+   Moon Bridge Night Chat Event Ledger
+========================= */
+
+const gardenMoonBridgeNightChatEventLedger = {
+  lastConsumedEventKey:
+    null,
+};
+
+
+function getGardenMoonBridgeNightChatEventKey(
+  event
+) {
+  const sourceDateKey =
+    event?.sourceDateKey ??
+    event?.dateKey ??
+    null;
+
+  const eventId =
+    event?.id ??
+    null;
+
+
+  if (
+    typeof sourceDateKey !==
+      "string" ||
+    !sourceDateKey ||
+    typeof eventId !==
+      "string" ||
+    !eventId
+  ) {
+    return null;
+  }
+
+
+  return (
+    `${sourceDateKey}::${eventId}`
+  );
+}
+
+
+function getGardenMoonBridgeNightChatSpot(
+  event
+) {
+  if (!event) {
+    return null;
+  }
+
+
+  const sourceDateKey =
+    event.sourceDateKey ??
+    event.dateKey ??
+    null;
+
+  const eventId =
+    event.id ??
+    null;
+
+
+  if (
+    typeof sourceDateKey !==
+      "string" ||
+    !sourceDateKey ||
+    typeof eventId !==
+      "string" ||
+    !eventId
+  ) {
+    return null;
+  }
+
+
+  const validSpots =
+    MOON_BRIDGE_CHAT_SPOTS.filter(
+      (spot) =>
+        isGardenChatSpotValidInScene(
+          "moonBridge",
+          spot
+        )
+    );
+
+
+  if (
+    validSpots.length ===
+    0
+  ) {
+    return null;
+  }
+
+
+  return (
+    pickGardenWorldDeterministic(
+      validSpots,
+
+      "officialRoutine",
+      GARDEN_OFFICIAL_ROUTINE_VERSION,
+      "moonBridgeNightChat",
+      sourceDateKey,
+      eventId,
+      "chatSpot"
+    )
+  );
+}
+
+
+function isGardenMoonBridgeNightChatEventConsumed(
+  event
+) {
+  const key =
+    getGardenMoonBridgeNightChatEventKey(
+      event
+    );
+
+
+  if (!key) {
+    return false;
+  }
+
+
+  return (
+    gardenMoonBridgeNightChatEventLedger
+      .lastConsumedEventKey ===
+    key
+  );
+}
+
+
+function consumeGardenMoonBridgeNightChatEvent(
+  event
+) {
+  const key =
+    getGardenMoonBridgeNightChatEventKey(
+      event
+    );
+
+
+  if (!key) {
+    return null;
+  }
+
+
+  gardenMoonBridgeNightChatEventLedger
+    .lastConsumedEventKey =
+      key;
+
+
+  return key;
+}
+
+
+function tryStartGardenMoonBridgeNightChat(
+  timestamp =
+    getGardenWorldNow()
+) {
+  /*
+    ① 目前時間必須真的命中
+       deterministic Chat event。
+  */
+  const event =
+    getGardenMoonBridgeNightChatTriggerAtTimestamp(
+      timestamp
+    );
+
+
+  if (!event) {
+    return Object.freeze({
+      started: false,
+      reason: "noChatEvent",
+    });
+  }
+
+
+  /*
+    ② 同一個 event 不得重播。
+  */
+  if (
+    isGardenMoonBridgeNightChatEventConsumed(
+      event
+    )
+  ) {
+    return Object.freeze({
+      started: false,
+      reason: "alreadyConsumed",
+      event,
+    });
+  }
+
+
+  /*
+    ③ Chat Runtime 本身必須是空閒。
+  */
+  if (
+    gardenChatState.mode !==
+      "wander"
+  ) {
+    return Object.freeze({
+      started: false,
+      reason: "chatRuntimeBusy",
+      event,
+    });
+  }
+
+
+  /*
+    ④ 兩人必須真的都已經在賞月橋。
+  */
+  if (
+    getGardenSharedCharacterSceneId() !==
+      "moonBridge"
+  ) {
+    return Object.freeze({
+      started: false,
+      reason: "charactersNotTogetherAtMoonBridge",
+      event,
+    });
+  }
+
+
+  /*
+    ⑤ 兩人目前都必須處於 Wander。
+
+    Travel / Rest / 其他 Activity
+    都不能被這場 Chat 強行打斷。
+  */
+  if (
+    gardenCharacterWorldState
+      .chifuyu
+      ?.activity !==
+        GARDEN_CHARACTER_ACTIVITY
+          .WANDER ||
+    gardenCharacterWorldState
+      .chinatsu
+      ?.activity !==
+        GARDEN_CHARACTER_ACTIVITY
+          .WANDER
+  ) {
+    return Object.freeze({
+      started: false,
+      reason: "charactersNotWandering",
+      event,
+    });
+  }
+
+
+  /*
+    ⑥ 確認真正生效中的 Schedule
+       仍然是兩人的 Moon Bridge Night Walk。
+
+    未來如果同時間出現更高 priority
+    的活動，Chat 就不能蓋掉它。
+  */
+  const schedules =
+    provideGardenOfficialWorldSchedules(
+      timestamp
+    );
+
+  const worldPoint =
+    getGardenScheduleWorldPoint(
+      timestamp
+    );
+
+
+  if (
+    !worldPoint ||
+    schedules.length === 0
+  ) {
+    return Object.freeze({
+      started: false,
+      reason: "scheduleUnavailable",
+      event,
+    });
+  }
+
+
+  const chifuyuResolution =
+    resolveGardenCharacterScheduleAtWorldPoint(
+      schedules,
+      "chifuyu",
+      worldPoint
+    );
+
+  const chinatsuResolution =
+    resolveGardenCharacterScheduleAtWorldPoint(
+      schedules,
+      "chinatsu",
+      worldPoint
+    );
+
+
+  const chifuyuNightWalk =
+    chifuyuResolution
+      ?.activeEntry
+      ?.intentId ===
+      "moonBridgeNightWalk";
+
+  const chinatsuNightWalk =
+    chinatsuResolution
+      ?.activeEntry
+      ?.intentId ===
+      "moonBridgeNightWalk";
+
+
+  if (
+    !chifuyuNightWalk ||
+    !chinatsuNightWalk
+  ) {
+    return Object.freeze({
+      started: false,
+      reason: "nightWalkScheduleNotActive",
+      event,
+    });
+  }
+
+
+  /*
+    ⑦ 取得 deterministic spot + loops。
+  */
+  const spot =
+    getGardenMoonBridgeNightChatSpot(
+      event
+    );
+
+  const sourceDateKey =
+    event.sourceDateKey ??
+    event.dateKey;
+
+  const targetLoops =
+    getGardenMoonBridgeNightChatLoopCount(
+      sourceDateKey,
+      event.id
+    );
+
+
+  if (
+    !spot ||
+    !Number.isInteger(
+      targetLoops
+    )
+  ) {
+    return Object.freeze({
+      started: false,
+      reason: "chatPlanUnavailable",
+      event,
+    });
+  }
+
+
+  /*
+    ⑧ 真正啟動 Approach Chat。
+  */
+  const started =
+    startGardenChatApproach(
+      performance.now(),
+      {
+        spot,
+        targetLoops,
+      }
+    );
+
+
+  if (!started) {
+    /*
+      失敗時絕對不 consume。
+
+      這樣同一分鐘下一次 Live Tick
+      還有機會重新嘗試。
+    */
+    return Object.freeze({
+      started: false,
+      reason: "approachStartFailed",
+      event,
+      spotName:
+        spot.name ?? null,
+      targetLoops,
+    });
+  }
+
+
+  /*
+    ⑨ 只有 Runtime 真正成功啟動後
+       才正式消耗 event。
+  */
+  const consumedEventKey =
+    consumeGardenMoonBridgeNightChatEvent(
+      event
+    );
+
+
+  /*
+    立即存檔。
+
+    即使玩家剛開始聊天就 F5，
+    Cold Start 可以安全退回 Wander，
+    但同一場 Chat 不會再播一次。
+  */
+  saveGardenWorldState(
+    "moonBridgeNightChatConsumed"
+  );
+
+
+  return Object.freeze({
+    started: true,
+    reason: "started",
+
+    event,
+
+    consumedEventKey,
+
+    spotName:
+      spot.name ?? null,
+
+    targetLoops,
+  });
+}
+
+
+
+function getGardenOfficialScheduleDefinitionsForDate(
+  dateKey
+) {
+  if (
+    typeof dateKey !==
+      "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      dateKey
+    )
+  ) {
+    return Object.freeze([]);
+  }
+
+
+  const definitions =
+    [];
+
+
+  /*
+    =========================
+    Chifuyu — Afternoon Rest
+    =========================
+
+    Start Window：
+    14:00 ～ 15:30 JST
+
+    Duration：
+    30 ～ 45 分鐘
+
+    實際每天開始時間與長度
+    都由 deterministic
+    World Decision 決定。
+  */
+  const chifuyuAfternoonRest =
+    createGardenScheduleIntentDefinition({
+      id:
+        "official-chifuyu-afternoon-rest",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "afternoonRest",
+
+      instanceId:
+        "daily",
+
+      windowStart:
+        "14:00",
+
+      windowEnd:
+        "15:30",
+
+      durationMinMinutes:
+        30,
+
+      durationMaxMinutes:
+        45,
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .NORMAL,
+
+      /*
+  千冬午後休息：
+
+  庭院固定休息點。
+*/
+sceneId:
+  "courtyard",
+
+spotId:
+  "courtyard-rest-01",
+
+activityId:
+  "rest",
+
+      fallbackActivityId:
+        "wander",
+
+      canDelay:
+        true,
+
+      canBeOverridden:
+        true,
+
+      latePolicy:
+        GARDEN_SCHEDULE_LATE_POLICY
+          .SKIP,
+
+      maxDelayMinutes:
+        30,
+
+      tags: [
+        "official",
+        "dailyRoutine",
+        "rest",
+      ],
+    });
+
+
+/*
+  =========================
+  Chinatsu — Afternoon Rest
+  =========================
+
+  Start Window：
+  14:00 ～ 15:30 JST
+
+  Duration：
+  30 ～ 45 分鐘
+
+  實際每天開始時間與長度
+  都由 deterministic
+  World Decision 決定。
+*/
+const chinatsuAfternoonRest =
+  createGardenScheduleIntentDefinition({
+    id:
+      "official-chinatsu-afternoon-rest",
+
+    characterId:
+      "chinatsu",
+
+    intentId:
+      "afternoonRest",
+
+    instanceId:
+      "daily",
+
+    windowStart:
+      "14:00",
+
+    windowEnd:
+      "15:30",
+
+    durationMinMinutes:
+      30,
+
+    durationMaxMinutes:
+      45,
+
+    priority:
+      GARDEN_SCHEDULE_PRIORITY
+        .NORMAL,
+
+    sceneId:
+      "courtyard",
+
+    spotId:
+      "courtyard-rest-02",
+
+    activityId:
+      "rest",
+
+    fallbackActivityId:
+      "wander",
+
+    canDelay:
+      true,
+
+    canBeOverridden:
+      true,
+
+    latePolicy:
+      GARDEN_SCHEDULE_LATE_POLICY
+        .SKIP,
+
+    maxDelayMinutes:
+      30,
+
+    tags: [
+      "official",
+      "dailyRoutine",
+      "rest",
+    ],
+  });
+
+
+/*
+  =========================
+  Chifuyu — Moon Bridge Night Walk
+  =========================
+
+  每天 23:00 ～ 翌日 01:00 JST。
+
+  23:00 固定開始，
+  持續 120 分鐘。
+
+  目前先只有 Wander。
+  Chat 之後由 deterministic
+  chat timeline 插入。
+*/
+const chifuyuMoonBridgeNightWalk =
+  createGardenScheduleIntentDefinition({
+    id:
+      "official-chifuyu-moon-bridge-night-walk",
+
+    characterId:
+      "chifuyu",
+
+    intentId:
+      "moonBridgeNightWalk",
+
+    instanceId:
+      "daily",
+
+    windowStart:
+      "23:00",
+
+    windowEnd:
+      "23:00",
+
+    durationMinMinutes:
+      120,
+
+    durationMaxMinutes:
+      120,
+
+    priority:
+      GARDEN_SCHEDULE_PRIORITY
+        .NORMAL,
+
+    sceneId:
+      "moonBridge",
+
+    activityId:
+      "wander",
+
+    fallbackActivityId:
+      "wander",
+
+    canDelay:
+      false,
+
+    canBeOverridden:
+      true,
+
+    latePolicy:
+      GARDEN_SCHEDULE_LATE_POLICY
+        .SKIP,
+
+    tags: [
+      "official",
+      "dailyRoutine",
+      "moonBridge",
+      "nightWalk",
+    ],
+  });
+
+/*
+  =========================
+  Chinatsu — Moon Bridge Night Walk
+  =========================
+
+  每天 23:00 ～ 翌日 01:00 JST。
+
+  與千冬共用同一段夜間
+  賞月橋散步時段。
+
+  目前先只有 Wander。
+  Chat 之後由 deterministic
+  chat timeline 插入。
+*/
+const chinatsuMoonBridgeNightWalk =
+  createGardenScheduleIntentDefinition({
+    id:
+      "official-chinatsu-moon-bridge-night-walk",
+
+    characterId:
+      "chinatsu",
+
+    intentId:
+      "moonBridgeNightWalk",
+
+    instanceId:
+      "daily",
+
+    windowStart:
+      "23:00",
+
+    windowEnd:
+      "23:00",
+
+    durationMinMinutes:
+      120,
+
+    durationMaxMinutes:
+      120,
+
+    priority:
+      GARDEN_SCHEDULE_PRIORITY
+        .NORMAL,
+
+    sceneId:
+      "moonBridge",
+
+    activityId:
+      "wander",
+
+    fallbackActivityId:
+      "wander",
+
+    canDelay:
+      false,
+
+    canBeOverridden:
+      true,
+
+    latePolicy:
+      GARDEN_SCHEDULE_LATE_POLICY
+        .SKIP,
+
+    tags: [
+      "official",
+      "dailyRoutine",
+      "moonBridge",
+      "nightWalk",
+    ],
+  });
+
+
+
+  if (
+    chifuyuAfternoonRest
+  ) {
+    definitions.push(
+      chifuyuAfternoonRest
+    );
+  }
+
+if (
+  chinatsuAfternoonRest
+) {
+  definitions.push(
+    chinatsuAfternoonRest
+  );
+}
+
+
+
+if (
+  chifuyuMoonBridgeNightWalk
+) {
+  definitions.push(
+    chifuyuMoonBridgeNightWalk
+  );
+}
+
+
+if (
+  chinatsuMoonBridgeNightWalk
+) {
+  definitions.push(
+    chinatsuMoonBridgeNightWalk
+  );
+}
+
+
+  return Object.freeze(
+    definitions
+  );
+}
+
+
+function generateGardenOfficialDailySchedule(
+  dateKey
+) {
+  const definitions =
+    getGardenOfficialScheduleDefinitionsForDate(
+      dateKey
+    );
+
+
+  return (
+    generateGardenDailySchedule(
+      definitions,
+      dateKey
+    )
+  );
+}
+
+function provideGardenOfficialWorldSchedules(
+  timestamp =
+    getGardenWorldNow()
+) {
+  const calendar =
+    getGardenWorldCalendarParts(
+      timestamp
+    );
+
+
+  if (!calendar) {
+    return Object.freeze([]);
+  }
+
+
+  const currentDateKey =
+    calendar.dateKey;
+
+
+  const previousDateKey =
+    shiftGardenScheduleDateKey(
+      currentDateKey,
+      -1
+    );
+
+
+  if (!previousDateKey) {
+    return Object.freeze([]);
+  }
+
+
+  /*
+    昨天：
+    用來承接未來可能跨午夜的 Activity。
+
+    今天：
+    正式 Resolver 使用。
+  */
+  const previousSchedule =
+    generateGardenOfficialDailySchedule(
+      previousDateKey
+    );
+
+
+  const currentSchedule =
+    generateGardenOfficialDailySchedule(
+      currentDateKey
+    );
+
+
+  const schedules = [
+    previousSchedule,
+    currentSchedule,
+  ].filter(
+    isValidGardenDailySchedule
+  );
+
+
+  return Object.freeze(
+    schedules
+  );
+}
+
+
+function inspectGardenOfficialSchedule(
+  timestamp =
+    getGardenWorldNow()
+) {
+  const schedules =
+    provideGardenOfficialWorldSchedules(
+      timestamp
+    );
+
+
+  const calendar =
+    getGardenWorldCalendarParts(
+      timestamp
+    );
+
+
+  const currentSchedule =
+    schedules.find(
+      (schedule) =>
+        schedule.dateKey ===
+        calendar?.dateKey
+    );
+
+
+  if (!currentSchedule) {
+    console.warn(
+      "[Garden Official Schedule] current schedule unavailable"
+    );
+
+    return null;
+  }
+
+
+  const rows =
+    currentSchedule.entries.map(
+      (entry) => ({
+        character:
+          entry.characterId,
+
+        intent:
+          entry.intentId,
+
+        activity:
+          entry.activity
+            ?.selectedActivityId ??
+          null,
+
+        scene:
+          entry.target
+            ?.sceneId ??
+          null,
+
+        start:
+          entry.start
+            ?.time ??
+          null,
+
+        end:
+          entry.end
+            ?.time ??
+          null,
+
+        duration:
+          entry.durationMinutes,
+
+        priority:
+          entry.priority,
+      })
+    );
+
+
+  console.log(
+    "[Garden Official Schedule]",
+    {
+      dateKey:
+        calendar.dateKey,
+
+      time:
+        calendar.timeKey,
+
+      schedule:
+        currentSchedule,
+    }
+  );
+
+
+  console.table(
+    rows
+  );
+
+
+  return currentSchedule;
+}
+
+
+
+setGardenWorldScheduleProvider(
+  provideGardenOfficialWorldSchedules
+);
+
+
+
+function getGardenWorldSchedulesFromProvider(
+  context
+) {
+  if (
+    !context ||
+    !isValidGardenWorldTimestamp(
+      context.resumedAt
+    )
+  ) {
+    return [];
+  }
+
+
+  if (
+    typeof gardenWorldScheduleProvider !==
+    "function"
+  ) {
+    return [];
+  }
+
+
+  let provided;
+
+
+  try {
+    provided =
+      gardenWorldScheduleProvider(
+        context.resumedAt,
+        context
+      );
+
+  } catch (err) {
+    console.error(
+      "[Garden Schedule] provider failed:",
+      err
+    );
+
+    return [];
+  }
+
+
+  /*
+    Reconciliation 必須同步。
+
+    Provider 也不可以偷偷回 Promise。
+  */
+  if (
+    provided &&
+    typeof provided.then ===
+      "function"
+  ) {
+    console.error(
+      "[Garden Schedule] provider must be synchronous"
+    );
+
+    return [];
+  }
+
+
+  return (
+    normalizeGardenDailyScheduleCollection(
+      provided
+    )
+  );
+}
+
+function reconcileGardenScheduleSystemWithSchedules(
+  context,
+  schedules,
+  options = {}
+) {
+  if (
+    !context ||
+    !isValidGardenWorldTimestamp(
+      context.resumedAt
+    )
+  ) {
+    return Object.freeze({
+      ok:
+        false,
+
+      reason:
+        "invalidContext",
+
+      results:
+        Object.freeze([]),
+    });
+  }
+
+
+  const safeSchedules =
+    normalizeGardenDailyScheduleCollection(
+      schedules
+    );
+
+
+  if (
+    safeSchedules.length ===
+    0
+  ) {
+    return Object.freeze({
+      ok:
+        true,
+
+      reason:
+        "noSchedules",
+
+      timestamp:
+        context.resumedAt,
+
+      scheduleCount:
+        0,
+
+      results:
+        Object.freeze([]),
+    });
+  }
+
+
+  const worldPoint =
+    getGardenScheduleWorldPoint(
+      context.resumedAt
+    );
+
+
+  if (!worldPoint) {
+    return Object.freeze({
+      ok:
+        false,
+
+      reason:
+        "invalidWorldPoint",
+
+      results:
+        Object.freeze([]),
+    });
+  }
+
+
+  /*
+    正式：
+    gardenCharacterWorldState
+
+    Self-Test：
+    可傳入 fake worldStates。
+  */
+  const worldStates =
+    options.worldStates ??
+    gardenCharacterWorldState;
+
+
+  const characterIds =
+    Array.isArray(
+      options.characterIds
+    )
+      ? options.characterIds
+      : Object.keys(
+          worldStates
+        );
+
+
+  const results =
+    [];
+
+
+  for (
+    const characterId of
+    characterIds
+  ) {
+    const worldState =
+      worldStates[
+        characterId
+      ];
+
+
+    if (!worldState) {
+      results.push(
+        Object.freeze({
+          characterId,
+
+          ok:
+            false,
+
+          reason:
+            "missingWorldState",
+        })
+      );
+
+      continue;
+    }
+
+
+    const bridgeResult =
+      executeGardenCharacterScheduleAtWorldPoint(
+        safeSchedules,
+        characterId,
+        worldPoint,
+        {
+  worldState,
+
+  travelFn:
+    options.travelFn,
+
+  setActivityFn:
+    options.setActivityFn,
+
+  spotApproachFn:
+    options.spotApproachFn,
+
+  worldTimestamp:
+    context.resumedAt,
+}
+      );
+
+
+    results.push(
+      Object.freeze({
+        characterId,
+
+        ok:
+          !!bridgeResult,
+
+        bridgeResult:
+          bridgeResult ??
+          null,
+      })
+    );
+  }
+
+
+  return Object.freeze({
+    ok:
+      true,
+
+    reason:
+      "reconciled",
+
+    timestamp:
+      context.resumedAt,
+
+    worldPoint,
+
+    scheduleCount:
+      safeSchedules.length,
+
+    results:
+      Object.freeze(
+        results
+      ),
+  });
+}
+
+function reconcileGardenScheduleSystem(
+  context
+) {
+  const schedules =
+    getGardenWorldSchedulesFromProvider(
+      context
+    );
+
+
+  /*
+    Provider 還沒啟用時，
+    正式網站什麼都不做。
+  */
+  if (
+    schedules.length ===
+    0
+  ) {
+    return Object.freeze({
+      ok:
+        true,
+
+      action:
+        "none",
+
+      reason:
+        isGardenWorldScheduleProviderActive()
+          ? "providerReturnedNoSchedules"
+          : "providerInactive",
+
+      scheduleCount:
+        0,
+
+      results:
+        Object.freeze([]),
+    });
+  }
+
+
+  return (
+    reconcileGardenScheduleSystemWithSchedules(
+      context,
+      schedules
+    )
+  );
+}
+
+
+/*
+  Travel = 200
+
+  Schedule = 100
+
+  所以永遠先完成 Travel reconciliation，
+  再處理目前 Schedule。
+*/
+registerGardenWorldReconciliationHandler(
+  "schedule",
+  reconcileGardenScheduleSystem,
+  {
+    priority: 100,
+  }
+);
+
+
+function reconcileGardenCanonicalWanderSystem(
+  context
+) {
+  if (
+    !context ||
+    !isValidGardenWorldTimestamp(
+      context.resumedAt
+    )
+  ) {
+    return Object.freeze({
+      ok: false,
+
+      reason:
+        "invalidContext",
+
+      results:
+        Object.freeze([]),
+    });
+  }
+
+
+  const results =
+    [];
+
+
+  for (
+    const characterId of
+    Object.keys(
+      gardenCharacterWorldState
+    )
+  ) {
+    const result =
+      applyGardenCanonicalWanderRuntimeForCharacter(
+        characterId,
+        context.resumedAt
+      );
+
+
+    results.push(
+      Object.freeze({
+        characterId,
+
+        owned:
+          result.owned,
+
+        applied:
+          result.applied,
+
+        reason:
+          result.reason,
+
+        spatialSource:
+          result.spatialSource ??
+          null,
+
+        continuityPhase:
+          result.continuityPhase ??
+          null,
+      })
+    );
+  }
+
+
+  return Object.freeze({
+    ok: true,
+
+    reason:
+      "reconciled",
+
+    timestamp:
+      context.resumedAt,
+
+    results:
+      Object.freeze(
+        results
+      ),
+  });
+}
+
+
+registerGardenWorldReconciliationHandler(
+  "canonicalWander",
+  reconcileGardenCanonicalWanderSystem,
+  {
+    /*
+      必須晚於 Schedule。
+
+      Schedule 可能剛在 GAP →
+      WANDER 時建立 continuity，
+      這一層再於同一 resumedAt
+      把它真正套到 Runtime。
+    */
+    priority: 50,
+  }
+);
+
+
+function runGardenScheduleReconciliationSelfTest() {
+  const dateKey =
+    "2026-09-23";
+
+
+  /*
+    12:00～13:00
+    千冬應前往賞月橋。
+  */
+  const definition =
+    createGardenScheduleIntentDefinition({
+      id:
+        "reconciliation-test-meal",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "meal",
+
+      windowStart:
+        "12:00",
+
+      windowEnd:
+        "12:00",
+
+      durationMinMinutes:
+        60,
+
+      durationMaxMinutes:
+        60,
+
+      sceneId:
+        "moonBridge",
+
+      activityId:
+        "meal",
+
+      fallbackActivityId:
+        "wander",
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .HIGH,
+    });
+
+
+  const schedule =
+    generateGardenDailySchedule(
+      [
+        definition,
+      ],
+      dateKey
+    );
+
+
+  /*
+    12:15 JST
+    =
+    03:15 UTC
+  */
+  const activeContext =
+    createGardenWorldResumeContext(
+      Date.parse(
+        "2026-09-23T02:30:00Z"
+      ),
+
+      Date.parse(
+        "2026-09-23T03:15:00Z"
+      ),
+
+      "selfTest",
+
+      "selfTest"
+    );
+
+
+  /*
+    14:00 JST
+    =
+    05:00 UTC
+  */
+  const gapContext =
+    createGardenWorldResumeContext(
+      Date.parse(
+        "2026-09-23T04:30:00Z"
+      ),
+
+      Date.parse(
+        "2026-09-23T05:00:00Z"
+      ),
+
+      "selfTest",
+
+      "selfTest"
+    );
+
+
+  const fakeState = {
+    chifuyu: {
+      sceneId:
+        "courtyard",
+
+      activity:
+        GARDEN_CHARACTER_ACTIVITY
+          .WANDER,
+
+      activityData:
+        null,
+
+      travel:
+        null,
+    },
+  };
+
+
+  let travelCallCount =
+    0;
+
+
+  let activityCallCount =
+    0;
+
+
+  const fakeTravelFn =
+    (
+      characterId,
+      targetSceneId
+    ) => {
+      travelCallCount +=
+        1;
+
+
+      const state =
+        fakeState[
+          characterId
+        ];
+
+
+      state.travel = {
+        fromSceneId:
+          state.sceneId,
+
+        toSceneId:
+          targetSceneId,
+
+        phase:
+          "walkingToExit",
+      };
+
+
+      state.activity =
+        GARDEN_CHARACTER_ACTIVITY
+          .TRAVEL;
+
+
+      return true;
+    };
+
+
+  const fakeSetActivityFn =
+    (
+      characterId,
+      activity,
+      activityData = null
+    ) => {
+      activityCallCount +=
+        1;
+
+
+      const state =
+        fakeState[
+          characterId
+        ];
+
+
+      state.activity =
+        activity;
+
+
+      state.activityData =
+        activityData;
+
+
+      return true;
+    };
+
+
+  /*
+    =========================
+    1. Resume at 12:15
+       → Schedule 要求 Travel
+    =========================
+  */
+  const first =
+    reconcileGardenScheduleSystemWithSchedules(
+      activeContext,
+      schedule,
+      {
+        worldStates:
+          fakeState,
+
+        characterIds: [
+          "chifuyu",
+        ],
+
+        travelFn:
+          fakeTravelFn,
+
+        setActivityFn:
+          fakeSetActivityFn,
+      }
+    );
+
+
+  /*
+    =========================
+    2. 同一時間再次 reconciliation
+
+       已經 Travel，
+       不得再開始第二次。
+    =========================
+  */
+  const second =
+    reconcileGardenScheduleSystemWithSchedules(
+      activeContext,
+      schedule,
+      {
+        worldStates:
+          fakeState,
+
+        characterIds: [
+          "chifuyu",
+        ],
+
+        travelFn:
+          fakeTravelFn,
+
+        setActivityFn:
+          fakeSetActivityFn,
+      }
+    );
+
+
+  /*
+    模擬 Travel 已完成。
+  */
+  fakeState.chifuyu.travel =
+    null;
+
+  fakeState.chifuyu.sceneId =
+    "moonBridge";
+
+  fakeState.chifuyu.activity =
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER;
+
+  fakeState.chifuyu.activityData =
+    null;
+
+
+  /*
+    =========================
+    3. 12:15 再 reconciliation
+
+       已在正確 Scene，
+       → Activity
+    =========================
+  */
+  const third =
+    reconcileGardenScheduleSystemWithSchedules(
+      activeContext,
+      schedule,
+      {
+        worldStates:
+          fakeState,
+
+        characterIds: [
+          "chifuyu",
+        ],
+
+        travelFn:
+          fakeTravelFn,
+
+        setActivityFn:
+          fakeSetActivityFn,
+      }
+    );
+
+
+  /*
+    =========================
+    4. 14:00
+
+       Schedule 已結束
+       → Wander
+    =========================
+  */
+  const fourth =
+    reconcileGardenScheduleSystemWithSchedules(
+      gapContext,
+      schedule,
+      {
+        worldStates:
+          fakeState,
+
+        characterIds: [
+          "chifuyu",
+        ],
+
+        travelFn:
+          fakeTravelFn,
+
+        setActivityFn:
+          fakeSetActivityFn,
+      }
+    );
+
+
+  const firstExecution =
+    first
+      ?.results
+      ?.[0]
+      ?.bridgeResult
+      ?.execution;
+
+
+  const secondExecution =
+    second
+      ?.results
+      ?.[0]
+      ?.bridgeResult
+      ?.execution;
+
+
+  const thirdExecution =
+    third
+      ?.results
+      ?.[0]
+      ?.bridgeResult
+      ?.execution;
+
+
+  const fourthExecution =
+    fourth
+      ?.results
+      ?.[0]
+      ?.bridgeResult
+      ?.execution;
+
+
+  const reconciliationSnapshot =
+    getGardenWorldReconciliationSnapshot();
+
+
+  const travelHandler =
+    reconciliationSnapshot
+      ?.handlers
+      ?.find(
+        (entry) =>
+          entry.id ===
+          "travel"
+      );
+
+
+  const scheduleHandler =
+    reconciliationSnapshot
+      ?.handlers
+      ?.find(
+        (entry) =>
+          entry.id ===
+          "schedule"
+      );
+
+
+  const checks = {
+    scheduleExists:
+      !!schedule,
+
+    contextsCreated:
+      !!activeContext &&
+      !!gapContext,
+
+    travelHandlerRegistered:
+      travelHandler
+        ?.priority ===
+      200,
+
+    scheduleHandlerRegistered:
+      scheduleHandler
+        ?.priority ===
+      100,
+
+    travelRunsBeforeSchedule:
+      travelHandler
+        ?.priority >
+      scheduleHandler
+        ?.priority,
+
+    firstStartsTravel:
+      firstExecution
+        ?.reason ===
+      "travelStarted",
+
+    travelCalledOnce:
+      travelCallCount ===
+      1,
+
+    secondPreservesTravel:
+      secondExecution
+        ?.reason ===
+      "travelAlreadyInProgress",
+
+    thirdAppliesActivity:
+      thirdExecution
+        ?.reason ===
+      "activityApplied",
+
+    semanticMealPreserved:
+      third
+        ?.results
+        ?.[0]
+        ?.bridgeResult
+        ?.decision
+        ?.semanticActivityId ===
+      "meal",
+
+    fourthReturnsToWander:
+      fourthExecution
+        ?.reason ===
+      "wanderApplied",
+
+    activityCalledTwice:
+      activityCallCount ===
+      2,
+
+    officialProviderStillActive:
+  isGardenWorldScheduleProviderActive() ===
+  true,
+
+officialProviderUntouched:
+  gardenWorldScheduleProvider ===
+  provideGardenOfficialWorldSchedules,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    first,
+
+    second,
+
+    third,
+
+    fourth,
+
+    travelCallCount,
+
+    activityCallCount,
+
+    finalFakeState:
+      fakeState.chifuyu,
+
+    reconciliationSnapshot,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Schedule Reconciliation Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Schedule Reconciliation Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+/* =========================
+   Garden REST Activity Self-Test
+========================= */
+
+function runGardenRestActivitySelfTest() {
+  const fakeState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+
+    activityData:
+      null,
+
+    travel:
+      null,
+  };
+
+
+  /*
+    =========================
+    Ambient Eligibility
+    =========================
+  */
+
+  const wanderAllowed =
+    canGardenCharacterUseAmbientWander(
+      "chifuyu",
+      fakeState
+    );
+
+
+  fakeState.activity =
+    GARDEN_CHARACTER_ACTIVITY
+      .REST;
+
+
+  const restBlocked =
+    !canGardenCharacterUseAmbientWander(
+      "chifuyu",
+      fakeState
+    );
+
+
+  fakeState.activity =
+    GARDEN_CHARACTER_ACTIVITY
+      .TRAVEL;
+
+
+  fakeState.travel = {
+    phase:
+      "walkingToExit",
+  };
+
+
+  const travelBlocked =
+    !canGardenCharacterUseAmbientWander(
+      "chifuyu",
+      fakeState
+    );
+
+
+  fakeState.activity =
+    GARDEN_CHARACTER_ACTIVITY
+      .CHAT;
+
+  fakeState.travel =
+    null;
+
+
+  const chatBlocked =
+    !canGardenCharacterUseAmbientWander(
+      "chifuyu",
+      fakeState
+    );
+
+
+  /*
+    =========================
+    Bridge Runtime Recognition
+    =========================
+  */
+
+  const definition =
+    createGardenScheduleIntentDefinition({
+      id:
+        "rest-runtime-selftest",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "afternoonRest",
+
+      windowStart:
+        "15:00",
+
+      windowEnd:
+        "15:00",
+
+      durationMinMinutes:
+        60,
+
+      durationMaxMinutes:
+        60,
+
+      sceneId:
+        "courtyard",
+
+      activityId:
+        "rest",
+
+      fallbackActivityId:
+        "wander",
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .NORMAL,
+    });
+
+
+  const schedule =
+    generateGardenDailySchedule(
+      [
+        definition,
+      ],
+      "2026-09-23"
+    );
+
+
+  const point =
+    createGardenScheduleWorldPoint(
+      "2026-09-23",
+      15 * 60 + 30
+    );
+
+
+  const bridgeFakeState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+
+    activityData:
+      null,
+
+    travel:
+      null,
+  };
+
+
+  let appliedActivity =
+    null;
+
+
+  let appliedActivityData =
+    null;
+
+
+  const fakeSetActivity =
+    (
+      characterId,
+      activity,
+      activityData
+    ) => {
+      appliedActivity =
+        activity;
+
+      appliedActivityData =
+        activityData;
+
+      bridgeFakeState.activity =
+        activity;
+
+      bridgeFakeState.activityData =
+        activityData;
+
+      return true;
+    };
+
+
+  const result =
+    executeGardenCharacterScheduleAtWorldPoint(
+      schedule,
+      "chifuyu",
+      point,
+      {
+        worldState:
+          bridgeFakeState,
+
+        setActivityFn:
+          fakeSetActivity,
+
+        travelFn:
+          () => false,
+      }
+    );
+
+
+  const checks = {
+    restRegistered:
+      GARDEN_CHARACTER_ACTIVITY
+        .REST ===
+      "rest",
+
+    runtimeSupportsRest:
+      isGardenRuntimeActivitySupported(
+        "rest"
+      ) ===
+      true,
+
+    wanderAmbientAllowed:
+      wanderAllowed ===
+      true,
+
+    restBlocksAmbient:
+      restBlocked ===
+      true,
+
+    travelBlocksAmbient:
+      travelBlocked ===
+      true,
+
+    chatBlocksAmbient:
+      chatBlocked ===
+      true,
+
+    bridgeChoosesActivity:
+      result
+        ?.decision
+        ?.action ===
+      GARDEN_SCHEDULE_BRIDGE_ACTION
+        .ACTIVITY,
+
+    semanticRest:
+      result
+        ?.decision
+        ?.semanticActivityId ===
+      "rest",
+
+    runtimeRest:
+      result
+        ?.decision
+        ?.runtimeActivityId ===
+      GARDEN_CHARACTER_ACTIVITY
+        .REST,
+
+    executorAppliedRest:
+      result
+        ?.execution
+        ?.reason ===
+        "activityApplied" &&
+      appliedActivity ===
+        GARDEN_CHARACTER_ACTIVITY
+          .REST,
+
+    scheduleDataPreserved:
+      appliedActivityData
+        ?.semanticActivityId ===
+      "rest",
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const selfTestResult = {
+    pass,
+
+    checks,
+
+    bridgeResult:
+      result,
+
+    appliedActivity,
+
+    appliedActivityData,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden REST Activity Self-Test] PASS",
+      selfTestResult
+    );
+
+  } else {
+    console.warn(
+      "[Garden REST Activity Self-Test] FAIL",
+      selfTestResult
+    );
+  }
+
+
+  return selfTestResult;
+}
+
+
+function runGardenOfficialRoutineSelfTest() {
+  /*
+    JST：
+    2026-09-23 12:00
+
+    UTC：
+    2026-09-23 03:00
+  */
+  const timestamp =
+    Date.parse(
+      "2026-09-23T03:00:00Z"
+    );
+
+
+  const first =
+    provideGardenOfficialWorldSchedules(
+      timestamp
+    );
+
+
+  const second =
+    provideGardenOfficialWorldSchedules(
+      timestamp
+    );
+
+
+  const currentSchedule =
+    first.find(
+      (schedule) =>
+        schedule.dateKey ===
+        "2026-09-23"
+    );
+
+
+  const previousSchedule =
+    first.find(
+      (schedule) =>
+        schedule.dateKey ===
+        "2026-09-22"
+    );
+
+
+  const restEntry =
+    currentSchedule
+      ?.entries
+      ?.find(
+        (entry) =>
+          entry.definitionId ===
+          "official-chifuyu-afternoon-rest"
+      );
+
+
+  let bridgeDecision =
+    null;
+
+
+  if (restEntry) {
+    const middleMinute =
+      restEntry.start.timelineMinute +
+      restEntry.durationMinutes / 2;
+
+
+    const point =
+      createGardenScheduleWorldPointFromTimeline(
+        "2026-09-23",
+        middleMinute
+      );
+
+
+    bridgeDecision =
+      createGardenScheduleBridgeDecision(
+        first,
+        "chifuyu",
+        point,
+        {
+          worldState: {
+            sceneId:
+              "courtyard",
+
+            activity:
+              GARDEN_CHARACTER_ACTIVITY
+                .WANDER,
+
+            activityData:
+              null,
+
+            travel:
+              null,
+          },
+        }
+      );
+  }
+
+
+  const checks = {
+    providerActive:
+      isGardenWorldScheduleProviderActive() ===
+      true,
+
+    twoSchedulesGenerated:
+      first.length ===
+      2,
+
+    previousDayExists:
+      !!previousSchedule,
+
+    currentDayExists:
+      !!currentSchedule,
+
+    restEntryExists:
+      !!restEntry,
+
+    correctCharacter:
+      restEntry
+        ?.characterId ===
+      "chifuyu",
+
+    correctIntent:
+      restEntry
+        ?.intentId ===
+      "afternoonRest",
+
+    runtimeActivityIsRest:
+      restEntry
+        ?.activity
+        ?.selectedActivityId ===
+      "rest",
+
+    correctScene:
+      restEntry
+        ?.target
+        ?.sceneId ===
+      "courtyard",
+
+correctSpot:
+  restEntry
+    ?.target
+    ?.spotId ===
+  "courtyard-rest-01",
+
+
+    startWithinWindow:
+      restEntry
+        ?.start
+        ?.timelineMinute >=
+        14 * 60 &&
+      restEntry
+        ?.start
+        ?.timelineMinute <=
+        15 * 60 + 30,
+
+    durationWithinRange:
+      restEntry
+        ?.durationMinutes >=
+        30 &&
+      restEntry
+        ?.durationMinutes <=
+        45,
+
+    bridgeUsesRest:
+      bridgeDecision
+        ?.action ===
+        GARDEN_SCHEDULE_BRIDGE_ACTION
+          .ACTIVITY &&
+      bridgeDecision
+        ?.runtimeActivityId ===
+        GARDEN_CHARACTER_ACTIVITY
+          .REST,
+
+bridgeTargetsSpot:
+  bridgeDecision
+    ?.targetSpotId ===
+  "courtyard-rest-01" &&
+  bridgeDecision
+    ?.needsSpotMovement ===
+  true,
+
+
+
+    deterministic:
+      JSON.stringify(first) ===
+      JSON.stringify(second),
+
+    currentReconciliationReady:
+      typeof reconcileGardenWorldAtCurrentTime ===
+      "function",
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    previousSchedule,
+
+    currentSchedule,
+
+    restEntry,
+
+    bridgeDecision,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Official Routine Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Official Routine Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+/* =========================
+   Garden Deterministic Wander Timeline
+========================= */
+
+const GARDEN_WANDER_TIMELINE_SCHEMA =
+  "nanaharaGardenWanderTimeline";
+
+const GARDEN_WANDER_TIMELINE_VERSION =
+  1;
+
+
+/*
+  每 120 秒是一個 World Wander Slot。
+
+  不是每兩分鐘才更新畫面。
+
+  而是：
+  每個兩分鐘區間都有一份固定的
+  世界 Wander Plan。
+*/
+const GARDEN_WANDER_SLOT_SECONDS =
+  120;
+
+
+const GARDEN_WANDER_SLOTS_PER_DAY =
+  Math.floor(
+    86400 /
+    GARDEN_WANDER_SLOT_SECONDS
+  );
+
+
+const GARDEN_WANDER_SEGMENT_TYPE =
+  Object.freeze({
+    IDLE:
+      "idle",
+
+    MOVE:
+      "move",
+  });
+
+
+const gardenDeterministicWanderTargetCache =
+  new Map();
+
+
+function clearGardenDeterministicWanderTargetCache() {
+  gardenDeterministicWanderTargetCache
+    .clear();
+}
+
+
+function getGardenDeterministicWanderTargets(
+  sceneId
+) {
+  const safeSceneId =
+    normalizeGardenWorldDecisionToken(
+      sceneId
+    );
+
+
+  if (!safeSceneId) {
+    return Object.freeze([]);
+  }
+
+
+  /*
+    Scene Target 是靜態資料。
+
+    已整理過一次就直接從 cache 拿。
+  */
+  if (
+    gardenDeterministicWanderTargetCache
+      .has(
+        safeSceneId
+      )
+  ) {
+    return (
+      gardenDeterministicWanderTargetCache
+        .get(
+          safeSceneId
+        )
+    );
+  }
+
+
+  const scene =
+    getGardenSceneById(
+      safeSceneId
+    );
+
+
+  if (!scene) {
+    return Object.freeze([]);
+  }
+
+
+  const targets =
+    (scene.autoTargets ?? [])
+      .filter(
+        (target) =>
+          target &&
+          typeof target.name ===
+            "string" &&
+          target.name.length > 0 &&
+          Number.isFinite(
+            target.x
+          ) &&
+          Number.isFinite(
+            target.y
+          ) &&
+          isGardenWalkablePointInScene(
+            safeSceneId,
+            target.x,
+            target.y
+          )
+      )
+      .map(
+        (
+          target,
+          index
+        ) =>
+          Object.freeze({
+            index,
+
+            id:
+              String(
+                target.name
+              ),
+
+            sceneId:
+              safeSceneId,
+
+            x:
+              target.x,
+
+            y:
+              target.y,
+
+            zone:
+              target.zone ??
+              null,
+          })
+      );
+
+
+  const frozenTargets =
+    Object.freeze(
+      targets
+    );
+
+
+  gardenDeterministicWanderTargetCache
+    .set(
+      safeSceneId,
+      frozenTargets
+    );
+
+
+  return frozenTargets;
+}
+
+
+function normalizeGardenWanderSlotAddress(
+  dateKey,
+  slotIndex
+) {
+  if (
+    typeof dateKey !==
+      "string" ||
+    !Number.isInteger(
+      slotIndex
+    ) ||
+    !Number.isInteger(
+      getGardenScheduleDateDayNumber(
+        dateKey
+      )
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    Math.floor 對負數也能正確處理：
+
+    slot -1
+    →
+    前一天 slot 719
+  */
+  const dayOffset =
+    Math.floor(
+      slotIndex /
+      GARDEN_WANDER_SLOTS_PER_DAY
+    );
+
+
+  const normalizedSlotIndex =
+    slotIndex -
+    dayOffset *
+      GARDEN_WANDER_SLOTS_PER_DAY;
+
+
+  const normalizedDateKey =
+    shiftGardenScheduleDateKey(
+      dateKey,
+      dayOffset
+    );
+
+
+  if (!normalizedDateKey) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    dateKey:
+      normalizedDateKey,
+
+    slotIndex:
+      normalizedSlotIndex,
+  });
+}
+
+function getGardenDeterministicWanderAnchor(
+  options = {}
+) {
+  const characterId =
+    normalizeGardenWorldDecisionToken(
+      options.characterId
+    );
+
+
+  const sceneId =
+    normalizeGardenWorldDecisionToken(
+      options.sceneId
+    );
+
+
+  const address =
+    normalizeGardenWanderSlotAddress(
+      options.dateKey,
+      options.slotIndex
+    );
+
+
+  if (
+    !characterId ||
+    !sceneId ||
+    !address
+  ) {
+    return null;
+  }
+
+
+  const targets =
+    getGardenDeterministicWanderTargets(
+      sceneId
+    );
+
+
+  if (
+    targets.length ===
+    0
+  ) {
+    return null;
+  }
+
+
+  const targetIndex =
+    getGardenWorldDailyDecisionInt({
+      dateKey:
+        address.dateKey,
+
+      characterId,
+
+      domainId:
+        "wander",
+
+      subjectId:
+        `${sceneId}:anchor`,
+
+      instanceId:
+        `slot-${address.slotIndex}`,
+
+      decisionId:
+        "targetIndex",
+
+      min:
+        0,
+
+      max:
+        targets.length - 1,
+    });
+
+
+  if (
+    !Number.isInteger(
+      targetIndex
+    )
+  ) {
+    return null;
+  }
+
+
+  const target =
+    targets[
+      targetIndex
+    ];
+
+
+  if (!target) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    dateKey:
+      address.dateKey,
+
+    slotIndex:
+      address.slotIndex,
+
+    characterId,
+
+    sceneId,
+
+    targetIndex,
+
+    targetId:
+      target.id,
+
+    x:
+      target.x,
+
+    y:
+      target.y,
+
+    zone:
+      target.zone,
+  });
+}
+
+
+function createGardenDeterministicWanderSlot(
+  options = {}
+) {
+  const characterId =
+    normalizeGardenWorldDecisionToken(
+      options.characterId
+    );
+
+
+  const sceneId =
+    normalizeGardenWorldDecisionToken(
+      options.sceneId
+    );
+
+
+  const address =
+    normalizeGardenWanderSlotAddress(
+      options.dateKey,
+      options.slotIndex
+    );
+
+
+  if (
+    !characterId ||
+    !sceneId ||
+    !address
+  ) {
+    return null;
+  }
+
+
+  /*
+    Slot 起點 Anchor。
+  */
+  const fromAnchor =
+    getGardenDeterministicWanderAnchor({
+      dateKey:
+        address.dateKey,
+
+      slotIndex:
+        address.slotIndex,
+
+      characterId,
+
+      sceneId,
+    });
+
+
+  /*
+    Slot 終點 Anchor。
+
+    注意：
+    使用「下一個 slot 的 anchor」。
+
+    所以：
+
+    slot N 的 to
+    =
+    slot N+1 的 from
+
+    天然保證連續。
+  */
+  const nextAddress =
+    normalizeGardenWanderSlotAddress(
+      address.dateKey,
+      address.slotIndex + 1
+    );
+
+
+  const toAnchor =
+    nextAddress
+      ? getGardenDeterministicWanderAnchor({
+          dateKey:
+            nextAddress.dateKey,
+
+          slotIndex:
+            nextAddress.slotIndex,
+
+          characterId,
+
+          sceneId,
+        })
+      : null;
+
+
+  if (
+    !fromAnchor ||
+    !toAnchor
+  ) {
+    return null;
+  }
+
+
+  const slotStartSecondOfDay =
+    address.slotIndex *
+    GARDEN_WANDER_SLOT_SECONDS;
+
+
+  const slotEndSecondOfDay =
+    slotStartSecondOfDay +
+    GARDEN_WANDER_SLOT_SECONDS;
+
+
+  /*
+    兩個 Anchor 剛好一樣時，
+    這整個 Slot 就讓角色休息。
+
+    這不是錯誤，
+    反而讓 Wander 不會永遠走個不停。
+  */
+  const idleOnly =
+    fromAnchor.targetId ===
+    toAnchor.targetId;
+
+
+  if (idleOnly) {
+    return Object.freeze({
+      schema:
+        GARDEN_WANDER_TIMELINE_SCHEMA,
+
+      version:
+        GARDEN_WANDER_TIMELINE_VERSION,
+
+      dateKey:
+        address.dateKey,
+
+      slotIndex:
+        address.slotIndex,
+
+      characterId,
+
+      sceneId,
+
+      slotStartSecondOfDay,
+
+      slotEndSecondOfDay,
+
+      fromAnchor,
+
+      toAnchor,
+
+      idleOnly:
+        true,
+
+      segments:
+        Object.freeze([
+          Object.freeze({
+            type:
+              GARDEN_WANDER_SEGMENT_TYPE
+                .IDLE,
+
+            startSecondOfDay:
+              slotStartSecondOfDay,
+
+            endSecondOfDay:
+              slotEndSecondOfDay,
+
+            anchor:
+              fromAnchor,
+          }),
+        ]),
+    });
+  }
+
+
+  /*
+    用直線距離估算合理移動秒數。
+
+    真正 Path Distance
+    會在 12H-2 才計算。
+
+    這裡只是 World Timeline
+    的 timing model。
+  */
+  const dx =
+    toAnchor.x -
+    fromAnchor.x;
+
+
+  const dy =
+    (
+      toAnchor.y -
+      fromAnchor.y
+    ) *
+    1.15;
+
+
+  const estimatedDistance =
+    Math.sqrt(
+      dx * dx +
+      dy * dy
+    );
+
+
+  /*
+    每日 deterministic walking speed。
+
+    只是 Timeline speed，
+    不是直接修改現有動畫速度。
+  */
+  const estimatedSpeed =
+    getGardenWorldDailyDecisionInt({
+      dateKey:
+        address.dateKey,
+
+      characterId,
+
+      domainId:
+        "wander",
+
+      subjectId:
+        `${sceneId}:slotTiming`,
+
+      instanceId:
+        `slot-${address.slotIndex}`,
+
+      decisionId:
+        "estimatedSpeed",
+
+      min:
+        55,
+
+      max:
+        75,
+    }) ??
+    65;
+
+
+  const moveDurationSeconds =
+    Math.max(
+      8,
+
+      Math.min(
+        45,
+
+        Math.round(
+          estimatedDistance /
+          estimatedSpeed
+        )
+      )
+    );
+
+
+  /*
+    保證：
+
+    Slot 開頭至少 idle 20 秒。
+
+    Move 結束後
+    至少保留 20 秒 idle。
+  */
+  const latestMoveStartOffset =
+    Math.max(
+      20,
+
+      GARDEN_WANDER_SLOT_SECONDS -
+        moveDurationSeconds -
+        20
+    );
+
+
+  const moveStartOffset =
+    getGardenWorldDailyDecisionInt({
+      dateKey:
+        address.dateKey,
+
+      characterId,
+
+      domainId:
+        "wander",
+
+      subjectId:
+        `${sceneId}:slotTiming`,
+
+      instanceId:
+        `slot-${address.slotIndex}`,
+
+      decisionId:
+        "moveStartOffset",
+
+      min:
+        20,
+
+      max:
+        latestMoveStartOffset,
+    }) ??
+    20;
+
+
+  const moveStartSecondOfDay =
+    slotStartSecondOfDay +
+    moveStartOffset;
+
+
+  const moveEndSecondOfDay =
+    moveStartSecondOfDay +
+    moveDurationSeconds;
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_WANDER_TIMELINE_SCHEMA,
+
+    version:
+      GARDEN_WANDER_TIMELINE_VERSION,
+
+    dateKey:
+      address.dateKey,
+
+    slotIndex:
+      address.slotIndex,
+
+    characterId,
+
+    sceneId,
+
+    slotStartSecondOfDay,
+
+    slotEndSecondOfDay,
+
+    fromAnchor,
+
+    toAnchor,
+
+    idleOnly:
+      false,
+
+    estimatedDistance,
+
+    estimatedSpeed,
+
+    moveDurationSeconds,
+
+    moveStartSecondOfDay,
+
+    moveEndSecondOfDay,
+
+    segments:
+      Object.freeze([
+        /*
+          IDLE BEFORE
+        */
+        Object.freeze({
+          type:
+            GARDEN_WANDER_SEGMENT_TYPE
+              .IDLE,
+
+          startSecondOfDay:
+            slotStartSecondOfDay,
+
+          endSecondOfDay:
+            moveStartSecondOfDay,
+
+          anchor:
+            fromAnchor,
+        }),
+
+        /*
+          MOVE
+        */
+        Object.freeze({
+          type:
+            GARDEN_WANDER_SEGMENT_TYPE
+              .MOVE,
+
+          startSecondOfDay:
+            moveStartSecondOfDay,
+
+          endSecondOfDay:
+            moveEndSecondOfDay,
+
+          fromAnchor,
+
+          toAnchor,
+        }),
+
+        /*
+          IDLE AFTER
+        */
+        Object.freeze({
+          type:
+            GARDEN_WANDER_SEGMENT_TYPE
+              .IDLE,
+
+          startSecondOfDay:
+            moveEndSecondOfDay,
+
+          endSecondOfDay:
+            slotEndSecondOfDay,
+
+          anchor:
+            toAnchor,
+        }),
+      ]),
+  });
+}
+
+
+
+function resolveGardenDeterministicWanderInSlot(
+  slot,
+  secondOfDay
+) {
+  if (
+    !slot ||
+    !Number.isFinite(
+      secondOfDay
+    ) ||
+    secondOfDay <
+      slot.slotStartSecondOfDay ||
+    secondOfDay >=
+      slot.slotEndSecondOfDay
+  ) {
+    return null;
+  }
+
+
+  const segment =
+    slot.segments.find(
+      (candidate) =>
+        secondOfDay >=
+          candidate.startSecondOfDay &&
+        secondOfDay <
+          candidate.endSecondOfDay
+    );
+
+
+  if (!segment) {
+    return null;
+  }
+
+
+  let progress =
+    0;
+
+
+  if (
+    segment.type ===
+      GARDEN_WANDER_SEGMENT_TYPE
+        .MOVE
+  ) {
+    const duration =
+      segment.endSecondOfDay -
+      segment.startSecondOfDay;
+
+
+    if (
+      duration > 0
+    ) {
+      progress =
+        Math.max(
+          0,
+
+          Math.min(
+            1,
+
+            (
+              secondOfDay -
+              segment.startSecondOfDay
+            ) /
+            duration
+          )
+        );
+    }
+  }
+
+
+  return Object.freeze({
+    dateKey:
+      slot.dateKey,
+
+    slotIndex:
+      slot.slotIndex,
+
+    characterId:
+      slot.characterId,
+
+    sceneId:
+      slot.sceneId,
+
+    secondOfDay,
+
+    segmentType:
+      segment.type,
+
+    progress,
+
+    segment,
+
+    slot,
+  });
+}
+
+
+function resolveGardenDeterministicWanderAtTimestamp(
+  characterId,
+  sceneId,
+  timestamp =
+    getGardenWorldNow()
+) {
+  const calendar =
+    getGardenWorldCalendarParts(
+      timestamp
+    );
+
+
+  if (!calendar) {
+    return null;
+  }
+
+
+  const slotIndex =
+    Math.floor(
+      calendar.secondOfDay /
+      GARDEN_WANDER_SLOT_SECONDS
+    );
+
+
+  const slot =
+    createGardenDeterministicWanderSlot({
+      dateKey:
+        calendar.dateKey,
+
+      slotIndex,
+
+      characterId,
+
+      sceneId,
+    });
+
+
+  if (!slot) {
+    return null;
+  }
+
+
+  return (
+    resolveGardenDeterministicWanderInSlot(
+      slot,
+      calendar.secondOfDay
+    )
+  );
+}
+
+
+
+function inspectGardenDeterministicWander(
+  characterId =
+    "chifuyu",
+
+  sceneId =
+    gardenCharacterWorldState[
+      characterId
+    ]?.sceneId ??
+    "courtyard",
+
+  timestamp =
+    getGardenWorldNow()
+) {
+  const result =
+    resolveGardenDeterministicWanderAtTimestamp(
+      characterId,
+      sceneId,
+      timestamp
+    );
+
+
+  if (!result) {
+    console.warn(
+      "[Garden Wander Timeline] unavailable"
+    );
+
+    return null;
+  }
+
+
+  console.table([
+    {
+      character:
+        result.characterId,
+
+      scene:
+        result.sceneId,
+
+      date:
+        result.dateKey,
+
+      slot:
+        result.slotIndex,
+
+      state:
+        result.segmentType,
+
+      from:
+        result.segment
+          .fromAnchor
+          ?.targetId ??
+        result.segment
+          .anchor
+          ?.targetId ??
+        null,
+
+      to:
+        result.segment
+          .toAnchor
+          ?.targetId ??
+        null,
+
+      progress:
+        Number(
+          result.progress.toFixed(
+            3
+          )
+        ),
+    },
+  ]);
+
+
+  return result;
+}
+
+
+
+function runGardenDeterministicWanderTimelineSelfTest() {
+  const dateKey =
+    "2026-09-23";
+
+
+  const characterId =
+    "chifuyu";
+
+
+  const sceneId =
+    "courtyard";
+
+
+  const targets =
+    getGardenDeterministicWanderTargets(
+      sceneId
+    );
+
+
+  const slotIndex =
+    100;
+
+
+  const first =
+    createGardenDeterministicWanderSlot({
+      dateKey,
+      slotIndex,
+      characterId,
+      sceneId,
+    });
+
+
+  const second =
+    createGardenDeterministicWanderSlot({
+      dateKey,
+      slotIndex,
+      characterId,
+      sceneId,
+    });
+
+
+  const next =
+    createGardenDeterministicWanderSlot({
+      dateKey,
+      slotIndex:
+        slotIndex + 1,
+
+      characterId,
+      sceneId,
+    });
+
+
+  /*
+    午夜連續性。
+  */
+  const lastSlot =
+    createGardenDeterministicWanderSlot({
+      dateKey,
+
+      slotIndex:
+        GARDEN_WANDER_SLOTS_PER_DAY -
+        1,
+
+      characterId,
+      sceneId,
+    });
+
+
+  const nextDateKey =
+    shiftGardenScheduleDateKey(
+      dateKey,
+      1
+    );
+
+
+  const nextDayFirstSlot =
+    createGardenDeterministicWanderSlot({
+      dateKey:
+        nextDateKey,
+
+      slotIndex:
+        0,
+
+      characterId,
+      sceneId,
+    });
+
+
+  /*
+    取 Slot 中央時間做 Resolver 測試。
+  */
+  const middleSecond =
+    first
+      ? first.slotStartSecondOfDay +
+        GARDEN_WANDER_SLOT_SECONDS /
+          2
+      : null;
+
+
+  const middleResolution =
+    first &&
+    Number.isFinite(
+      middleSecond
+    )
+      ? resolveGardenDeterministicWanderInSlot(
+          first,
+          middleSecond
+        )
+      : null;
+
+
+  /*
+    Segment 必須完全接起來，
+    中間不能有時間洞。
+  */
+  let segmentsContinuous =
+    false;
+
+
+  if (
+    first &&
+    first.segments.length > 0
+  ) {
+    segmentsContinuous =
+      first.segments[0]
+        .startSecondOfDay ===
+        first.slotStartSecondOfDay &&
+      first.segments[
+        first.segments.length - 1
+      ].endSecondOfDay ===
+        first.slotEndSecondOfDay;
+
+
+    for (
+      let i = 1;
+      i <
+      first.segments.length;
+      i++
+    ) {
+      if (
+        first.segments[i - 1]
+          .endSecondOfDay !==
+        first.segments[i]
+          .startSecondOfDay
+      ) {
+        segmentsContinuous =
+          false;
+
+        break;
+      }
+    }
+  }
+
+
+  const checks = {
+    targetsAvailable:
+      targets.length > 0,
+
+    slotCreated:
+      !!first,
+
+    deterministic:
+      JSON.stringify(first) ===
+      JSON.stringify(second),
+
+    nextSlotCreated:
+      !!next,
+
+    adjacentSlotContinuous:
+      first
+        ?.toAnchor
+        ?.targetId ===
+      next
+        ?.fromAnchor
+        ?.targetId,
+
+    midnightSlotsCreated:
+      !!lastSlot &&
+      !!nextDayFirstSlot,
+
+    midnightContinuous:
+      lastSlot
+        ?.toAnchor
+        ?.targetId ===
+      nextDayFirstSlot
+        ?.fromAnchor
+        ?.targetId,
+
+    segmentsContinuous,
+
+    middleResolves:
+      !!middleResolution,
+
+    validSegmentType:
+      [
+        GARDEN_WANDER_SEGMENT_TYPE
+          .IDLE,
+
+        GARDEN_WANDER_SEGMENT_TYPE
+          .MOVE,
+      ].includes(
+        middleResolution
+          ?.segmentType
+      ),
+
+    progressValid:
+      Number.isFinite(
+        middleResolution
+          ?.progress
+      ) &&
+      middleResolution
+        .progress >= 0 &&
+      middleResolution
+        .progress <= 1,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    targets,
+
+    first,
+
+    next,
+
+    lastSlot,
+
+    nextDayFirstSlot,
+
+    middleResolution,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Deterministic Wander Timeline Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Deterministic Wander Timeline Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+/* =========================
+   Garden Deterministic Wander Position
+========================= */
+
+const GARDEN_WANDER_PATH_SCHEMA =
+  "nanaharaGardenWanderPath";
+
+const GARDEN_WANDER_PATH_VERSION =
+  1;
+
+
+/*
+  同一條 Scene Wander 路線
+  只做一次 Pathfinding。
+
+  Key：
+  scene + from + to
+*/
+const gardenDeterministicWanderPathCache =
+  new Map();
+
+
+function clearGardenDeterministicWanderPathCache() {
+  gardenDeterministicWanderPathCache
+    .clear();
+}
+
+
+/* =========================
+   Wander Path Cache Key
+========================= */
+
+function createGardenDeterministicWanderPathKey(
+  fromAnchor,
+  toAnchor
+) {
+  if (
+    !fromAnchor ||
+    !toAnchor ||
+    !fromAnchor.sceneId ||
+    !toAnchor.sceneId ||
+    fromAnchor.sceneId !==
+      toAnchor.sceneId ||
+    !fromAnchor.targetId ||
+    !toAnchor.targetId
+  ) {
+    return null;
+  }
+
+
+  return [
+    `v${GARDEN_WANDER_PATH_VERSION}`,
+
+    fromAnchor.sceneId,
+
+    fromAnchor.targetId,
+
+    toAnchor.targetId,
+  ].join("|");
+}
+
+
+/* =========================
+   Wander Path Builder
+========================= */
+
+function getGardenDeterministicWanderPath(
+  fromAnchor,
+  toAnchor
+) {
+  const cacheKey =
+    createGardenDeterministicWanderPathKey(
+      fromAnchor,
+      toAnchor
+    );
+
+
+  if (!cacheKey) {
+    return null;
+  }
+
+
+  /*
+    已經算過同一條路，
+    直接從 cache 取得。
+
+    正式 Runtime 不可以
+    每幀重新跑 Pathfinding。
+  */
+  if (
+    gardenDeterministicWanderPathCache
+      .has(
+        cacheKey
+      )
+  ) {
+    return (
+      gardenDeterministicWanderPathCache
+        .get(
+          cacheKey
+        )
+    );
+  }
+
+
+  const sceneId =
+    fromAnchor.sceneId;
+
+
+  /*
+    同一個 Anchor。
+
+    正常 12H-1 會把這種情況
+    判成 idleOnly，
+    這裡仍然做保險。
+  */
+  if (
+    fromAnchor.targetId ===
+    toAnchor.targetId
+  ) {
+    const stationaryPath =
+      Object.freeze({
+        schema:
+          GARDEN_WANDER_PATH_SCHEMA,
+
+        version:
+          GARDEN_WANDER_PATH_VERSION,
+
+        key:
+          cacheKey,
+
+        sceneId,
+
+        fromTargetId:
+          fromAnchor.targetId,
+
+        toTargetId:
+          toAnchor.targetId,
+
+        points:
+          Object.freeze([
+            Object.freeze({
+              x:
+                fromAnchor.x,
+
+              y:
+                fromAnchor.y,
+            }),
+          ]),
+
+        cumulativeDistances:
+          Object.freeze([
+            0,
+          ]),
+
+        totalDistance:
+          0,
+      });
+
+
+    gardenDeterministicWanderPathCache
+      .set(
+        cacheKey,
+        stationaryPath
+      );
+
+
+    return stationaryPath;
+  }
+
+
+  /*
+    使用既有 Garden scene-aware
+    Pathfinding。
+
+    注意：
+
+    findGardenPath()
+    回傳的 path 不包含 start，
+    所以後面會自己補回去。
+  */
+  const rawPath =
+    findGardenPath(
+      {
+        x:
+          fromAnchor.x,
+
+        y:
+          fromAnchor.y,
+      },
+
+      {
+        x:
+          toAnchor.x,
+
+        y:
+          toAnchor.y,
+      },
+
+      sceneId
+    );
+
+
+  if (
+    !Array.isArray(
+      rawPath
+    ) ||
+    rawPath.length ===
+      0
+  ) {
+    console.warn(
+      "[Garden Wander] no path:",
+      fromAnchor.targetId,
+      "→",
+      toAnchor.targetId,
+      sceneId
+    );
+
+    return null;
+  }
+
+
+  /*
+    建立完整 polyline：
+
+    from
+    → waypoint
+    → waypoint
+    → to
+  */
+  const points = [
+    {
+      x:
+        fromAnchor.x,
+
+      y:
+        fromAnchor.y,
+    },
+
+    ...rawPath.map(
+      (point) => ({
+        x:
+          point.x,
+
+        y:
+          point.y,
+      })
+    ),
+  ];
+
+
+  /*
+    安全移除連續重複點。
+  */
+  const cleanedPoints =
+    [];
+
+
+  for (
+    const point of
+    points
+  ) {
+    const previous =
+      cleanedPoints[
+        cleanedPoints.length - 1
+      ];
+
+
+    if (
+      previous &&
+      previous.x ===
+        point.x &&
+      previous.y ===
+        point.y
+    ) {
+      continue;
+    }
+
+
+    cleanedPoints.push(
+      point
+    );
+  }
+
+
+  if (
+    cleanedPoints.length <
+    2
+  ) {
+    return null;
+  }
+
+
+  /*
+    每一個 waypoint
+    對應整條路已經走過的距離。
+
+    例如：
+
+    0
+    120
+    310
+    480
+  */
+  const cumulativeDistances =
+    [0];
+
+
+  let totalDistance =
+    0;
+
+
+  for (
+    let i = 1;
+    i <
+    cleanedPoints.length;
+    i++
+  ) {
+    const previous =
+      cleanedPoints[
+        i - 1
+      ];
+
+
+    const current =
+      cleanedPoints[
+        i
+      ];
+
+
+    const dx =
+      current.x -
+      previous.x;
+
+
+    const dy =
+      current.y -
+      previous.y;
+
+
+    totalDistance +=
+      Math.sqrt(
+        dx * dx +
+        dy * dy
+      );
+
+
+    cumulativeDistances.push(
+      totalDistance
+    );
+  }
+
+
+  const frozenPoints =
+    Object.freeze(
+      cleanedPoints.map(
+        (point) =>
+          Object.freeze({
+            x:
+              point.x,
+
+            y:
+              point.y,
+          })
+      )
+    );
+
+
+  const pathRecord =
+    Object.freeze({
+      schema:
+        GARDEN_WANDER_PATH_SCHEMA,
+
+      version:
+        GARDEN_WANDER_PATH_VERSION,
+
+      key:
+        cacheKey,
+
+      sceneId,
+
+      fromTargetId:
+        fromAnchor.targetId,
+
+      toTargetId:
+        toAnchor.targetId,
+
+      points:
+        frozenPoints,
+
+      cumulativeDistances:
+        Object.freeze([
+          ...cumulativeDistances,
+        ]),
+
+      totalDistance,
+    });
+
+
+  gardenDeterministicWanderPathCache
+    .set(
+      cacheKey,
+      pathRecord
+    );
+
+
+  return pathRecord;
+}
+
+function sampleGardenDeterministicWanderPath(
+  pathRecord,
+  progress
+) {
+  if (
+    !pathRecord ||
+    !Array.isArray(
+      pathRecord.points
+    ) ||
+    pathRecord.points.length ===
+      0 ||
+    !Number.isFinite(
+      progress
+    )
+  ) {
+    return null;
+  }
+
+
+  const safeProgress =
+    Math.max(
+      0,
+      Math.min(
+        1,
+        progress
+      )
+    );
+
+
+  /*
+    只有一個點，
+    就直接停在該點。
+  */
+  if (
+    pathRecord.points.length ===
+      1 ||
+    pathRecord.totalDistance <=
+      0
+  ) {
+    const point =
+      pathRecord.points[0];
+
+
+    return Object.freeze({
+      x:
+        point.x,
+
+      y:
+        point.y,
+
+      direction:
+        1,
+
+      segmentIndex:
+        0,
+
+      segmentProgress:
+        0,
+
+      pathProgress:
+        safeProgress,
+
+      distance:
+        0,
+    });
+  }
+
+
+  const targetDistance =
+    pathRecord.totalDistance *
+    safeProgress;
+
+
+  /*
+    progress = 1
+    強制精準落在最後一點，
+    避免浮點數問題。
+  */
+  if (
+    safeProgress >=
+    1
+  ) {
+    const lastIndex =
+      pathRecord.points.length -
+      1;
+
+
+    const previous =
+      pathRecord.points[
+        lastIndex - 1
+      ];
+
+    const last =
+      pathRecord.points[
+        lastIndex
+      ];
+
+
+    const dx =
+      last.x -
+      previous.x;
+
+
+    return Object.freeze({
+      x:
+        last.x,
+
+      y:
+        last.y,
+
+      direction:
+        Math.abs(dx) > 2
+          ? dx > 0
+            ? 1
+            : -1
+          : 1,
+
+      segmentIndex:
+        lastIndex - 1,
+
+      segmentProgress:
+        1,
+
+      pathProgress:
+        1,
+
+      distance:
+        pathRecord.totalDistance,
+    });
+  }
+
+
+  /*
+    找出 targetDistance
+    落在哪兩個 waypoint 之間。
+  */
+  let segmentIndex =
+    0;
+
+
+  for (
+    let i = 1;
+    i <
+    pathRecord
+      .cumulativeDistances
+      .length;
+    i++
+  ) {
+    if (
+      targetDistance <=
+      pathRecord
+        .cumulativeDistances[i]
+    ) {
+      segmentIndex =
+        i - 1;
+
+      break;
+    }
+  }
+
+
+  const from =
+    pathRecord.points[
+      segmentIndex
+    ];
+
+
+  const to =
+    pathRecord.points[
+      segmentIndex + 1
+    ];
+
+
+  if (
+    !from ||
+    !to
+  ) {
+    return null;
+  }
+
+
+  const segmentStartDistance =
+    pathRecord
+      .cumulativeDistances[
+        segmentIndex
+      ];
+
+
+  const segmentEndDistance =
+    pathRecord
+      .cumulativeDistances[
+        segmentIndex + 1
+      ];
+
+
+  const segmentDistance =
+    segmentEndDistance -
+    segmentStartDistance;
+
+
+  const segmentProgress =
+    segmentDistance > 0
+      ? (
+          targetDistance -
+          segmentStartDistance
+        ) /
+        segmentDistance
+      : 0;
+
+
+  const x =
+    from.x +
+    (
+      to.x -
+      from.x
+    ) *
+      segmentProgress;
+
+
+  const y =
+    from.y +
+    (
+      to.y -
+      from.y
+    ) *
+      segmentProgress;
+
+
+  const dx =
+    to.x -
+    from.x;
+
+
+  const direction =
+    Math.abs(dx) > 2
+      ? dx > 0
+        ? 1
+        : -1
+      : 1;
+
+
+  return Object.freeze({
+    x,
+
+    y,
+
+    direction,
+
+    segmentIndex,
+
+    segmentProgress,
+
+    pathProgress:
+      safeProgress,
+
+    distance:
+      targetDistance,
+  });
+}
+
+function resolveGardenDeterministicWanderPosition(
+  wanderResolution
+) {
+  if (
+    !wanderResolution ||
+    !wanderResolution.segment
+  ) {
+    return null;
+  }
+
+
+  const {
+    characterId,
+    sceneId,
+    segmentType,
+    progress,
+    segment,
+  } =
+    wanderResolution;
+
+
+  /*
+    =========================
+    IDLE
+    =========================
+  */
+  if (
+    segmentType ===
+      GARDEN_WANDER_SEGMENT_TYPE
+        .IDLE
+  ) {
+    const anchor =
+      segment.anchor;
+
+
+    if (!anchor) {
+      return null;
+    }
+
+
+    return Object.freeze({
+      characterId,
+
+      sceneId,
+
+      segmentType,
+
+      isMoving:
+        false,
+
+      x:
+        anchor.x,
+
+      y:
+        anchor.y,
+
+      /*
+        Idle 不強迫改方向。
+
+        Runtime Bridge 階段
+        可以選擇保留上一個方向。
+      */
+      direction:
+        null,
+
+      progress:
+        0,
+
+      path:
+        null,
+
+      pathKey:
+        null,
+
+      pathDistance:
+        0,
+
+      fromTargetId:
+        anchor.targetId,
+
+      toTargetId:
+        anchor.targetId,
+
+      wanderResolution,
+    });
+  }
+
+
+  /*
+    =========================
+    MOVE
+    =========================
+  */
+  if (
+    segmentType ===
+      GARDEN_WANDER_SEGMENT_TYPE
+        .MOVE
+  ) {
+    const fromAnchor =
+      segment.fromAnchor;
+
+
+    const toAnchor =
+      segment.toAnchor;
+
+
+    if (
+      !fromAnchor ||
+      !toAnchor
+    ) {
+      return null;
+    }
+
+
+    const path =
+      getGardenDeterministicWanderPath(
+        fromAnchor,
+        toAnchor
+      );
+
+
+    if (!path) {
+      return null;
+    }
+
+
+    const sampled =
+      sampleGardenDeterministicWanderPath(
+        path,
+        progress
+      );
+
+
+    if (!sampled) {
+      return null;
+    }
+
+
+    return Object.freeze({
+      characterId,
+
+      sceneId,
+
+      segmentType,
+
+      isMoving:
+        true,
+
+      x:
+        sampled.x,
+
+      y:
+        sampled.y,
+
+      direction:
+        sampled.direction,
+
+      progress:
+        sampled.pathProgress,
+
+      path,
+
+      pathKey:
+        path.key,
+
+      pathDistance:
+        path.totalDistance,
+
+      pathSegmentIndex:
+        sampled.segmentIndex,
+
+      pathSegmentProgress:
+        sampled.segmentProgress,
+
+      fromTargetId:
+        fromAnchor.targetId,
+
+      toTargetId:
+        toAnchor.targetId,
+
+      wanderResolution,
+    });
+  }
+
+
+  return null;
+}
+
+
+function resolveGardenDeterministicWanderPositionAtTimestamp(
+  characterId,
+  sceneId,
+  timestamp =
+    getGardenWorldNow()
+) {
+  const wanderResolution =
+    resolveGardenDeterministicWanderAtTimestamp(
+      characterId,
+      sceneId,
+      timestamp
+    );
+
+
+  if (!wanderResolution) {
+    return null;
+  }
+
+
+  return (
+    resolveGardenDeterministicWanderPosition(
+      wanderResolution
+    )
+  );
+}
+
+
+function inspectGardenDeterministicWanderPosition(
+  characterId =
+    "chifuyu",
+
+  sceneId =
+    gardenCharacterWorldState[
+      characterId
+    ]?.sceneId ??
+    "courtyard",
+
+  timestamp =
+    getGardenWorldNow()
+) {
+  const result =
+    resolveGardenDeterministicWanderPositionAtTimestamp(
+      characterId,
+      sceneId,
+      timestamp
+    );
+
+
+  if (!result) {
+    console.warn(
+      "[Garden Wander Position] unavailable"
+    );
+
+    return null;
+  }
+
+
+  console.table([
+    {
+      character:
+        result.characterId,
+
+      scene:
+        result.sceneId,
+
+      state:
+        result.segmentType,
+
+      moving:
+        result.isMoving,
+
+      from:
+        result.fromTargetId,
+
+      to:
+        result.toTargetId,
+
+      x:
+        Number(
+          result.x.toFixed(
+            1
+          )
+        ),
+
+      y:
+        Number(
+          result.y.toFixed(
+            1
+          )
+        ),
+
+      direction:
+        result.direction,
+
+      progress:
+        Number(
+          result.progress.toFixed(
+            3
+          )
+        ),
+
+      pathDistance:
+        Number(
+          result.pathDistance.toFixed(
+            1
+          )
+        ),
+    },
+  ]);
+
+
+  return result;
+}
+
+function runGardenDeterministicWanderPositionSelfTest() {
+  const dateKey =
+    "2026-09-23";
+
+
+  const characterId =
+    "chifuyu";
+
+
+  const sceneId =
+    "courtyard";
+
+
+  /*
+    找一個確實包含 MOVE 的 Slot。
+
+    Self-Test 才掃，
+    正式 Runtime 不會這樣做。
+  */
+  let moveSlot =
+    null;
+
+
+  for (
+    let slotIndex = 0;
+    slotIndex <
+      GARDEN_WANDER_SLOTS_PER_DAY;
+    slotIndex++
+  ) {
+    const candidate =
+      createGardenDeterministicWanderSlot({
+        dateKey,
+        slotIndex,
+        characterId,
+        sceneId,
+      });
+
+
+    if (
+      candidate &&
+      !candidate.idleOnly
+    ) {
+      moveSlot =
+        candidate;
+
+      break;
+    }
+  }
+
+
+  const moveSegment =
+    moveSlot
+      ?.segments
+      ?.find(
+        (segment) =>
+          segment.type ===
+          GARDEN_WANDER_SEGMENT_TYPE
+            .MOVE
+      ) ??
+    null;
+
+
+  const path =
+    moveSegment
+      ? getGardenDeterministicWanderPath(
+          moveSegment.fromAnchor,
+          moveSegment.toAnchor
+        )
+      : null;
+
+
+  /*
+    再拿一次，
+    必須直接得到同一個 cache object。
+  */
+  const cachedPath =
+    moveSegment
+      ? getGardenDeterministicWanderPath(
+          moveSegment.fromAnchor,
+          moveSegment.toAnchor
+        )
+      : null;
+
+
+  const start =
+    path
+      ? sampleGardenDeterministicWanderPath(
+          path,
+          0
+        )
+      : null;
+
+
+  const middle =
+    path
+      ? sampleGardenDeterministicWanderPath(
+          path,
+          0.5
+        )
+      : null;
+
+
+  const end =
+    path
+      ? sampleGardenDeterministicWanderPath(
+          path,
+          1
+        )
+      : null;
+
+
+  const fakeResolution =
+    moveSlot &&
+    moveSegment
+      ? Object.freeze({
+          dateKey:
+            moveSlot.dateKey,
+
+          slotIndex:
+            moveSlot.slotIndex,
+
+          characterId,
+
+          sceneId,
+
+          secondOfDay:
+            (
+              moveSegment
+                .startSecondOfDay +
+              moveSegment
+                .endSecondOfDay
+            ) /
+            2,
+
+          segmentType:
+            GARDEN_WANDER_SEGMENT_TYPE
+              .MOVE,
+
+          progress:
+            0.5,
+
+          segment:
+            moveSegment,
+
+          slot:
+            moveSlot,
+        })
+      : null;
+
+
+  const firstPosition =
+    fakeResolution
+      ? resolveGardenDeterministicWanderPosition(
+          fakeResolution
+        )
+      : null;
+
+
+  const secondPosition =
+    fakeResolution
+      ? resolveGardenDeterministicWanderPosition(
+          fakeResolution
+        )
+      : null;
+
+
+  const startMatchesAnchor =
+    !!(
+      start &&
+      moveSegment &&
+      Math.abs(
+        start.x -
+        moveSegment
+          .fromAnchor.x
+      ) <
+        0.001 &&
+      Math.abs(
+        start.y -
+        moveSegment
+          .fromAnchor.y
+      ) <
+        0.001
+    );
+
+
+  const endMatchesAnchor =
+    !!(
+      end &&
+      moveSegment &&
+      Math.abs(
+        end.x -
+        moveSegment
+          .toAnchor.x
+      ) <
+        0.001 &&
+      Math.abs(
+        end.y -
+        moveSegment
+          .toAnchor.y
+      ) <
+        0.001
+    );
+
+
+  const middleWalkable =
+    !!(
+      middle &&
+      isGardenWalkablePointInScene(
+        sceneId,
+        middle.x,
+        middle.y
+      )
+    );
+
+
+  const checks = {
+    moveSlotFound:
+      !!moveSlot,
+
+    moveSegmentFound:
+      !!moveSegment,
+
+    pathCreated:
+      !!path,
+
+    pathHasAtLeastTwoPoints:
+      path
+        ?.points
+        ?.length >=
+      2,
+
+    pathDistancePositive:
+      path
+        ?.totalDistance >
+      0,
+
+    cacheReused:
+      path ===
+      cachedPath,
+
+    startMatchesAnchor,
+
+    endMatchesAnchor,
+
+    middleResolved:
+      !!middle,
+
+    middleWalkable,
+
+    positionResolved:
+      !!firstPosition,
+
+    positionIsMoving:
+      firstPosition
+        ?.isMoving ===
+      true,
+
+    positionProgressHalf:
+      Math.abs(
+        (
+          firstPosition
+            ?.progress ??
+          -1
+        ) -
+        0.5
+      ) <
+      0.001,
+
+    deterministicPosition:
+      JSON.stringify(
+        firstPosition
+      ) ===
+      JSON.stringify(
+        secondPosition
+      ),
+
+    directionValid:
+      firstPosition
+        ?.direction ===
+        1 ||
+      firstPosition
+        ?.direction ===
+        -1,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    moveSlot,
+
+    moveSegment,
+
+    path,
+
+    start,
+
+    middle,
+
+    end,
+
+    firstPosition,
+
+    cacheSize:
+      gardenDeterministicWanderPathCache
+        .size,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Deterministic Wander Position Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Deterministic Wander Position Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+
+/* =========================
+   Garden Wander Runtime Bridge
+   12H-3A — Canonical Runtime Sampler
+========================= */
+
+const GARDEN_WANDER_RUNTIME_BRIDGE_SCHEMA =
+  "nanaharaGardenWanderRuntimeBridge";
+
+const GARDEN_WANDER_RUNTIME_BRIDGE_VERSION =
+  1;
+
+
+
+/*
+  =========================
+  Canonical Wander Runtime
+  =========================
+
+  true：
+  WANDER 的 spatial state
+  正式由 Canonical World Time 接管。
+
+  舊 local Auto Walk /
+  Random Ambient Behavior
+  不再控制世界狀態。
+*/
+const GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED =
+  true;
+
+
+/*
+  Runtime Clock Cache
+
+  getGardenWorldCalendarParts()
+  內部會做 timezone calendar parsing。
+
+  所以同一個 epoch second
+  只解析一次 Calendar。
+
+  幀與幀之間的小數秒，
+  直接由 timestamp 的 millisecond 補回。
+*/
+const gardenWanderRuntimeClockCache = {
+  epochSecond:
+    null,
+
+  calendar:
+    null,
+};
+
+
+/*
+  每個角色只保留
+  「目前正在使用的 Canonical Wander Slot」。
+
+  只有：
+
+  - 日期改變
+  - Slot 改變
+  - Scene 改變
+
+  才重新建立 Slot。
+*/
+const gardenWanderRuntimeSlotCache =
+  new Map();
+
+
+const gardenWanderRuntimeBridgeStats = {
+  calendarRefreshCount:
+    0,
+
+  slotBuildCount:
+    0,
+
+  sampleCount:
+    0,
+};
+
+
+function clearGardenWanderRuntimeBridgeCache(
+  characterId = null
+) {
+  if (characterId) {
+    gardenWanderRuntimeSlotCache.delete(
+      characterId
+    );
+
+  } else {
+    gardenWanderRuntimeSlotCache.clear();
+  }
+
+
+  gardenWanderRuntimeClockCache
+    .epochSecond =
+    null;
+
+  gardenWanderRuntimeClockCache
+    .calendar =
+    null;
+}
+
+
+function getGardenWanderRuntimeClock(
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  const epochSecond =
+    Math.floor(
+      timestamp / 1000
+    );
+
+
+  let calendar =
+    gardenWanderRuntimeClockCache
+      .calendar;
+
+
+  /*
+    Calendar timezone parsing
+    每個實際秒最多做一次。
+
+    不會 60 FPS × 2 characters
+    一直 formatToParts()。
+  */
+  if (
+    gardenWanderRuntimeClockCache
+      .epochSecond !==
+        epochSecond ||
+    !calendar
+  ) {
+    calendar =
+      getGardenWorldCalendarParts(
+        timestamp
+      );
+
+
+    if (!calendar) {
+      return null;
+    }
+
+
+    gardenWanderRuntimeClockCache
+      .epochSecond =
+      epochSecond;
+
+    gardenWanderRuntimeClockCache
+      .calendar =
+      calendar;
+
+
+    gardenWanderRuntimeBridgeStats
+      .calendarRefreshCount +=
+      1;
+  }
+
+
+  /*
+    Calendar 的 secondOfDay
+    是整秒。
+
+    補回小數秒後：
+
+    12:00:30.250
+    不會被當成
+    12:00:30.000。
+
+    這樣 MOVE 才能平滑重建。
+  */
+  const millisecond =
+    (
+      (
+        timestamp % 1000
+      ) +
+      1000
+    ) %
+    1000;
+
+
+  const preciseSecondOfDay =
+    calendar.secondOfDay +
+    millisecond / 1000;
+
+
+  return Object.freeze({
+    timestamp,
+
+    epochSecond,
+
+    calendar,
+
+    preciseSecondOfDay,
+  });
+}
+
+
+function getGardenWanderRuntimeSlot(
+  characterId,
+  sceneId,
+  clock
+) {
+  if (
+    !characterId ||
+    !sceneId ||
+    !clock?.calendar
+  ) {
+    return null;
+  }
+
+
+  const slotIndex =
+    Math.floor(
+      clock.calendar
+        .secondOfDay /
+      GARDEN_WANDER_SLOT_SECONDS
+    );
+
+
+  const cacheKey =
+    [
+      clock.calendar.dateKey,
+      slotIndex,
+      characterId,
+      sceneId,
+    ].join("|");
+
+
+  const cached =
+    gardenWanderRuntimeSlotCache.get(
+      characterId
+    );
+
+
+  /*
+    同日期、同 Slot、
+    同角色、同場景：
+
+    直接使用同一份 Slot。
+  */
+  if (
+    cached?.key ===
+      cacheKey
+  ) {
+    return cached.slot;
+  }
+
+
+  const slot =
+    createGardenDeterministicWanderSlot({
+      dateKey:
+        clock.calendar.dateKey,
+
+      slotIndex,
+
+      characterId,
+
+      sceneId,
+    });
+
+
+  if (!slot) {
+    return null;
+  }
+
+
+  gardenWanderRuntimeSlotCache.set(
+    characterId,
+    Object.freeze({
+      key:
+        cacheKey,
+
+      slot,
+    })
+  );
+
+
+  gardenWanderRuntimeBridgeStats
+    .slotBuildCount +=
+    1;
+
+
+  return slot;
+}
+
+
+function resolveGardenWanderRuntimeSampleAtTimestamp(
+  characterId,
+  sceneId,
+  timestamp =
+    getGardenWorldNow()
+) {
+  const clock =
+    getGardenWanderRuntimeClock(
+      timestamp
+    );
+
+
+  if (!clock) {
+    return null;
+  }
+
+
+  const slot =
+    getGardenWanderRuntimeSlot(
+      characterId,
+      sceneId,
+      clock
+    );
+
+
+  if (!slot) {
+    return null;
+  }
+
+
+  /*
+    這裡不重新生成 Timeline。
+
+    使用 cached Slot，
+    只根據目前 preciseSecondOfDay
+    找出當前 segment / progress。
+  */
+  const wanderResolution =
+    resolveGardenDeterministicWanderInSlot(
+      slot,
+      clock.preciseSecondOfDay
+    );
+
+
+  if (!wanderResolution) {
+    return null;
+  }
+
+
+  /*
+    交給 12H-2：
+
+    Canonical Progress
+      ↓
+    Cached Path
+      ↓
+    x / y / direction
+  */
+  const position =
+    resolveGardenDeterministicWanderPosition(
+      wanderResolution
+    );
+
+
+  if (!position) {
+    return null;
+  }
+
+
+  gardenWanderRuntimeBridgeStats
+    .sampleCount +=
+    1;
+
+
+  return Object.freeze({
+    ...position,
+
+    runtimeBridgeSchema:
+      GARDEN_WANDER_RUNTIME_BRIDGE_SCHEMA,
+
+    runtimeBridgeVersion:
+      GARDEN_WANDER_RUNTIME_BRIDGE_VERSION,
+
+    runtimeTimestamp:
+      timestamp,
+
+    preciseSecondOfDay:
+      clock.preciseSecondOfDay,
+  });
+}
+
+
+/*
+  IDLE Direction
+
+  12H-2 的 IDLE direction
+  刻意是 null。
+
+  但正式 Runtime 不能單純
+  「保留玩家本機上一個方向」。
+
+  否則：
+
+  Player A 冷啟動
+  Player B 已經開著 Garden
+
+  同一時間可能面向不同方向。
+
+  所以 IDLE facing
+  也必須 deterministic。
+*/
+function resolveGardenCanonicalWanderDirection(
+  characterId,
+  sample
+) {
+  if (!sample) {
+    return null;
+  }
+
+
+  /*
+    MOVE：
+
+    直接使用 12H-2
+    根據實際 path segment
+    算出的方向。
+  */
+  if (
+    sample.direction === 1 ||
+    sample.direction === -1
+  ) {
+    return sample.direction;
+  }
+
+
+  const resolution =
+    sample.wanderResolution;
+
+
+  if (!resolution) {
+    return 1;
+  }
+
+
+  /*
+    IDLE：
+
+    同一天、同角色、
+    同 Scene / Anchor / Slot
+    永遠得到相同 facing。
+  */
+  const idleFacingDecision =
+    getGardenWorldDailyDecisionInt({
+      dateKey:
+        resolution.dateKey,
+
+      characterId,
+
+      domainId:
+        "wanderRuntime",
+
+      subjectId:
+        `${sample.sceneId}:${sample.fromTargetId ?? "idle"}`,
+
+      instanceId:
+        `slot-${resolution.slotIndex}`,
+
+      decisionId:
+        "idleDirection",
+
+      min:
+        0,
+
+      max:
+        1,
+    });
+
+
+  return idleFacingDecision === 0
+    ? -1
+    : 1;
+}
+
+
+/*
+  12H-3B 會使用這個 Gate
+  決定 Spatial Ownership。
+
+  現在先建立，
+  但還不接主 Runtime Loop。
+*/
+function canGardenCharacterUseCanonicalWanderRuntime(
+  characterId,
+  worldStateOverride = null,
+  chatModeOverride = null
+) {
+  const worldState =
+    worldStateOverride ??
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  if (!worldState) {
+    return false;
+  }
+
+
+  const chatMode =
+    chatModeOverride ??
+    gardenChatState.mode;
+
+
+  return (
+    worldState.activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER &&
+    !worldState.travel &&
+    !!worldState.sceneId &&
+    chatMode ===
+      "wander"
+  );
+}
+
+
+/*
+  將 Canonical Sample
+  寫進 Character Move State。
+
+  注意：
+
+  12H-3A Self-Test
+  只會把它套在 fake state。
+
+  12H-3B 才會正式傳入
+  chifuyuWalkTestState /
+  chinatsuWalkTestState。
+*/
+function applyGardenWanderSampleToMoveState(
+  characterId,
+  moveState,
+  sample
+) {
+  if (
+    !moveState ||
+    !sample ||
+    !Number.isFinite(
+      sample.x
+    ) ||
+    !Number.isFinite(
+      sample.y
+    )
+  ) {
+    return false;
+  }
+
+
+  /*
+    Canonical WANDER
+    不使用舊 local path integrator。
+
+    所以取得 ownership 時，
+    local path 必須為空。
+  */
+  moveState.path =
+    [];
+
+
+  moveState.x =
+    sample.x;
+
+  moveState.y =
+    sample.y;
+
+
+  moveState.isMoving =
+    sample.isMoving ===
+    true;
+
+
+  const direction =
+    resolveGardenCanonicalWanderDirection(
+      characterId,
+      sample
+    );
+
+
+  if (
+    direction === 1 ||
+    direction === -1
+  ) {
+    moveState.direction =
+      direction;
+  }
+
+
+  return true;
+}
+
+
+
+
+/* =========================
+   12H-4E-2B
+   Canonical Wander Spatial Source
+========================= */
+
+function resolveGardenCanonicalWanderSpatialSource(
+  characterId,
+  worldState,
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !characterId ||
+    !worldState ||
+    !worldState.sceneId ||
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return Object.freeze({
+      source:
+        "unavailable",
+
+      sample:
+        null,
+
+      continuityPhase:
+        null,
+    });
+  }
+
+
+  const continuity =
+    worldState.wanderContinuity;
+
+
+  /*
+    =========================
+    Travel → Wander Continuity
+    =========================
+  */
+  if (continuity) {
+    const continuityValid =
+      isGardenWanderContinuityPlanUsable(
+        continuity,
+        characterId,
+        worldState.sceneId
+      );
+
+
+    /*
+      Snapshot / Debug / 舊資料若留下
+      壞掉的 Continuity，
+      不允許它永久卡住 Wander。
+    */
+    if (!continuityValid) {
+      worldState.wanderContinuity =
+        null;
+
+    } else {
+      const continuityState =
+        resolveGardenTravelToWanderContinuity(
+          continuity,
+          timestamp
+        );
+
+
+      /*
+        Plan 本身合法，
+        Resolver 卻拿不到結果：
+
+        Canonical ownership 已存在，
+        此時不要偷偷跳回 Standard Wander，
+        否則可能造成瞬移。
+      */
+      if (!continuityState) {
+        return Object.freeze({
+          source:
+            "continuityUnavailable",
+
+          sample:
+            null,
+
+          continuityPhase:
+            null,
+        });
+      }
+
+
+      /*
+        Continuity 尚未完成：
+
+        直接把它轉成
+        Wander Runtime 可使用的
+        canonical sample。
+      */
+      if (
+        !continuityState.completed
+      ) {
+        const sample =
+          Object.freeze({
+            x:
+              continuityState.x,
+
+            y:
+              continuityState.y,
+
+            direction:
+              continuityState.direction,
+
+            isMoving:
+              continuityState.isMoving ===
+              true,
+
+            progress:
+              continuityState.progress ?? 0,
+
+
+            /*
+              Debug / Animation inspector
+              可以辨識現在不是普通
+              Wander Segment。
+            */
+            segmentType:
+              continuityState.phase ===
+                "move"
+                ? "CONTINUITY_MOVE"
+                : "CONTINUITY_IDLE",
+
+
+            spatialSource:
+              "continuity",
+
+            continuityPhase:
+              continuityState.phase,
+
+            continuityPlan:
+              continuity,
+          });
+
+
+        return Object.freeze({
+          source:
+            "continuity",
+
+          sample,
+
+          continuityPhase:
+            continuityState.phase,
+        });
+      }
+
+
+      /*
+        =========================
+        Boundary Handoff
+        =========================
+
+        timestamp >= endsAt。
+
+        Continuity 已經精準抵達
+        Standard Wander 的 fromAnchor。
+
+        立即清掉 Plan，
+        並在「同一個 timestamp」
+        繼續往下 Resolve
+        Standard Wander。
+
+        不多停一幀，
+        不需要 teleport。
+      */
+      worldState.wanderContinuity =
+        null;
+    }
+  }
+
+
+  /*
+    =========================
+    Standard Deterministic Wander
+    =========================
+  */
+  const standardSample =
+    resolveGardenWanderRuntimeSampleAtTimestamp(
+      characterId,
+      worldState.sceneId,
+      timestamp
+    );
+
+
+  return Object.freeze({
+    source:
+      "standard",
+
+    sample:
+      standardSample,
+
+    continuityPhase:
+      null,
+  });
+}
+
+
+
+/* =========================
+   12H-3B
+   Canonical Wander Live Runtime
+========================= */
+
+function applyGardenCanonicalWanderRuntimeForCharacter(
+  characterId,
+  timestamp =
+    getGardenWorldNow()
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  /*
+    Runtime 不存在。
+  */
+  if (
+    !worldState ||
+    !runtime ||
+    !runtime.moveState
+  ) {
+    return Object.freeze({
+      characterId,
+
+      owned:
+        false,
+
+      applied:
+        false,
+
+      reason:
+        "runtimeUnavailable",
+
+      sample:
+        null,
+    });
+  }
+
+
+  /*
+    Feature Flag 關閉時，
+    完整退回舊 Runtime。
+  */
+  if (
+    !GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED
+  ) {
+    return Object.freeze({
+      characterId,
+
+      owned:
+        false,
+
+      applied:
+        false,
+
+      reason:
+        "disabled",
+
+      sample:
+        null,
+    });
+  }
+
+
+  /*
+    只有純 WANDER 才取得 Spatial Ownership。
+
+    TRAVEL
+    CHAT
+    REST
+    其他 Activity
+
+    都不由這層接管。
+  */
+  const owned =
+    canGardenCharacterUseCanonicalWanderRuntime(
+      characterId
+    );
+
+
+  if (!owned) {
+    return Object.freeze({
+      characterId,
+
+      owned:
+        false,
+
+      applied:
+        false,
+
+      reason:
+        "notCanonicalWander",
+
+      sample:
+        null,
+    });
+  }
+
+
+  /*
+  =========================
+  Canonical Wander Spatial Source
+  =========================
+
+  優先順序：
+
+  1. Travel → Wander Continuity
+  2. Standard Deterministic Wander
+*/
+const spatialResolution =
+  resolveGardenCanonicalWanderSpatialSource(
+    characterId,
+    worldState,
+    timestamp
+  );
+
+
+const sample =
+  spatialResolution?.sample ??
+  null;
+
+
+  /*
+    即使 sample 因極端資料錯誤拿不到，
+
+    Canonical Runtime 既然已取得 ownership，
+    也不能偷偷退回 local random path。
+
+    否則不同玩家會重新分岔。
+
+    所以：
+    - 清掉舊 local path
+    - 停在目前位置
+    - 等下一次 sample 恢復
+  */
+  if (!sample) {
+    runtime.setPath?.([]);
+
+    runtime.moveState.isMoving =
+      false;
+
+
+    if (
+      runtime.autoState
+    ) {
+      runtime.autoState.wasMoving =
+        false;
+    }
+
+
+    return Object.freeze({
+      characterId,
+
+      owned:
+        true,
+
+      applied:
+        false,
+
+      reason:
+        "sampleUnavailable",
+
+      sceneId:
+        worldState.sceneId,
+
+      sample:
+        null,
+    });
+  }
+
+
+  const applied =
+    applyGardenWanderSampleToMoveState(
+      characterId,
+      runtime.moveState,
+      sample
+    );
+
+
+  /*
+    舊 Auto Walk Runtime
+    不可以保留「上一刻正在走」狀態。
+
+    否則未來離開 Canonical Ownership 時
+    可能立刻觸發舊 reset 流程。
+  */
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  return Object.freeze({
+    characterId,
+
+    owned:
+      true,
+
+    applied,
+
+    reason:
+  applied
+    ? spatialResolution
+        ?.source ===
+        "continuity"
+        ? "canonicalWanderContinuity"
+        : "canonicalWander"
+    : "applyFailed",
+
+    sceneId:
+      worldState.sceneId,
+
+spatialSource:
+  spatialResolution?.source ??
+  null,
+
+
+continuityPhase:
+  spatialResolution
+    ?.continuityPhase ??
+  null,
+
+
+
+    sample,
+  });
+}
+
+
+function updateGardenCanonicalWanderRuntime(
+  timestamp =
+    getGardenWorldNow()
+) {
+  /*
+    兩個角色共用完全相同 timestamp。
+
+    不能角色 A 取得一次 Date.now，
+    角色 B 又取得一次。
+
+    否則 boundary 附近可能跨到不同 segment。
+  */
+  const chifuyu =
+    applyGardenCanonicalWanderRuntimeForCharacter(
+      "chifuyu",
+      timestamp
+    );
+
+
+  const chinatsu =
+    applyGardenCanonicalWanderRuntimeForCharacter(
+      "chinatsu",
+      timestamp
+    );
+
+
+  return Object.freeze({
+    timestamp,
+
+    chifuyu,
+
+    chinatsu,
+  });
+}
+
+
+function inspectGardenCanonicalWanderRuntime(
+  characterId =
+    "chifuyu"
+) {
+  const timestamp =
+    getGardenWorldNow();
+
+
+  /*
+    先同步到完全相同 timestamp，
+    再檢查 Runtime State。
+  */
+  const result =
+    applyGardenCanonicalWanderRuntimeForCharacter(
+      characterId,
+      timestamp
+    );
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  const moveState =
+    runtime?.moveState;
+
+
+  const info = {
+    character:
+      characterId,
+
+    activity:
+      worldState?.activity ??
+      null,
+
+    scene:
+      worldState?.sceneId ??
+      null,
+
+    owned:
+      result.owned,
+
+    applied:
+      result.applied,
+
+    reason:
+      result.reason,
+
+spatialSource:
+  result.spatialSource ??
+  null,
+
+
+continuityPhase:
+  result.continuityPhase ??
+  null,
+
+
+    segment:
+      result.sample
+        ?.segmentType ??
+      null,
+
+    x:
+      moveState?.x ??
+      null,
+
+    y:
+      moveState?.y ??
+      null,
+
+    direction:
+      moveState?.direction ??
+      null,
+
+    isMoving:
+      moveState?.isMoving ??
+      null,
+
+    localPathLength:
+      moveState?.path
+        ?.length ??
+      0,
+
+    canonicalX:
+      result.sample?.x ??
+      null,
+
+    canonicalY:
+      result.sample?.y ??
+      null,
+  };
+
+
+  console.table([
+    info,
+  ]);
+
+
+  return {
+    ...info,
+
+    result,
+  };
+}
+
+
+function runGardenCanonicalWanderOwnershipSelfTest() {
+  const fakeWanderState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+
+    activityData:
+      null,
+
+    travel:
+      null,
+  };
+
+
+  const wanderOwned =
+    canGardenCharacterUseCanonicalWanderRuntime(
+      "chifuyu",
+      fakeWanderState,
+      "wander"
+    );
+
+
+  const fakeTravelState = {
+    ...fakeWanderState,
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .TRAVEL,
+
+    travel: {
+      phase:
+        "walkingToExit",
+    },
+  };
+
+
+  const travelNotOwned =
+    !canGardenCharacterUseCanonicalWanderRuntime(
+      "chifuyu",
+      fakeTravelState,
+      "wander"
+    );
+
+
+  const fakeRestState = {
+    ...fakeWanderState,
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .REST,
+  };
+
+
+  const restNotOwned =
+    !canGardenCharacterUseCanonicalWanderRuntime(
+      "chifuyu",
+      fakeRestState,
+      "wander"
+    );
+
+
+  const chatModeNotOwned =
+    !canGardenCharacterUseCanonicalWanderRuntime(
+      "chifuyu",
+      fakeWanderState,
+      "approachChat"
+    );
+
+
+  const checks = {
+    featureEnabled:
+      GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED ===
+      true,
+
+    wanderOwned,
+
+    travelNotOwned,
+
+    restNotOwned,
+
+    chatModeNotOwned,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Canonical Wander Ownership Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Canonical Wander Ownership Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+function runGardenWanderReloadDeterminismSelfTest() {
+  const dateKey = "2026-09-23";
+  const characterId = "chifuyu";
+  const sceneId = "courtyard";
+
+  let moveSlot = null;
+
+
+  /*
+    找一個真的包含 MOVE 的 Slot。
+
+    不寫死 slot index，
+    避免未來 Wander Timeline
+    參數調整後 Self-Test 自己失效。
+  */
+  for (
+    let slotIndex = 0;
+    slotIndex < GARDEN_WANDER_SLOTS_PER_DAY;
+    slotIndex++
+  ) {
+    const candidate =
+      createGardenDeterministicWanderSlot({
+        dateKey,
+        slotIndex,
+        characterId,
+        sceneId,
+      });
+
+
+    if (
+      candidate &&
+      !candidate.idleOnly &&
+      candidate.segments?.some(
+        segment =>
+          segment.type ===
+          GARDEN_WANDER_SEGMENT_TYPE
+            .MOVE
+      )
+    ) {
+      moveSlot =
+        candidate;
+
+      break;
+    }
+  }
+
+
+  const moveSegment =
+    moveSlot
+      ?.segments
+      ?.find(
+        segment =>
+          segment.type ===
+          GARDEN_WANDER_SEGMENT_TYPE
+            .MOVE
+      ) ??
+    null;
+
+
+  if (
+    !moveSlot ||
+    !moveSegment
+  ) {
+    const result = {
+      pass:
+        false,
+
+      reason:
+        "moveSegmentNotFound",
+    };
+
+
+    console.warn(
+      "[Garden Wander Reload Determinism Self-Test] FAIL",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  /*
+    MOVE 中段 + 小數秒。
+
+    小數秒是刻意保留的，
+    用來確認 Reload reconstruction
+    不會退回整秒精度。
+  */
+  const testSecondOfDay =
+    (
+      moveSegment.startSecondOfDay +
+      moveSegment.endSecondOfDay
+    ) /
+      2 +
+    0.437;
+
+
+  const wholeSecond =
+    Math.floor(
+      testSecondOfDay
+    );
+
+
+  const hour =
+    Math.floor(
+      wholeSecond /
+        3600
+    );
+
+
+  const minute =
+    Math.floor(
+      (
+        wholeSecond %
+        3600
+      ) /
+        60
+    );
+
+
+  const timeSecond =
+    wholeSecond %
+    60;
+
+
+  const millisecond =
+    Math.round(
+      (
+        testSecondOfDay -
+        wholeSecond
+      ) *
+        1000
+    );
+
+
+  const pad2 = value =>
+    String(
+      value
+    ).padStart(
+      2,
+      "0"
+    );
+
+
+  /*
+    Garden World Clock 使用 JST。
+
+    所以測試 timestamp
+    明確使用 +09:00。
+  */
+  const timestamp =
+    Date.parse(
+      `${dateKey}T${pad2(hour)}:${pad2(minute)}:${pad2(timeSecond)}+09:00`
+    ) +
+    millisecond;
+
+
+  /*
+    模擬一次「新頁面」。
+
+    只清 Runtime / Path Cache，
+    不修改任何 Garden World State。
+  */
+  function buildFreshSample() {
+    clearGardenWanderRuntimeBridgeCache();
+
+
+    gardenDeterministicWanderPathCache
+      .clear();
+
+
+    const sample =
+      resolveGardenWanderRuntimeSampleAtTimestamp(
+        characterId,
+        sceneId,
+        timestamp
+      );
+
+
+    return {
+      sample,
+
+      pathCacheSize:
+        gardenDeterministicWanderPathCache
+          .size,
+
+      bridge:
+        getGardenWanderRuntimeBridgeDebugInfo(),
+    };
+  }
+
+
+  /*
+    =========================
+    Fresh Runtime A
+    =========================
+  */
+
+  const first =
+    buildFreshSample();
+
+
+  /*
+    故意製造一份非常髒的
+    Local Runtime State。
+
+    如果 Canonical 系統正確，
+    這些舊資料都不應影響結果。
+  */
+  const fakeStateA = {
+    x:
+      -999,
+
+    y:
+      -999,
+
+    direction:
+      -1,
+
+    isMoving:
+      false,
+
+    path: [
+      {
+        x:
+          1,
+
+        y:
+          1,
+      },
+    ],
+  };
+
+
+  const firstApplied =
+    applyGardenWanderSampleToMoveState(
+      characterId,
+      fakeStateA,
+      first.sample
+    );
+
+
+  /*
+    =========================
+    Fresh Runtime B
+    =========================
+
+    再清一次所有 Wander Cache。
+
+    等同另一位玩家
+    或重新整理後重新建立。
+  */
+
+  const secondRun =
+    buildFreshSample();
+
+
+  /*
+    第二份 Local Runtime
+    刻意使用完全不同的資料。
+  */
+  const fakeStateB = {
+    x:
+      9999,
+
+    y:
+      9999,
+
+    direction:
+      1,
+
+    isMoving:
+      false,
+
+    path: [
+      {
+        x:
+          999,
+
+        y:
+          999,
+      },
+
+      {
+        x:
+          888,
+
+        y:
+          888,
+      },
+    ],
+  };
+
+
+  const secondApplied =
+    applyGardenWanderSampleToMoveState(
+      characterId,
+      fakeStateB,
+      secondRun.sample
+    );
+
+
+  const firstDirection =
+    resolveGardenCanonicalWanderDirection(
+      characterId,
+      first.sample
+    );
+
+
+  const secondDirection =
+    resolveGardenCanonicalWanderDirection(
+      characterId,
+      secondRun.sample
+    );
+
+
+  const epsilon =
+    0.000001;
+
+
+  const samePosition =
+    !!(
+      first.sample &&
+      secondRun.sample &&
+
+      Math.abs(
+        first.sample.x -
+        secondRun.sample.x
+      ) <
+        epsilon &&
+
+      Math.abs(
+        first.sample.y -
+        secondRun.sample.y
+      ) <
+        epsilon
+    );
+
+
+  /*
+    兩份完全不同的 Local Runtime
+    套用 Canonical Sample 後，
+    最後必須收斂到完全相同狀態。
+  */
+  const fakeStatesConverged =
+    !!(
+      first.sample &&
+      secondRun.sample &&
+
+      Math.abs(
+        fakeStateA.x -
+        fakeStateB.x
+      ) <
+        epsilon &&
+
+      Math.abs(
+        fakeStateA.y -
+        fakeStateB.y
+      ) <
+        epsilon &&
+
+      fakeStateA.direction ===
+        fakeStateB.direction &&
+
+      fakeStateA.isMoving ===
+        fakeStateB.isMoving &&
+
+      fakeStateA.path.length ===
+        0 &&
+
+      fakeStateB.path.length ===
+        0
+    );
+
+
+  const checks = {
+    firstResolved:
+      !!first.sample,
+
+    secondResolved:
+      !!secondRun.sample,
+
+
+    /*
+      Reload 前後必須仍然
+      命中同一 MOVE segment。
+    */
+    moveSegmentPreserved:
+      first.sample
+        ?.segmentType ===
+        GARDEN_WANDER_SEGMENT_TYPE
+          .MOVE &&
+
+      secondRun.sample
+        ?.segmentType ===
+        GARDEN_WANDER_SEGMENT_TYPE
+          .MOVE,
+
+
+    samePosition,
+
+
+    sameProgress:
+      !!(
+        first.sample &&
+        secondRun.sample &&
+
+        Math.abs(
+          first.sample.progress -
+          secondRun.sample.progress
+        ) <
+          epsilon
+      ),
+
+
+    samePathKey:
+      !!first.sample
+        ?.pathKey &&
+
+      first.sample.pathKey ===
+        secondRun.sample
+          ?.pathKey,
+
+
+    sameDirection:
+      firstDirection ===
+      secondDirection,
+
+
+    sameMovementState:
+      first.sample
+        ?.isMoving ===
+      secondRun.sample
+        ?.isMoving,
+
+
+    /*
+      0.437 秒必須完整保留。
+    */
+    preciseTimePreserved:
+      !!(
+        first.sample &&
+        secondRun.sample &&
+
+        Math.abs(
+          first.sample
+            .preciseSecondOfDay -
+          testSecondOfDay
+        ) <
+          0.001 &&
+
+        Math.abs(
+          secondRun.sample
+            .preciseSecondOfDay -
+          testSecondOfDay
+        ) <
+          0.001
+      ),
+
+
+    /*
+      Cache 被清空後，
+      MOVE reconstruction
+      必須重新建立 path。
+    */
+    pathRebuiltAfterFreshCache:
+      first.pathCacheSize >
+        0 &&
+
+      secondRun.pathCacheSize >
+        0,
+
+
+    firstApplied:
+      firstApplied ===
+      true,
+
+
+    secondApplied:
+      secondApplied ===
+      true,
+
+
+    /*
+      Local State 不論原本多髒，
+      最後都必須收斂。
+    */
+    fakeStatesConverged,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(
+      Boolean
+    );
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    timestamp,
+
+    testSecondOfDay,
+
+    first,
+
+    second:
+      secondRun,
+
+    fakeStateA,
+
+    fakeStateB,
+  };
+
+
+  if (
+    pass
+  ) {
+    console.log(
+      "[Garden Wander Reload Determinism Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Wander Reload Determinism Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+
+function getGardenWanderRuntimeBridgeDebugInfo() {
+  return {
+    schema:
+      GARDEN_WANDER_RUNTIME_BRIDGE_SCHEMA,
+
+    version:
+      GARDEN_WANDER_RUNTIME_BRIDGE_VERSION,
+
+    clockEpochSecond:
+      gardenWanderRuntimeClockCache
+        .epochSecond,
+
+    slotCacheSize:
+      gardenWanderRuntimeSlotCache
+        .size,
+
+    stats: {
+      ...gardenWanderRuntimeBridgeStats,
+    },
+  };
+}
+
+
+/* =========================
+   12H-3A Self-Test
+========================= */
+
+function runGardenWanderRuntimeBridgeSelfTest() {
+  const dateKey =
+    "2026-09-23";
+
+  const characterId =
+    "chifuyu";
+
+  const sceneId =
+    "courtyard";
+
+
+  /*
+    找一個確實有 MOVE 的 Slot。
+
+    只有 Self-Test 會掃。
+    正式 Runtime 不會。
+  */
+  let moveSlot =
+    null;
+
+
+  for (
+    let slotIndex = 0;
+    slotIndex <
+      GARDEN_WANDER_SLOTS_PER_DAY;
+    slotIndex++
+  ) {
+    const candidate =
+      createGardenDeterministicWanderSlot({
+        dateKey,
+        slotIndex,
+        characterId,
+        sceneId,
+      });
+
+
+    if (
+      candidate &&
+      !candidate.idleOnly
+    ) {
+      moveSlot =
+        candidate;
+
+      break;
+    }
+  }
+
+
+  const moveSegment =
+    moveSlot
+      ?.segments
+      ?.find(
+        (segment) =>
+          segment.type ===
+          GARDEN_WANDER_SEGMENT_TYPE
+            .MOVE
+      ) ??
+    null;
+
+
+  if (
+    !moveSlot ||
+    !moveSegment
+  ) {
+    const result = {
+      pass:
+        false,
+
+      reason:
+        "moveSegmentNotFound",
+    };
+
+
+    console.warn(
+      "[Garden Wander Runtime Bridge Self-Test] FAIL",
+      result
+    );
+
+
+    return result;
+  }
+
+
+  /*
+    MOVE 中央 + 0.375 秒。
+
+    特地加入小數秒，
+    測試 Runtime 是否真的
+    可以做到 frame-level reconstruction。
+  */
+  const testSecondOfDay =
+    (
+      moveSegment.startSecondOfDay +
+      moveSegment.endSecondOfDay
+    ) /
+      2 +
+    0.375;
+
+
+  const wholeSecond =
+    Math.floor(
+      testSecondOfDay
+    );
+
+
+  const hour =
+    Math.floor(
+      wholeSecond / 3600
+    );
+
+
+  const minute =
+    Math.floor(
+      (
+        wholeSecond % 3600
+      ) /
+      60
+    );
+
+
+  const second =
+    wholeSecond % 60;
+
+
+  const millisecond =
+    Math.round(
+      (
+        testSecondOfDay -
+        wholeSecond
+      ) *
+        1000
+    );
+
+
+  const pad2 =
+    (value) =>
+      String(value).padStart(
+        2,
+        "0"
+      );
+
+
+  /*
+    七原世界目前固定 JST。
+  */
+  const timestamp =
+    Date.parse(
+      `${dateKey}T${pad2(hour)}:${pad2(minute)}:${pad2(second)}+09:00`
+    ) +
+    millisecond;
+
+
+  /*
+    測試前清 Runtime Bridge cache。
+
+    不會清掉 12H-2 Path Cache。
+  */
+  clearGardenWanderRuntimeBridgeCache();
+
+
+  const statsBefore = {
+    ...gardenWanderRuntimeBridgeStats,
+  };
+
+
+  const firstSample =
+    resolveGardenWanderRuntimeSampleAtTimestamp(
+      characterId,
+      sceneId,
+      timestamp
+    );
+
+
+  const statsAfterFirst = {
+    ...gardenWanderRuntimeBridgeStats,
+  };
+
+
+  /*
+    同一個 timestamp 再取一次。
+
+    Calendar / Slot
+    都不應重新建立。
+  */
+  const secondSample =
+    resolveGardenWanderRuntimeSampleAtTimestamp(
+      characterId,
+      sceneId,
+      timestamp
+    );
+
+
+  const statsAfterSecond = {
+    ...gardenWanderRuntimeBridgeStats,
+  };
+
+
+  /*
+    Fake Runtime State。
+
+    確認 Bridge 套用後：
+    舊 path 會被清掉，
+    x/y/movement/direction
+    由 Canonical Sample 接管。
+  */
+  const fakeMoveState = {
+    x:
+      -999,
+
+    y:
+      -999,
+
+    direction:
+      -1,
+
+    isMoving:
+      false,
+
+    path: [
+      {
+        x:
+          1,
+
+        y:
+          1,
+      },
+    ],
+  };
+
+
+  const applied =
+    applyGardenWanderSampleToMoveState(
+      characterId,
+      fakeMoveState,
+      firstSample
+    );
+
+
+  const deterministicMatch =
+    !!(
+      firstSample &&
+      secondSample &&
+      Math.abs(
+        firstSample.x -
+        secondSample.x
+      ) <
+        0.000001 &&
+      Math.abs(
+        firstSample.y -
+        secondSample.y
+      ) <
+        0.000001 &&
+      firstSample.isMoving ===
+        secondSample.isMoving &&
+      resolveGardenCanonicalWanderDirection(
+        characterId,
+        firstSample
+      ) ===
+        resolveGardenCanonicalWanderDirection(
+          characterId,
+          secondSample
+        )
+    );
+
+
+  const checks = {
+    moveSlotFound:
+      !!moveSlot,
+
+    moveSegmentFound:
+      !!moveSegment,
+
+    sampleResolved:
+      !!firstSample,
+
+    sampleIsMoving:
+      firstSample
+        ?.isMoving ===
+      true,
+
+    preciseFractionPreserved:
+      Math.abs(
+        (
+          firstSample
+            ?.preciseSecondOfDay ??
+          -1
+        ) -
+        testSecondOfDay
+      ) <
+      0.001,
+
+    deterministicMatch,
+
+    /*
+      同一個 epoch second
+      Calendar 只建一次。
+    */
+    calendarBuiltOnce:
+      statsAfterFirst
+        .calendarRefreshCount -
+        statsBefore
+          .calendarRefreshCount ===
+        1 &&
+      statsAfterSecond
+        .calendarRefreshCount ===
+        statsAfterFirst
+          .calendarRefreshCount,
+
+    /*
+      同角色、同 Scene、同 Slot
+      Slot 也只建一次。
+    */
+    slotBuiltOnce:
+      statsAfterFirst
+        .slotBuildCount -
+        statsBefore
+          .slotBuildCount ===
+        1 &&
+      statsAfterSecond
+        .slotBuildCount ===
+        statsAfterFirst
+          .slotBuildCount,
+
+    fakeStateApplied:
+      applied ===
+      true,
+
+    oldPathCleared:
+      fakeMoveState.path.length ===
+      0,
+
+    runtimeMovingMatches:
+      fakeMoveState.isMoving ===
+      firstSample?.isMoving,
+
+    runtimePositionMatches:
+      !!firstSample &&
+      Math.abs(
+        fakeMoveState.x -
+        firstSample.x
+      ) <
+        0.000001 &&
+      Math.abs(
+        fakeMoveState.y -
+        firstSample.y
+      ) <
+        0.000001,
+
+    runtimeDirectionValid:
+      fakeMoveState.direction ===
+        1 ||
+      fakeMoveState.direction ===
+        -1,
+
+    runtimePositionWalkable:
+      !!firstSample &&
+      isGardenWalkablePointInScene(
+        sceneId,
+        firstSample.x,
+        firstSample.y
+      ),
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    timestamp,
+
+    testSecondOfDay,
+
+    firstSample,
+
+    secondSample,
+
+    fakeMoveState,
+
+    bridgeDebug:
+      getGardenWanderRuntimeBridgeDebugInfo(),
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Wander Runtime Bridge Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Wander Runtime Bridge Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
 
 
 
@@ -25702,6 +53847,19 @@ function createGardenCharacterWorldSnapshot(
         worldState.activityData
       ),
 
+wanderContinuity:
+  cloneGardenWorldSerializableValue(
+    worldState.wanderContinuity
+  ),
+
+
+activitySpotApproach:
+  cloneGardenWorldSerializableValue(
+    worldState.activitySpotApproach
+  ),
+
+  
+
     travel:
       cloneGardenWorldSerializableValue(
         worldState.travel
@@ -25815,14 +53973,21 @@ function createGardenWorldStateSnapshot(
       View Scene 不等於
       角色真正所在 Scene。
     */
-    view: {
-      sceneId:
-        gardenViewSceneId ||
-        "courtyard",
-    },
+   view: {
+  sceneId:
+    gardenViewSceneId ||
+    "courtyard",
+},
 
 
-    characters,
+worldEvents: {
+  lastMoonBridgeNightChatEventKey:
+    gardenMoonBridgeNightChatEventLedger
+      .lastConsumedEventKey,
+},
+
+
+characters,
   };
 }
 
@@ -26249,6 +54414,16 @@ function restoreGardenCharacterFromSnapshot(
     );
 
 
+const savedWanderContinuity =
+  cloneGardenWorldSerializableValue(
+    snapshot.wanderContinuity
+  );
+
+const savedActivitySpotApproach =
+  cloneGardenWorldSerializableValue(
+    snapshot.activitySpotApproach
+  );
+
   /*
     如果有有效 Travel，
     Travel 優先於一般 Activity。
@@ -26263,6 +54438,21 @@ function restoreGardenCharacterFromSnapshot(
   ) {
     worldState.travel =
       savedTravel;
+
+
+/*
+  Travel 擁有更高 Spatial Priority。
+
+  Snapshot 即使異常同時帶著
+  wanderContinuity，
+  Travel 期間也不能使用它。
+*/
+worldState.wanderContinuity =
+  null;
+
+worldState.activitySpotApproach =
+  null;
+  
 
 
     /*
@@ -26309,6 +54499,55 @@ function restoreGardenCharacterFromSnapshot(
   }
 
 
+/*
+  =========================
+  Activity Spot Approach
+  Cold Start Restore
+  =========================
+
+  有效的 Canonical Approach
+  可以跨 Reload 保留。
+
+  位置不靠舊 local path，
+  下一階段會依絕對世界時間
+  重新取樣。
+*/
+if (
+  snapshot.activity &&
+  snapshot.sceneId &&
+
+  isGardenCanonicalActivitySpotApproachPlanUsable(
+    savedActivitySpotApproach,
+    character,
+    snapshot.sceneId,
+    snapshot.activity
+  )
+) {
+  worldState.sceneId =
+    snapshot.sceneId;
+
+  worldState.activity =
+    snapshot.activity;
+
+  worldState.activityData =
+    cloneGardenWorldSerializableValue(
+      snapshot.activityData
+    );
+
+  worldState.activitySpotApproach =
+    savedActivitySpotApproach;
+
+  worldState.wanderContinuity =
+    null;
+
+  worldState.travel =
+    null;
+
+  return true;
+}
+
+
+
   /*
     =========================
     Chat Cold Start Policy
@@ -26333,10 +54572,18 @@ function restoreGardenCharacterFromSnapshot(
         .WANDER;
 
     worldState.activityData =
-      null;
+  null;
 
-    worldState.travel =
-      null;
+worldState.wanderContinuity =
+  null;
+
+
+worldState.activitySpotApproach =
+  null;
+
+
+worldState.travel =
+  null;
 
     worldState.sceneId =
       snapshot.sceneId ||
@@ -26355,22 +54602,53 @@ function restoreGardenCharacterFromSnapshot(
     有自己的 persistence policy 後，
     再擴充這裡。
   */
-  worldState.activity =
+worldState.activity =
+  GARDEN_CHARACTER_ACTIVITY
+    .WANDER;
+
+worldState.activityData =
+  null;
+
+worldState.activitySpotApproach =
+  null;
+
+worldState.travel =
+  null;
+
+worldState.sceneId =
+  snapshot.sceneId ||
+  "courtyard";
+
+
+/*
+  只有真正從 WANDER Snapshot
+  恢復時，才允許 Continuity 存活。
+
+  REST / 未來其他 Activity
+  若目前尚無 persistence policy，
+  仍然安全退回普通 WANDER。
+*/
+if (
+  snapshot.activity ===
     GARDEN_CHARACTER_ACTIVITY
-      .WANDER;
+      .WANDER &&
 
-  worldState.activityData =
+  isGardenWanderContinuityPlanUsable(
+    savedWanderContinuity,
+    character,
+    worldState.sceneId
+  )
+) {
+  worldState.wanderContinuity =
+    savedWanderContinuity;
+
+} else {
+  worldState.wanderContinuity =
     null;
-
-  worldState.travel =
-    null;
-
-  worldState.sceneId =
-    snapshot.sceneId ||
-    "courtyard";
+}
 
 
-  return true;
+return true;
 }
 
 
@@ -26522,6 +54800,190 @@ function rebuildGardenCharacterTravelRuntime(
 }
 
 
+/* =========================
+   12H-4D-2
+   Travel Hydrate Runtime Preparation
+========================= */
+
+let gardenLastTravelHydratePreparation =
+  Object.freeze([]);
+
+
+function prepareGardenCharacterTravelRuntimeAfterHydrate(
+  character
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      character
+    ];
+
+
+  const travel =
+    worldState?.travel;
+
+
+  if (
+    !worldState ||
+    !travel
+  ) {
+    return Object.freeze({
+      character,
+
+      handled:
+        false,
+
+      mode:
+        "none",
+
+      rebuilt:
+        false,
+
+      reason:
+        "notTraveling",
+    });
+  }
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      character
+    );
+
+
+  if (
+    !runtime ||
+    !runtime.moveState
+  ) {
+    return Object.freeze({
+      character,
+
+      handled:
+        false,
+
+      mode:
+        "unavailable",
+
+      rebuilt:
+        false,
+
+      reason:
+        "runtimeUnavailable",
+    });
+  }
+
+
+  /*
+    Reload 後永遠不沿用
+    上一頁的 transient path state。
+  */
+  runtime.setPath?.([]);
+
+
+  runtime.moveState.path =
+    [];
+
+  runtime.moveState.isMoving =
+    false;
+
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  /*
+    =========================
+    Canonical Travel
+    =========================
+
+    有 Spatial Plan 時，
+    不重新尋路。
+
+    接下來的 World Reconciliation
+    會依 Absolute World Time
+    直接重建真正狀態。
+  */
+  if (
+    canGardenCharacterUseCanonicalTravelRuntime(
+      character
+    )
+  ) {
+    return Object.freeze({
+      character,
+
+      handled:
+        true,
+
+      mode:
+        "canonicalDeferred",
+
+      rebuilt:
+        false,
+
+      reason:
+        "spatialPlanOwnsRuntime",
+
+      phase:
+        travel.phase,
+
+      hasSpatialPlan:
+        true,
+    });
+  }
+
+
+  /*
+    =========================
+    Legacy Travel
+    =========================
+
+    舊 Snapshot 沒有 spatialPlan，
+    才從保存的 x/y
+    重建舊 movement path。
+  */
+  const rebuilt =
+    rebuildGardenCharacterTravelRuntime(
+      character
+    );
+
+
+  return Object.freeze({
+    character,
+
+    handled:
+      true,
+
+    mode:
+      "legacyRebuild",
+
+    rebuilt:
+      rebuilt ===
+      true,
+
+    reason:
+      rebuilt
+        ? "legacyRuntimeRebuilt"
+        : "legacyRuntimeRebuildFailed",
+
+    phase:
+      travel.phase,
+
+    hasSpatialPlan:
+      false,
+  });
+}
+
+
+function getGardenTravelHydratePreparationInfo() {
+  return (
+    gardenLastTravelHydratePreparation
+  );
+}
+
+
 
 function hydrateGardenWorldState(
   snapshot
@@ -26570,6 +55032,27 @@ function hydrateGardenWorldState(
   clearGardenChatState();
 
 
+/*
+  Deterministic Chat event ledger
+  可以跨 Reload 保存。
+
+  Chat Runtime 本身仍然不保存。
+*/
+gardenMoonBridgeNightChatEventLedger
+  .lastConsumedEventKey =
+    typeof snapshot
+      .worldEvents
+      ?.lastMoonBridgeNightChatEventKey ===
+      "string"
+
+      ? snapshot
+          .worldEvents
+          .lastMoonBridgeNightChatEventKey
+
+      : null;
+
+
+
   /*
     =========================
     Characters
@@ -26603,26 +55086,47 @@ function hydrateGardenWorldState(
 
 
   /*
-    Travel Semantic State
-    還原完成之後，
-    重建本頁需要的 movement path。
-  */
-  for (
-    const character of
-    Object.keys(
-      gardenCharacterWorldState
-    )
+  =========================
+  Travel Runtime Preparation
+  =========================
+
+  Canonical Travel：
+  不重建 local path，
+  等 World Reconciliation
+  直接依現在時間重建。
+
+  Legacy Travel：
+  才保留舊 path rebuild。
+*/
+
+const travelPreparationResults =
+  [];
+
+
+for (
+  const character of
+  Object.keys(
+    gardenCharacterWorldState
+  )
+) {
+  if (
+    gardenCharacterWorldState[
+      character
+    ]?.travel
   ) {
-    if (
-      gardenCharacterWorldState[
+    travelPreparationResults.push(
+      prepareGardenCharacterTravelRuntimeAfterHydrate(
         character
-      ]?.travel
-    ) {
-      rebuildGardenCharacterTravelRuntime(
-        character
-      );
-    }
+      )
+    );
   }
+}
+
+
+gardenLastTravelHydratePreparation =
+  Object.freeze([
+    ...travelPreparationResults,
+  ]);
 
 
   /*
@@ -26823,13 +55327,16 @@ entrances: {
         GARDEN_PATH_NODES,
 
       autoTargets:
-        GARDEN_AUTO_TARGET_POINTS,
+  GARDEN_AUTO_TARGET_POINTS,
 
-      chatSpots:
-        GARDEN_CHAT_SPOTS,
+chatSpots:
+  GARDEN_CHAT_SPOTS,
 
-      lanternLights:
-        GARDEN_LANTERN_LIGHTS,
+activitySpots:
+  COURTYARD_ACTIVITY_SPOTS,
+
+lanternLights:
+  GARDEN_LANTERN_LIGHTS,
 
 
         sceneLayers:
@@ -26980,22 +55487,15 @@ entrances: {
 
 
       autoTargets:
-        MOON_BRIDGE_AUTO_TARGET_POINTS,
+  MOON_BRIDGE_AUTO_TARGET_POINTS,
 
-
-      /*
-        聊天地點之後再依實際畫面設定。
-      */
-      chatSpots:
+chatSpots:
   MOON_BRIDGE_CHAT_SPOTS,
 
+activitySpots:
+  MOON_BRIDGE_ACTIVITY_SPOTS,
 
-      /*
-        賞月橋目前沒有庭院燈籠。
-        之後若新增橋燈，
-        再建立自己的 lighting config。
-      */
-      lanternLights: [],
+lanternLights: [],
 
 
       sceneLayers:
