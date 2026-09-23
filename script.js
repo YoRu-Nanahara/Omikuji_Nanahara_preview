@@ -25252,7 +25252,9 @@ approachStartedAt: 0,
   null = 使用舊 Local Approach /
          目前沒有 Canonical Approach。
 */
-canonicalApproachPlan:
+canonicalApproachPlan: null,
+
+resumeActivity:
   null,
 
 pendingTargetLoops:
@@ -25330,6 +25332,9 @@ function clearGardenChatState() {
 gardenChatState.approachStartedAt = 0;
 
 gardenChatState.canonicalApproachPlan =
+  null;
+
+  gardenChatState.resumeActivity =
   null;
 
 gardenChatState.currentSpotName = "";
@@ -26285,17 +26290,157 @@ function startGardenCanonicalChatApproach(
   return true;
 }
 
-window.testGardenChatApproach = function () {
-  return startGardenChatApproach(performance.now());
-};
 
-function cancelGardenChatApproach(now = performance.now()) {
-  gardenChatState.mode = "wander";
+function startGardenCanonicalAfternoonRestChatApproach(
+  event,
+  targetLoops
+) {
+  if (
+    gardenChatState.mode !==
+      "wander" ||
+    !event ||
+    !Number.isInteger(
+      targetLoops
+    )
+  ) {
+    return false;
+  }
+
+
+  const spot =
+    getGardenAfternoonRestChatSpot(
+      event
+    );
+
+
+  const pairPlan =
+    createGardenAfternoonRestChatApproachPlans(
+      event
+    );
+
+
+  if (
+    !spot ||
+    !pairPlan
+  ) {
+    return false;
+  }
+
+
+  gardenChatState.mode =
+    "approachChat";
+
+
+  gardenChatState.approachSpot =
+    spot;
+
+
+  /*
+    Legacy watchdog only。
+
+    Spatial timing 完全由
+    canonical pair plan 控制。
+  */
+  gardenChatState.approachStartedAt =
+    performance.now();
+
+
+  gardenChatState.canonicalApproachPlan =
+    pairPlan;
+
+
+  /*
+    Afternoon Rest Chat 結束後
+    必須回 REST，
+    不能像 Night Chat 一樣回 Wander。
+  */
+  gardenChatState.resumeActivity =
+    GARDEN_CHARACTER_ACTIVITY
+      .REST;
+
+
+  gardenChatState.pendingTargetLoops =
+    resolveGardenChatTargetLoops(
+      targetLoops
+    );
+
+
+  gardenChatState.currentSpotName =
+    spot.name ??
+    "afternoon-rest";
 
 
   setGardenPairActivity(
     GARDEN_CHARACTER_ACTIVITY
-      .WANDER
+      .CHAT,
+    {
+      phase:
+        "approach",
+
+      sceneId:
+        "courtyard",
+
+      eventId:
+        event.id,
+
+      canonical:
+        true,
+
+      parentActivity:
+        GARDEN_CHARACTER_ACTIVITY
+          .REST,
+    }
+  );
+
+
+  resetGardenTalkEndFlags();
+
+
+  chifuyuWalkTestState.path =
+    [];
+
+  chifuyuWalkTestState.isMoving =
+    false;
+
+
+  chinatsuWalkTestState.path =
+    [];
+
+  chinatsuWalkTestState.isMoving =
+    false;
+
+
+  chifuyuAutoWalkState.wasMoving =
+    false;
+
+  chinatsuAutoWalkState.wasMoving =
+    false;
+
+
+  return true;
+}
+
+
+window.testGardenChatApproach = function () {
+  return startGardenChatApproach(performance.now());
+};
+
+function cancelGardenChatApproach(
+  now = performance.now()
+) {
+  const resumeActivity =
+    gardenChatState
+      .resumeActivity ??
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER;
+
+
+  gardenChatState.mode =
+    "wander";
+
+
+  setGardenPairActivity(
+    resumeActivity
   );
 
 
@@ -26303,6 +26448,9 @@ function cancelGardenChatApproach(now = performance.now()) {
 gardenChatState.approachStartedAt = 0;
 
 gardenChatState.canonicalApproachPlan =
+  null;
+
+  gardenChatState.resumeActivity =
   null;
 
 gardenChatState.pendingTargetLoops =
@@ -26352,11 +26500,11 @@ function updateGardenChatApproach(now = performance.now()) {
       getGardenWorldNow();
 
 
-    const canonicalResolution =
-      resolveGardenMoonBridgeNightChatApproachPlans(
-        canonicalPairPlan,
-        canonicalTimestamp
-      );
+   const canonicalResolution =
+  resolveGardenCanonicalChatApproachPairPlan(
+    canonicalPairPlan,
+    canonicalTimestamp
+  );
 
 
     if (!canonicalResolution) {
@@ -27205,83 +27353,241 @@ function endGardenChat(now = performance.now()) {
     getGardenWorldNow();
 
 
-  const chifuyuContinuity =
-    createGardenWanderContinuityFromCurrentPosition(
-      "chifuyu",
-      canonicalEndedAt
-    );
-
-
-  const chinatsuContinuity =
-    createGardenWanderContinuityFromCurrentPosition(
-      "chinatsu",
-      canonicalEndedAt
-    );
-
-
-  gardenChatState.mode = "wander";
-
-
-  setGardenPairActivity(
+  const resumeActivity =
+    gardenChatState
+      .resumeActivity ??
     GARDEN_CHARACTER_ACTIVITY
-      .WANDER
-  );
+      .WANDER;
 
 
-  gardenCharacterWorldState
-    .chifuyu
-    .wanderContinuity =
-      chifuyuContinuity;
+  /*
+    Chat Runtime 結束。
+
+    mode = wander 在這裡代表
+    「Chat 系統已空閒」，
+    不代表角色 World Activity
+    一定是 WANDER。
+  */
+  gardenChatState.mode =
+    "wander";
 
 
-  gardenCharacterWorldState
-    .chinatsu
-    .wanderContinuity =
-      chinatsuContinuity;
+  if (
+    resumeActivity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .REST
+  ) {
+    /*
+      =========================
+      Afternoon Rest Chat
+      =========================
+
+      CHAT
+      → REST
+      → 各自走回原本 Rest Spot
+    */
+
+    gardenCharacterWorldState
+      .chifuyu
+      .wanderContinuity =
+        null;
+
+    gardenCharacterWorldState
+      .chinatsu
+      .wanderContinuity =
+        null;
 
 
-  gardenChatState.targetLoops = 0;
+    const chifuyuRestPlan =
+      startGardenCharacterActivitySpotApproach(
+        "chifuyu",
+        {
+          sceneId:
+            "courtyard",
 
-gardenChatState.approachSpot = null;
-gardenChatState.approachStartedAt = 0;
+          spotId:
+            "courtyard-rest-01",
 
-gardenChatState.pendingTargetLoops =
-  null;
+          activityId:
+            GARDEN_CHARACTER_ACTIVITY
+              .REST,
 
-gardenChatState.currentSpotName = "";
+          startedAt:
+            canonicalEndedAt,
+        }
+      );
+
+
+    const chinatsuRestPlan =
+      startGardenCharacterActivitySpotApproach(
+        "chinatsu",
+        {
+          sceneId:
+            "courtyard",
+
+          spotId:
+            "courtyard-rest-02",
+
+          activityId:
+            GARDEN_CHARACTER_ACTIVITY
+              .REST,
+
+          startedAt:
+            canonicalEndedAt,
+        }
+      );
+
+
+    /*
+      理論上兩個 plan 都應成功。
+
+      若未來場景資料異常，
+      至少不能把角色留在 CHAT。
+    */
+    if (
+      !chifuyuRestPlan ||
+      !chinatsuRestPlan
+    ) {
+      setGardenPairActivity(
+        GARDEN_CHARACTER_ACTIVITY
+          .REST
+      );
+    }
+  } else {
+    /*
+      =========================
+      Night / Natural Chat
+      =========================
+
+      保留原本：
+      CHAT → WANDER
+    */
+
+    const chifuyuContinuity =
+      createGardenWanderContinuityFromCurrentPosition(
+        "chifuyu",
+        canonicalEndedAt
+      );
+
+
+    const chinatsuContinuity =
+      createGardenWanderContinuityFromCurrentPosition(
+        "chinatsu",
+        canonicalEndedAt
+      );
+
+
+    setGardenPairActivity(
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER
+    );
+
+
+    gardenCharacterWorldState
+      .chifuyu
+      .wanderContinuity =
+        chifuyuContinuity;
+
+
+   gardenCharacterWorldState
+  .chinatsu
+  .wanderContinuity =
+    chinatsuContinuity;
+  }
+
+
+  /*
+    =========================
+    Chat Common Cleanup
+    =========================
+  */
+
+  gardenChatState.targetLoops =
+    0;
+
+
+  gardenChatState.approachSpot =
+    null;
+
+
+  gardenChatState.approachStartedAt =
+    0;
+
+
+  gardenChatState.canonicalApproachPlan =
+    null;
+
+
+  gardenChatState.resumeActivity =
+    null;
+
+
+  gardenChatState.pendingTargetLoops =
+    null;
+
+
+  gardenChatState.currentSpotName =
+    "";
+
 
   resetGardenTalkEndFlags();
 
-  chifuyuWalkTestState.path = [];
-  chifuyuWalkTestState.isMoving = false;
 
-  chinatsuWalkTestState.path = [];
-  chinatsuWalkTestState.isMoving = false;
+  chifuyuWalkTestState.path =
+    [];
 
- setGardenCharacterAnimationMode(
-  "chifuyu",
-  "idle",
-  true
-);
+  chifuyuWalkTestState.isMoving =
+    false;
 
-setGardenCharacterAnimationMode(
-  "chinatsu",
-  "idle",
-  true
-);
 
-  chifuyuAutoWalkState.wasMoving = false;
-  chinatsuAutoWalkState.wasMoving = false;
+  chinatsuWalkTestState.path =
+    [];
+
+  chinatsuWalkTestState.isMoving =
+    false;
+
+
+  setGardenCharacterAnimationMode(
+    "chifuyu",
+    "idle",
+    true
+  );
+
+
+  setGardenCharacterAnimationMode(
+    "chinatsu",
+    "idle",
+    true
+  );
+
+
+  chifuyuAutoWalkState.wasMoving =
+    false;
+
+  chinatsuAutoWalkState.wasMoving =
+    false;
+
 
   chifuyuAutoWalkState.nextMoveTime =
-    now + randomBetween(GARDEN_AFTER_CHAT_IDLE_MIN_MS, GARDEN_AFTER_CHAT_IDLE_MAX_MS);
+    now +
+    randomBetween(
+      GARDEN_AFTER_CHAT_IDLE_MIN_MS,
+      GARDEN_AFTER_CHAT_IDLE_MAX_MS
+    );
+
 
   chinatsuAutoWalkState.nextMoveTime =
-    now + randomBetween(GARDEN_AFTER_CHAT_IDLE_MIN_MS, GARDEN_AFTER_CHAT_IDLE_MAX_MS);
+    now +
+    randomBetween(
+      GARDEN_AFTER_CHAT_IDLE_MIN_MS,
+      GARDEN_AFTER_CHAT_IDLE_MAX_MS
+    );
 
-  scheduleNextGardenChatCheck(now + 9000);
+
+  scheduleNextGardenChatCheck(
+    now + 9000
+  );
 }
-
 
 
 function canStartNaturalGardenChat() {
@@ -39743,6 +40049,11 @@ function runGardenWorldLiveTick() {
   }
 
 
+tryStartGardenAfternoonRestChat(
+  timestamp
+);
+
+
   /*
     Reconciliation 完成後，
     才嘗試 deterministic
@@ -46636,23 +46947,25 @@ function createGardenMoonBridgeNightChatApproachPlans(
 
 
   return Object.freeze({
-    eventId:
-      event.id,
+  routineId:
+    "moonBridgeNightChat",
 
-    startedAt,
+  eventId:
+    event.id,
 
-    completedAt,
+  startedAt,
 
-    spotName:
-      spot.name ??
-      null,
+  completedAt,
 
-    chifuyu:
-      chifuyuPlan,
+  spotName:
+    spot.name ?? null,
 
-    chinatsu:
-      chinatsuPlan,
-  });
+  chifuyu:
+    chifuyuPlan,
+
+  chinatsu:
+    chinatsuPlan,
+});
 }
 
 
@@ -46960,10 +47273,10 @@ function updateGardenCanonicalChatApproachRuntime(
 
 
   const resolution =
-    resolveGardenMoonBridgeNightChatApproachPlans(
-      pairPlan,
-      timestamp
-    );
+  resolveGardenCanonicalChatApproachPairPlan(
+    pairPlan,
+    timestamp
+  );
 
 
   /*
@@ -47704,6 +48017,477 @@ const gardenMoonBridgeNightChatEventLedger = {
     null,
 };
 
+/* =========================
+   Afternoon Rest Chat Event Ledger
+========================= */
+
+const gardenAfternoonRestChatEventLedger = {
+  lastConsumedEventKey:
+    null,
+};
+
+
+function getGardenAfternoonRestChatEventKey(
+  event
+) {
+  const sourceDateKey =
+    event?.sourceDateKey ??
+    event?.dateKey ??
+    null;
+
+
+  const eventId =
+    event?.id ??
+    null;
+
+
+  if (
+    typeof sourceDateKey !==
+      "string" ||
+    !sourceDateKey ||
+    typeof eventId !==
+      "string" ||
+    !eventId
+  ) {
+    return null;
+  }
+
+
+  return (
+    `${sourceDateKey}::${eventId}`
+  );
+}
+
+
+function isGardenAfternoonRestChatEventConsumed(
+  event
+) {
+  const key =
+    getGardenAfternoonRestChatEventKey(
+      event
+    );
+
+
+  if (!key) {
+    return false;
+  }
+
+
+  return (
+    gardenAfternoonRestChatEventLedger
+      .lastConsumedEventKey ===
+    key
+  );
+}
+
+
+function consumeGardenAfternoonRestChatEvent(
+  event
+) {
+  const key =
+    getGardenAfternoonRestChatEventKey(
+      event
+    );
+
+
+  if (!key) {
+    return null;
+  }
+
+
+  gardenAfternoonRestChatEventLedger
+    .lastConsumedEventKey =
+      key;
+
+
+  return key;
+}
+
+function tryStartGardenAfternoonRestChat(
+  timestamp =
+    getGardenWorldNow()
+) {
+  /*
+    ① 必須命中今天 deterministic
+       Afternoon Rest Chat event。
+  */
+  const event =
+    getGardenAfternoonRestChatTriggerAtTimestamp(
+      timestamp
+    );
+
+
+  if (!event) {
+    return Object.freeze({
+      started:
+        false,
+
+      reason:
+        "noChatEvent",
+    });
+  }
+
+
+  /*
+    ② 同一 event 不重播。
+  */
+  if (
+    isGardenAfternoonRestChatEventConsumed(
+      event
+    )
+  ) {
+    return Object.freeze({
+      started:
+        false,
+
+      reason:
+        "alreadyConsumed",
+
+      event,
+    });
+  }
+
+
+  /*
+    ③ Chat Runtime 必須空閒。
+  */
+  if (
+    gardenChatState.mode !==
+      "wander"
+  ) {
+    return Object.freeze({
+      started:
+        false,
+
+      reason:
+        "chatRuntimeBusy",
+
+      event,
+    });
+  }
+
+
+  /*
+    ④ 兩人必須真的一起在 courtyard。
+  */
+  if (
+    getGardenSharedCharacterSceneId() !==
+      "courtyard"
+  ) {
+    return Object.freeze({
+      started:
+        false,
+
+      reason:
+        "charactersNotTogetherAtCourtyard",
+
+      event,
+    });
+  }
+
+
+  /*
+    ⑤ 兩人 Runtime Activity
+       都必須仍然是 REST。
+
+    任何 Travel / Wander /
+    其他活動都不能被強制打斷。
+  */
+  if (
+    gardenCharacterWorldState
+      .chifuyu
+      ?.activity !==
+        GARDEN_CHARACTER_ACTIVITY
+          .REST ||
+    gardenCharacterWorldState
+      .chinatsu
+      ?.activity !==
+        GARDEN_CHARACTER_ACTIVITY
+          .REST
+  ) {
+    return Object.freeze({
+      started:
+        false,
+
+      reason:
+        "charactersNotResting",
+
+      event,
+    });
+  }
+
+
+  /*
+    ⑥ 必須已經真的抵達
+       各自 Activity Spot。
+
+    Activity Spot Approach 完成後
+    這個欄位會被清成 null。
+  */
+  if (
+    gardenCharacterWorldState
+      .chifuyu
+      ?.activitySpotApproach ||
+    gardenCharacterWorldState
+      .chinatsu
+      ?.activitySpotApproach
+  ) {
+    return Object.freeze({
+      started:
+        false,
+
+      reason:
+        "restSpotApproachStillActive",
+
+      event,
+    });
+  }
+
+
+  /*
+    Travel 也必須完全結束。
+  */
+  if (
+    gardenCharacterWorldState
+      .chifuyu
+      ?.travel ||
+    gardenCharacterWorldState
+      .chinatsu
+      ?.travel
+  ) {
+    return Object.freeze({
+      started:
+        false,
+
+      reason:
+        "characterTravelStillActive",
+
+      event,
+    });
+  }
+
+
+  /*
+    ⑦ 正式 Schedule 必須仍然是
+       兩人的 Afternoon Rest。
+
+    避免未來更高 priority 的
+    Schedule 已經接管角色，
+    但 Chat 還硬插進來。
+  */
+  const schedules =
+    provideGardenOfficialWorldSchedules(
+      timestamp
+    );
+
+
+  const worldPoint =
+    getGardenScheduleWorldPoint(
+      timestamp
+    );
+
+
+  if (
+    !worldPoint ||
+    schedules.length === 0
+  ) {
+    return Object.freeze({
+      started:
+        false,
+
+      reason:
+        "scheduleUnavailable",
+
+      event,
+    });
+  }
+
+
+  const chifuyuResolution =
+    resolveGardenCharacterScheduleAtWorldPoint(
+      schedules,
+      "chifuyu",
+      worldPoint
+    );
+
+
+  const chinatsuResolution =
+    resolveGardenCharacterScheduleAtWorldPoint(
+      schedules,
+      "chinatsu",
+      worldPoint
+    );
+
+
+  const chifuyuEntry =
+    chifuyuResolution
+      ?.activeEntry ??
+    null;
+
+
+  const chinatsuEntry =
+    chinatsuResolution
+      ?.activeEntry ??
+    null;
+
+
+  const chifuyuAfternoonRest =
+    chifuyuEntry
+      ?.intentId ===
+        "afternoonRest" &&
+    chifuyuEntry
+      ?.target
+      ?.sceneId ===
+        "courtyard" &&
+    chifuyuEntry
+      ?.target
+      ?.spotId ===
+        "courtyard-rest-01";
+
+
+  const chinatsuAfternoonRest =
+    chinatsuEntry
+      ?.intentId ===
+        "afternoonRest" &&
+    chinatsuEntry
+      ?.target
+      ?.sceneId ===
+        "courtyard" &&
+    chinatsuEntry
+      ?.target
+      ?.spotId ===
+        "courtyard-rest-02";
+
+
+  if (
+    !chifuyuAfternoonRest ||
+    !chinatsuAfternoonRest
+  ) {
+    return Object.freeze({
+      started:
+        false,
+
+      reason:
+        "afternoonRestScheduleNotActive",
+
+      event,
+    });
+  }
+
+
+  /*
+    ⑧ deterministic spot + loops。
+  */
+  const spot =
+    getGardenAfternoonRestChatSpot(
+      event
+    );
+
+
+  const sourceDateKey =
+    event.sourceDateKey ??
+    event.dateKey;
+
+
+  const targetLoops =
+    getGardenAfternoonRestChatLoopCount(
+      sourceDateKey,
+      event.id
+    );
+
+
+  if (
+    !spot ||
+    !Number.isInteger(
+      targetLoops
+    )
+  ) {
+    return Object.freeze({
+      started:
+        false,
+
+      reason:
+        "chatPlanUnavailable",
+
+      event,
+    });
+  }
+
+
+  /*
+    ⑨ 啟動 Canonical
+       Afternoon Rest Approach。
+  */
+  const started =
+    startGardenCanonicalAfternoonRestChatApproach(
+      event,
+      targetLoops
+    );
+
+
+  if (!started) {
+    /*
+      啟動失敗絕不 consume。
+      同一分鐘內仍可再次嘗試。
+    */
+    return Object.freeze({
+      started:
+        false,
+
+      reason:
+        "approachStartFailed",
+
+      event,
+
+      spotName:
+        spot.name ??
+        null,
+
+      targetLoops,
+    });
+  }
+
+
+  /*
+    ⑩ 只有真正成功啟動後
+       才 consume。
+  */
+  const consumedEventKey =
+    consumeGardenAfternoonRestChatEvent(
+      event
+    );
+
+
+  /*
+    立刻持久化 ledger。
+  */
+  saveGardenWorldState(
+    "afternoonRestChatConsumed"
+  );
+
+
+  return Object.freeze({
+    started:
+      true,
+
+    reason:
+      "started",
+
+    event,
+
+    consumedEventKey,
+
+    spotName:
+      spot.name ??
+      null,
+
+    targetLoops,
+
+    resumeActivity:
+      GARDEN_CHARACTER_ACTIVITY
+        .REST,
+  });
+}
 
 function getGardenMoonBridgeNightChatEventKey(
   event
@@ -48489,6 +49273,882 @@ function generateGardenOfficialDailySchedule(
     )
   );
 }
+
+
+/* =========================
+   Afternoon Rest Overlap
+========================= */
+
+function getGardenAfternoonRestOverlap(
+  dateKey
+) {
+  if (
+    typeof dateKey !==
+      "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      dateKey
+    )
+  ) {
+    return null;
+  }
+
+
+  const schedule =
+    generateGardenOfficialDailySchedule(
+      dateKey
+    );
+
+
+  if (
+    !isValidGardenDailySchedule(
+      schedule
+    )
+  ) {
+    return null;
+  }
+
+
+  const chifuyu =
+    schedule.entries.find(
+      (entry) =>
+        entry.definitionId ===
+        "official-chifuyu-afternoon-rest"
+    ) ??
+    null;
+
+
+  const chinatsu =
+    schedule.entries.find(
+      (entry) =>
+        entry.definitionId ===
+        "official-chinatsu-afternoon-rest"
+    ) ??
+    null;
+
+
+  if (
+    !chifuyu ||
+    !chinatsu ||
+    !Number.isFinite(
+      chifuyu.start
+        ?.timelineMinute
+    ) ||
+    !Number.isFinite(
+      chifuyu.end
+        ?.timelineMinute
+    ) ||
+    !Number.isFinite(
+      chinatsu.start
+        ?.timelineMinute
+    ) ||
+    !Number.isFinite(
+      chinatsu.end
+        ?.timelineMinute
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    共同休息：
+
+    later start
+    →
+    earlier end
+  */
+  const startTimelineMinute =
+    Math.max(
+      chifuyu.start
+        .timelineMinute,
+
+      chinatsu.start
+        .timelineMinute
+    );
+
+
+  const endTimelineMinute =
+    Math.min(
+      chifuyu.end
+        .timelineMinute,
+
+      chinatsu.end
+        .timelineMinute
+    );
+
+
+  const durationMinutes =
+    Math.max(
+      0,
+      endTimelineMinute -
+        startTimelineMinute
+    );
+
+
+  return Object.freeze({
+    dateKey,
+
+    hasOverlap:
+      durationMinutes > 0,
+
+    startTimelineMinute,
+
+    endTimelineMinute,
+
+    durationMinutes,
+
+    chifuyu:
+      Object.freeze({
+        startTimelineMinute:
+          chifuyu.start
+            .timelineMinute,
+
+        endTimelineMinute:
+          chifuyu.end
+            .timelineMinute,
+      }),
+
+    chinatsu:
+      Object.freeze({
+        startTimelineMinute:
+          chinatsu.start
+            .timelineMinute,
+
+        endTimelineMinute:
+          chinatsu.end
+            .timelineMinute,
+      }),
+  });
+}
+
+/* =========================
+   Afternoon Rest Chat Timeline
+========================= */
+
+function getGardenAfternoonRestChatTimeline(
+  dateKey
+) {
+  const overlap =
+    getGardenAfternoonRestOverlap(
+      dateKey
+    );
+
+
+  if (
+    !overlap ||
+    !overlap.hasOverlap
+  ) {
+    return Object.freeze([]);
+  }
+
+
+  /*
+    太短的共同休息不安排聊天。
+  */
+ if (
+  overlap.durationMinutes <
+  5
+) {
+  return Object.freeze([]);
+}
+
+
+ const bufferMinutes =
+  1;
+
+
+  const safeStart =
+    overlap.startTimelineMinute +
+    bufferMinutes;
+
+
+  const safeEnd =
+    overlap.endTimelineMinute -
+    bufferMinutes;
+
+
+  if (
+    safeEnd <
+    safeStart
+  ) {
+    return Object.freeze([]);
+  }
+
+
+  /*
+    共同休息夠長時，
+    最多安排兩場。
+
+    12～23 分鐘 → 1 場
+    24 分鐘以上 → 2 場
+  */
+ const eventCount =
+  overlap.durationMinutes >= 20
+    ? 2
+    : 1;
+
+
+  const windows = [];
+
+
+  if (
+    eventCount === 1
+  ) {
+    windows.push({
+      id:
+        "single",
+
+      startTimelineMinute:
+        safeStart,
+
+      endTimelineMinute:
+        safeEnd,
+    });
+  } else {
+    const middle =
+      Math.floor(
+        (
+          safeStart +
+          safeEnd
+        ) / 2
+      );
+
+
+    windows.push(
+      {
+        id:
+          "early",
+
+        startTimelineMinute:
+          safeStart,
+
+        endTimelineMinute:
+          middle,
+      },
+
+      {
+        id:
+          "late",
+
+        startTimelineMinute:
+          middle + 1,
+
+        endTimelineMinute:
+          safeEnd,
+      }
+    );
+  }
+
+
+  const events =
+    windows
+      .map(
+        (
+          window,
+          index
+        ) => {
+          const timelineMinute =
+            getGardenWorldDeterministicInt(
+              window
+                .startTimelineMinute,
+
+              window
+                .endTimelineMinute,
+
+              "officialRoutine",
+
+              GARDEN_OFFICIAL_ROUTINE_VERSION,
+
+              "afternoonRestChat",
+
+              dateKey,
+
+              window.id,
+
+              "start"
+            );
+
+
+          if (
+            !Number.isFinite(
+              timelineMinute
+            )
+          ) {
+            return null;
+          }
+
+
+          const point =
+            splitGardenScheduleTimelineMinute(
+              timelineMinute
+            );
+
+
+          if (!point) {
+            return null;
+          }
+
+
+          return Object.freeze({
+            id:
+              `afternoonRestChat-${window.id}`,
+
+            index,
+
+            dateKey,
+
+            timelineMinute:
+              point.timelineMinute,
+
+            dayOffset:
+              point.dayOffset,
+
+            minuteOfDay:
+              point.minuteOfDay,
+
+            time:
+              point.time,
+          });
+        }
+      )
+      .filter(Boolean);
+
+
+  return Object.freeze(
+    events
+  );
+}
+
+
+function getGardenAfternoonRestChatEventStartedAt(
+  event
+) {
+  if (
+    !event ||
+    typeof event.dateKey !==
+      "string" ||
+    !Number.isFinite(
+      event.timelineMinute
+    )
+  ) {
+    return null;
+  }
+
+
+  return (
+    getGardenTimelineTimestamp(
+      event.dateKey,
+      event.timelineMinute,
+      0
+    )
+  );
+}
+
+
+function getGardenAfternoonRestChatTriggerAtTimestamp(
+  timestamp =
+    getGardenWorldNow()
+) {
+  const calendar =
+    getGardenWorldCalendarParts(
+      timestamp
+    );
+
+
+  if (!calendar) {
+    return null;
+  }
+
+
+  /*
+    Afternoon Rest 不跨午夜，
+    所以只檢查目前這一天。
+  */
+  const dateKey =
+    calendar.dateKey;
+
+
+  const events =
+    getGardenAfternoonRestChatTimeline(
+      dateKey
+    );
+
+
+  const matched =
+    events.find(
+      (event) =>
+        event.timelineMinute ===
+        calendar.minuteOfDay
+    ) ??
+    null;
+
+
+  if (!matched) {
+    return null;
+  }
+
+
+  const startedAt =
+    getGardenAfternoonRestChatEventStartedAt(
+      matched
+    );
+
+
+  if (
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    ...matched,
+
+    sourceDateKey:
+      dateKey,
+
+    worldDateKey:
+      calendar.dateKey,
+
+    worldTime:
+      calendar.timeKey,
+
+    startedAt,
+  });
+}
+
+function getGardenAfternoonRestChatSpot(
+  event
+) {
+  if (!event) {
+    return null;
+  }
+
+
+  const sourceDateKey =
+    event.sourceDateKey ??
+    event.dateKey ??
+    null;
+
+
+  const eventId =
+    event.id ??
+    null;
+
+
+  if (
+    typeof sourceDateKey !==
+      "string" ||
+    !sourceDateKey ||
+    typeof eventId !==
+      "string" ||
+    !eventId
+  ) {
+    return null;
+  }
+
+
+  const validSpots =
+    GARDEN_CHAT_SPOTS.filter(
+      (spot) =>
+        isGardenChatSpotValidInScene(
+          "courtyard",
+          spot
+        )
+    );
+
+
+  if (
+    validSpots.length === 0
+  ) {
+    return null;
+  }
+
+
+  return (
+    pickGardenWorldDeterministic(
+      validSpots,
+
+      "officialRoutine",
+
+      GARDEN_OFFICIAL_ROUTINE_VERSION,
+
+      "afternoonRestChat",
+
+      sourceDateKey,
+
+      eventId,
+
+      "chatSpot"
+    )
+  );
+}
+
+
+function getGardenAfternoonRestChatLoopCount(
+  dateKey,
+  eventId
+) {
+  if (
+    typeof dateKey !==
+      "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      dateKey
+    ) ||
+    typeof eventId !==
+      "string" ||
+    !eventId
+  ) {
+    return null;
+  }
+
+
+  /*
+    午後休息聊天刻意比
+    Night Chat 稍短：
+    2 ～ 3 loops。
+  */
+  return (
+    getGardenWorldDeterministicInt(
+      2,
+      3,
+
+      "officialRoutine",
+
+      GARDEN_OFFICIAL_ROUTINE_VERSION,
+
+      "afternoonRestChat",
+
+      dateKey,
+
+      eventId,
+
+      "loopCount"
+    )
+  );
+}
+
+
+function createGardenAfternoonRestChatApproachPlans(
+  event
+) {
+  if (!event) {
+    return null;
+  }
+
+
+  const startedAt =
+    getGardenAfternoonRestChatEventStartedAt(
+      event
+    );
+
+
+  if (
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  const spot =
+    getGardenAfternoonRestChatSpot(
+      event
+    );
+
+
+  if (
+    !spot?.chifuyu ||
+    !spot?.chinatsu
+  ) {
+    return null;
+  }
+
+
+  /*
+    午後聊天不是從 Wander 出發。
+
+    起點必須是兩人的正式
+    Afternoon Rest Activity Spot。
+  */
+  const chifuyuRestSpot =
+    getGardenActivitySpot(
+      "courtyard",
+      "courtyard-rest-01",
+      GARDEN_CHARACTER_ACTIVITY
+        .REST
+    );
+
+
+  const chinatsuRestSpot =
+    getGardenActivitySpot(
+      "courtyard",
+      "courtyard-rest-02",
+      GARDEN_CHARACTER_ACTIVITY
+        .REST
+    );
+
+
+  if (
+    !chifuyuRestSpot ||
+    !chinatsuRestSpot
+  ) {
+    return null;
+  }
+
+
+  const chifuyuPlan =
+    createGardenCanonicalEventApproachPlan({
+      characterId:
+        "chifuyu",
+
+      sceneId:
+        "courtyard",
+
+      eventId:
+        event.id,
+
+      startPoint: {
+        x:
+          chifuyuRestSpot.x,
+
+        y:
+          chifuyuRestSpot.y,
+      },
+
+      startDirection:
+        chifuyuRestSpot.direction,
+
+      targetPoint: {
+        x:
+          spot.chifuyu.x,
+
+        y:
+          spot.chifuyu.y,
+      },
+
+      targetDirection:
+        spot.chifuyu.direction,
+
+      startedAt,
+    });
+
+
+  const chinatsuPlan =
+    createGardenCanonicalEventApproachPlan({
+      characterId:
+        "chinatsu",
+
+      sceneId:
+        "courtyard",
+
+      eventId:
+        event.id,
+
+      startPoint: {
+        x:
+          chinatsuRestSpot.x,
+
+        y:
+          chinatsuRestSpot.y,
+      },
+
+      startDirection:
+        chinatsuRestSpot.direction,
+
+      targetPoint: {
+        x:
+          spot.chinatsu.x,
+
+        y:
+          spot.chinatsu.y,
+      },
+
+      targetDirection:
+        spot.chinatsu.direction,
+
+      startedAt,
+    });
+
+
+  if (
+    !chifuyuPlan ||
+    !chinatsuPlan
+  ) {
+    return null;
+  }
+
+
+  const completedAt =
+    Math.max(
+      chifuyuPlan.endsAt,
+      chinatsuPlan.endsAt
+    );
+
+
+return Object.freeze({
+  routineId:
+    "afternoonRestChat",
+
+  eventId:
+    event.id,
+
+  sourceDateKey:
+      event.sourceDateKey ??
+      event.dateKey ??
+      null,
+
+    sceneId:
+      "courtyard",
+
+    parentActivity:
+      GARDEN_CHARACTER_ACTIVITY
+        .REST,
+
+    startedAt,
+
+    completedAt,
+
+    spotName:
+      spot.name ??
+      null,
+
+    chifuyu:
+      chifuyuPlan,
+
+    chinatsu:
+      chinatsuPlan,
+  });
+}
+
+
+
+function resolveGardenAfternoonRestChatApproachPlans(
+  pairPlan,
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !pairPlan ||
+    !pairPlan.chifuyu ||
+    !pairPlan.chinatsu ||
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  const chifuyu =
+    resolveGardenCanonicalEventApproach(
+      pairPlan.chifuyu,
+      timestamp
+    );
+
+
+  const chinatsu =
+    resolveGardenCanonicalEventApproach(
+      pairPlan.chinatsu,
+      timestamp
+    );
+
+
+  if (
+    !chifuyu ||
+    !chinatsu
+  ) {
+    return null;
+  }
+
+
+  const completed =
+    chifuyu.completed === true &&
+    chinatsu.completed === true;
+
+
+  return Object.freeze({
+    eventId:
+      pairPlan.eventId,
+
+    sourceDateKey:
+      pairPlan.sourceDateKey ??
+      null,
+
+    sceneId:
+      pairPlan.sceneId ??
+      "courtyard",
+
+    parentActivity:
+      pairPlan.parentActivity ??
+      GARDEN_CHARACTER_ACTIVITY
+        .REST,
+
+    startedAt:
+      pairPlan.startedAt,
+
+    completedAt:
+      pairPlan.completedAt,
+
+    timestamp,
+
+    completed,
+
+    phase:
+      timestamp <
+        pairPlan.startedAt
+        ? "pending"
+        : completed
+          ? "completed"
+          : "approach",
+
+    chifuyu,
+
+    chinatsu,
+  });
+}
+
+
+function resolveGardenCanonicalChatApproachPairPlan(
+  pairPlan,
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (!pairPlan) {
+    return null;
+  }
+
+
+  switch (
+    pairPlan.routineId
+  ) {
+    case "moonBridgeNightChat":
+      return (
+        resolveGardenMoonBridgeNightChatApproachPlans(
+          pairPlan,
+          timestamp
+        )
+      );
+
+
+    case "afternoonRestChat":
+      return (
+        resolveGardenAfternoonRestChatApproachPlans(
+          pairPlan,
+          timestamp
+        )
+      );
+
+
+    default:
+      return null;
+  }
+}
+
+
 
 function provideGardenOfficialWorldSchedules(
   timestamp =
@@ -55314,6 +56974,10 @@ worldEvents: {
   lastMoonBridgeNightChatEventKey:
     gardenMoonBridgeNightChatEventLedger
       .lastConsumedEventKey,
+
+  lastAfternoonRestChatEventKey:
+    gardenAfternoonRestChatEventLedger
+      .lastConsumedEventKey,
 },
 
 
@@ -56381,6 +58045,19 @@ gardenMoonBridgeNightChatEventLedger
 
       : null;
 
+
+      gardenAfternoonRestChatEventLedger
+  .lastConsumedEventKey =
+    typeof snapshot
+      .worldEvents
+      ?.lastAfternoonRestChatEventKey ===
+      "string"
+
+      ? snapshot
+          .worldEvents
+          .lastAfternoonRestChatEventKey
+
+      : null;
 
 
   /*
