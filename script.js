@@ -25242,8 +25242,18 @@ const gardenChatState = {
   */
   ipadFallbackUntil: 0,
 
-  approachSpot: null,
+approachSpot: null,
 approachStartedAt: 0,
+
+/*
+  Canonical Event Approach
+  的雙人固定路徑資料。
+
+  null = 使用舊 Local Approach /
+         目前沒有 Canonical Approach。
+*/
+canonicalApproachPlan:
+  null,
 
 pendingTargetLoops:
   null,
@@ -25316,10 +25326,13 @@ function clearGardenChatState() {
   gardenChatState.ipadFallbackUntil = 0;
   gardenChatState.shouldEndOnNextFrame = false;
 
-  gardenChatState.approachSpot = null;
-  gardenChatState.approachStartedAt = 0;
+ gardenChatState.approachSpot = null;
+gardenChatState.approachStartedAt = 0;
 
-  gardenChatState.currentSpotName = "";
+gardenChatState.canonicalApproachPlan =
+  null;
+
+gardenChatState.currentSpotName = "";
 
   resetGardenTalkEndFlags();
 
@@ -26142,6 +26155,136 @@ resetGardenTalkEndFlags();
   return true;
 }
 
+
+function startGardenCanonicalChatApproach(
+  event,
+  targetLoops
+) {
+  if (
+    gardenChatState.mode !==
+      "wander" ||
+    !event ||
+    !Number.isInteger(
+      targetLoops
+    )
+  ) {
+    return false;
+  }
+
+
+  const spot =
+    getGardenMoonBridgeNightChatSpot(
+      event
+    );
+
+
+  const pairPlan =
+    createGardenMoonBridgeNightChatApproachPlans(
+      event
+    );
+
+
+  if (
+    !spot ||
+    !pairPlan
+  ) {
+    return false;
+  }
+
+
+  /*
+    正式進入 Chat Approach。
+
+    注意：
+    Spatial movement 不再由
+    performance.now() 決定。
+
+    真正的位置 / 進度全部交給
+    canonicalApproachPlan +
+    Absolute World Timestamp。
+  */
+  gardenChatState.mode =
+    "approachChat";
+
+  gardenChatState.approachSpot =
+    spot;
+
+  /*
+    這個欄位暫時只保留給
+    Legacy timeout watchdog。
+
+    不參與 Canonical movement。
+  */
+  gardenChatState.approachStartedAt =
+    performance.now();
+
+
+  gardenChatState.canonicalApproachPlan =
+    pairPlan;
+
+
+  gardenChatState.pendingTargetLoops =
+    resolveGardenChatTargetLoops(
+      targetLoops
+    );
+
+
+  gardenChatState.currentSpotName =
+    spot.name ??
+    "approach";
+
+
+  setGardenPairActivity(
+    GARDEN_CHARACTER_ACTIVITY
+      .CHAT,
+    {
+      phase:
+        "approach",
+
+      sceneId:
+        "moonBridge",
+
+      eventId:
+        event.id,
+
+      canonical:
+        true,
+    }
+  );
+
+
+  resetGardenTalkEndFlags();
+
+
+  /*
+    Canonical Runtime 已取得
+    Spatial Ownership。
+
+    舊 local path 必須立即清空。
+  */
+  chifuyuWalkTestState.path =
+    [];
+
+  chifuyuWalkTestState.isMoving =
+    false;
+
+  chinatsuWalkTestState.path =
+    [];
+
+  chinatsuWalkTestState.isMoving =
+    false;
+
+
+  chifuyuAutoWalkState.wasMoving =
+    false;
+
+  chinatsuAutoWalkState.wasMoving =
+    false;
+
+
+  return true;
+}
+
 window.testGardenChatApproach = function () {
   return startGardenChatApproach(performance.now());
 };
@@ -26156,12 +26299,14 @@ function cancelGardenChatApproach(now = performance.now()) {
   );
 
 
-  gardenChatState.approachSpot = null;
+ gardenChatState.approachSpot = null;
 gardenChatState.approachStartedAt = 0;
+
+gardenChatState.canonicalApproachPlan =
+  null;
 
 gardenChatState.pendingTargetLoops =
   null;
-
 gardenChatState.currentSpotName = "";
 
   chifuyuWalkTestState.path = [];
@@ -26175,21 +26320,99 @@ gardenChatState.currentSpotName = "";
 }
 
 function updateGardenChatApproach(now = performance.now()) {
-  if (gardenChatState.mode !== "approachChat") return false;
-
   if (
-    now - gardenChatState.approachStartedAt >
-    GARDEN_CHAT_APPROACH_TIMEOUT_MS
+    gardenChatState.mode !==
+      "approachChat"
   ) {
-    cancelGardenChatApproach(now);
     return false;
   }
 
-  // 至少還有一人在走，就繼續 approach
-  if (chifuyuWalkTestState.isMoving) return false;
-  if (chinatsuWalkTestState.isMoving) return false;
 
-  const spot = gardenChatState.approachSpot;
+  const canonicalPairPlan =
+    gardenChatState
+      .canonicalApproachPlan;
+
+
+  /*
+    =========================
+    Canonical Chat Approach
+    =========================
+
+    不使用：
+    - performance.now()
+    - local timeout
+    - local isMoving 作為完成時間
+
+    是否抵達完全由
+    Absolute World Timestamp
+    與 pairPlan.completedAt 決定。
+  */
+  if (canonicalPairPlan) {
+    const canonicalTimestamp =
+      getGardenWorldNow();
+
+
+    const canonicalResolution =
+      resolveGardenMoonBridgeNightChatApproachPlans(
+        canonicalPairPlan,
+        canonicalTimestamp
+      );
+
+
+    if (!canonicalResolution) {
+      cancelGardenChatApproach(now);
+      return false;
+    }
+
+
+    if (
+      canonicalResolution
+        .completed !== true
+    ) {
+      return false;
+    }
+  } else {
+    /*
+      =========================
+      Legacy Chat Approach
+      =========================
+
+      舊測試 / fallback
+      繼續維持原本 local 邏輯。
+    */
+    if (
+      now -
+        gardenChatState
+          .approachStartedAt >
+      GARDEN_CHAT_APPROACH_TIMEOUT_MS
+    ) {
+      cancelGardenChatApproach(
+        now
+      );
+
+      return false;
+    }
+
+
+    // 至少還有一人在走，就繼續 approach
+    if (
+      chifuyuWalkTestState
+        .isMoving
+    ) {
+      return false;
+    }
+
+    if (
+      chinatsuWalkTestState
+        .isMoving
+    ) {
+      return false;
+    }
+  }
+
+
+  const spot =
+    gardenChatState.approachSpot;
 
   if (!spot) {
     cancelGardenChatApproach(now);
@@ -26222,6 +26445,9 @@ gardenChatState.approachSpot =
 
 gardenChatState.approachStartedAt =
   0;
+
+gardenChatState.canonicalApproachPlan =
+  null;
 
 gardenChatState.pendingTargetLoops =
   null;
@@ -28620,6 +28846,21 @@ const canonicalActivitySpotRuntime =
   );
 
 
+/*
+  Canonical Chat Approach
+  使用與 Wander / Travel /
+  Activity Spot 完全相同的
+  Absolute World Timestamp。
+
+  目前只有 canonicalApproachPlan
+  存在時才會取得 ownership。
+*/
+const canonicalChatApproachRuntime =
+  updateGardenCanonicalChatApproachRuntime(
+    canonicalWorldTimestamp
+  );
+
+
 const chifuyuCanonicalSpatialOwned =
   canonicalWanderRuntime
     .chifuyu
@@ -28628,6 +28869,9 @@ const chifuyuCanonicalSpatialOwned =
     .chifuyu
     .owned ||
   canonicalActivitySpotRuntime
+    .chifuyu
+    .owned ||
+  canonicalChatApproachRuntime
     .chifuyu
     .owned;
 
@@ -28641,6 +28885,9 @@ const chinatsuCanonicalSpatialOwned =
     .owned ||
   canonicalActivitySpotRuntime
     .chinatsu
+    .owned ||
+  canonicalChatApproachRuntime
+    .chinatsu
     .owned;
 
 
@@ -28649,7 +28896,7 @@ const chinatsuCanonicalSpatialOwned =
   Spatial Owner 的 Activity，
 
   例如：
-  - Chat Approach
+  - Legacy Chat Approach
   - Legacy fallback
 
   才繼續使用舊 deltaMs
@@ -32141,6 +32388,99 @@ function splitGardenScheduleTimelineMinute(
         minuteOfDay
       ),
   });
+}
+
+
+/*
+  將：
+
+  base dateKey
+  +
+  timelineMinute
+
+  轉成真正的 Garden
+  Absolute World Timestamp。
+
+  支援跨午夜：
+  1440 以上 → 下一天
+  負數      → 前一天
+
+  Garden World 固定使用 JST / +09:00。
+*/
+function getGardenTimelineTimestamp(
+  baseDateKey,
+  timelineMinute,
+  second = 0
+) {
+  if (
+    typeof baseDateKey !==
+      "string" ||
+    !Number.isFinite(
+      timelineMinute
+    ) ||
+    !Number.isInteger(
+      second
+    ) ||
+    second < 0 ||
+    second >= 60
+  ) {
+    return null;
+  }
+
+
+  const point =
+    splitGardenScheduleTimelineMinute(
+      timelineMinute
+    );
+
+
+  if (!point) {
+    return null;
+  }
+
+
+  const effectiveDateKey =
+    shiftGardenScheduleDateKey(
+      baseDateKey,
+      point.dayOffset
+    );
+
+
+  if (!effectiveDateKey) {
+    return null;
+  }
+
+
+  const hour =
+    Math.floor(
+      point.minuteOfDay / 60
+    );
+
+  const minute =
+    point.minuteOfDay % 60;
+
+
+  const pad2 =
+    (value) =>
+      String(value).padStart(
+        2,
+        "0"
+      );
+
+
+  const timestamp =
+    Date.parse(
+      `${effectiveDateKey}T${pad2(hour)}:${pad2(minute)}:${pad2(second)}+09:00`
+    );
+
+
+  return (
+    isValidGardenWorldTimestamp(
+      timestamp
+    )
+      ? timestamp
+      : null
+  );
 }
 
 
@@ -39908,6 +40248,322 @@ function runGardenActivitySpotRegistrySelfTest() {
   return result;
 }
 
+
+/* =========================
+   Canonical Event Approach
+========================= */
+
+const GARDEN_EVENT_APPROACH_SCHEMA =
+  "nanaharaGardenEventApproach";
+
+const GARDEN_EVENT_APPROACH_VERSION =
+  1;
+
+
+function createGardenCanonicalEventApproachPlan({
+  characterId,
+
+  sceneId,
+
+  eventId,
+
+  startPoint,
+
+  startDirection = 1,
+
+  targetPoint,
+
+  targetDirection = 1,
+
+  startedAt =
+    getGardenWorldNow(),
+} = {}) {
+  if (
+    !characterId ||
+    !sceneId ||
+    !eventId ||
+    !startPoint ||
+    !targetPoint ||
+    !Number.isFinite(
+      startPoint.x
+    ) ||
+    !Number.isFinite(
+      startPoint.y
+    ) ||
+    !Number.isFinite(
+      targetPoint.x
+    ) ||
+    !Number.isFinite(
+      targetPoint.y
+    ) ||
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    Event Approach 和玩家目前
+    正在觀看哪個場景無關。
+
+    明確使用角色所在 scene
+    建立固定路徑。
+  */
+  const path =
+    findGardenPath(
+      startPoint,
+      targetPoint,
+      sceneId
+    );
+
+
+  if (!path) {
+    return null;
+  }
+
+
+  /*
+    沿用 Travel 已驗證過的
+    Canonical Path-Time Model。
+
+    因此：
+    同一 startedAt + 同一路徑
+    → 不同裝置會得到相同進度。
+  */
+  const pathRecord =
+    createGardenCanonicalTravelPathRecord(
+      characterId,
+      startPoint,
+      path
+    );
+
+
+  if (!pathRecord) {
+    return null;
+  }
+
+
+  const durationMs =
+    pathRecord.totalDurationMs;
+
+
+  const endsAt =
+    startedAt +
+    durationMs;
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_EVENT_APPROACH_SCHEMA,
+
+    version:
+      GARDEN_EVENT_APPROACH_VERSION,
+
+    characterId,
+
+    sceneId,
+
+    eventId,
+
+    startedAt,
+
+    endsAt,
+
+    durationMs,
+
+    startPoint:
+      Object.freeze({
+        x:
+          startPoint.x,
+
+        y:
+          startPoint.y,
+      }),
+
+startDirection:
+  startDirection === -1
+    ? -1
+    : 1,
+
+
+    targetPoint:
+      Object.freeze({
+        x:
+          targetPoint.x,
+
+        y:
+          targetPoint.y,
+
+        direction:
+          targetDirection === -1
+            ? -1
+            : 1,
+      }),
+
+    path:
+      pathRecord,
+  });
+}
+
+function resolveGardenCanonicalEventApproach(
+  plan,
+
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !plan ||
+    plan.schema !==
+      GARDEN_EVENT_APPROACH_SCHEMA ||
+    plan.version !==
+      GARDEN_EVENT_APPROACH_VERSION ||
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    尚未開始。
+  */
+  if (
+    timestamp <
+    plan.startedAt
+  ) {
+    return Object.freeze({
+      phase:
+        "pending",
+
+      completed:
+        false,
+
+      sceneId:
+        plan.sceneId,
+
+      eventId:
+        plan.eventId,
+
+      x:
+        plan.startPoint.x,
+
+      y:
+        plan.startPoint.y,
+
+      direction:
+  plan.startDirection,
+
+      isMoving:
+        false,
+
+      progress:
+        0,
+    });
+  }
+
+
+  /*
+    已經抵達事件位置。
+  */
+  if (
+    timestamp >=
+    plan.endsAt
+  ) {
+    return Object.freeze({
+      phase:
+        "completed",
+
+      completed:
+        true,
+
+      sceneId:
+        plan.sceneId,
+
+      eventId:
+        plan.eventId,
+
+      x:
+        plan.targetPoint.x,
+
+      y:
+        plan.targetPoint.y,
+
+      direction:
+        plan.targetPoint
+          .direction,
+
+      isMoving:
+        false,
+
+      progress:
+        1,
+    });
+  }
+
+
+  /*
+    Approach 途中。
+
+    直接依：
+    world timestamp - startedAt
+
+    從固定 Canonical Path
+    取出此刻的位置。
+  */
+  const sample =
+    sampleGardenCanonicalTravelPath(
+      plan.path,
+
+      timestamp -
+        plan.startedAt
+    );
+
+
+  if (!sample) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    phase:
+      "approach",
+
+    completed:
+      false,
+
+    sceneId:
+      plan.sceneId,
+
+    eventId:
+      plan.eventId,
+
+    x:
+      sample.x,
+
+    y:
+      sample.y,
+
+   direction:
+  sample.direction ??
+  plan.startDirection,
+
+    isMoving:
+      true,
+
+    progress:
+      sample.progress,
+
+    sample,
+  });
+}
+
+
+
+
+
 /* =========================
    12I-2
    Canonical Activity Spot Approach
@@ -45711,6 +46367,643 @@ function getGardenMoonBridgeNightChatTimeline(
 }
 
 
+function getGardenMoonBridgeNightChatEventStartedAt(
+  event
+) {
+  if (
+    !event ||
+    typeof event.dateKey !==
+      "string" ||
+    !Number.isFinite(
+      event.timelineMinute
+    )
+  ) {
+    return null;
+  }
+
+
+  return (
+    getGardenTimelineTimestamp(
+      event.dateKey,
+      event.timelineMinute,
+      0
+    )
+  );
+}
+
+
+function getGardenMoonBridgeNightChatApproachStartSample(
+  characterId,
+  event
+) {
+  if (
+    characterId !== "chifuyu" &&
+    characterId !== "chinatsu"
+  ) {
+    return null;
+  }
+
+
+  const startedAt =
+    getGardenMoonBridgeNightChatEventStartedAt(
+      event
+    );
+
+
+  if (
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    Night Chat 發生在
+    Moon Bridge Night Walk 中。
+
+    起點不讀目前 Runtime x / y，
+    而是回到 event.startedAt，
+    重新解析那一刻的
+    Canonical Wander position。
+  */
+  const sample =
+    resolveGardenWanderRuntimeSampleAtTimestamp(
+      characterId,
+      "moonBridge",
+      startedAt
+    );
+
+
+  if (!sample) {
+    return null;
+  }
+
+
+  const direction =
+    resolveGardenCanonicalWanderDirection(
+      characterId,
+      sample
+    );
+
+
+  return Object.freeze({
+    characterId,
+
+    sceneId:
+      "moonBridge",
+
+    eventId:
+      event.id,
+
+    startedAt,
+
+    x:
+      sample.x,
+
+    y:
+      sample.y,
+
+    direction:
+      direction === -1
+        ? -1
+        : 1,
+
+    sample,
+  });
+}
+
+
+function createGardenMoonBridgeNightChatApproachPlans(
+  event
+) {
+  if (!event) {
+    return null;
+  }
+
+
+  const startedAt =
+    getGardenMoonBridgeNightChatEventStartedAt(
+      event
+    );
+
+
+  if (
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    聊天位置本身也是 deterministic。
+  */
+  const spot =
+    getGardenMoonBridgeNightChatSpot(
+      event
+    );
+
+
+  if (
+    !spot?.chifuyu ||
+    !spot?.chinatsu
+  ) {
+    return null;
+  }
+
+
+  /*
+    取得事件正式開始那一秒，
+    兩人的 Canonical Wander 位置。
+  */
+  const chifuyuStart =
+    getGardenMoonBridgeNightChatApproachStartSample(
+      "chifuyu",
+      event
+    );
+
+  const chinatsuStart =
+    getGardenMoonBridgeNightChatApproachStartSample(
+      "chinatsu",
+      event
+    );
+
+
+  if (
+    !chifuyuStart ||
+    !chinatsuStart
+  ) {
+    return null;
+  }
+
+
+  const chifuyuPlan =
+    createGardenCanonicalEventApproachPlan({
+      characterId:
+        "chifuyu",
+
+      sceneId:
+        "moonBridge",
+
+      eventId:
+        event.id,
+
+      startPoint: {
+        x:
+          chifuyuStart.x,
+
+        y:
+          chifuyuStart.y,
+      },
+
+      startDirection:
+        chifuyuStart.direction,
+
+      targetPoint: {
+        x:
+          spot.chifuyu.x,
+
+        y:
+          spot.chifuyu.y,
+      },
+
+      targetDirection:
+        spot.chifuyu.direction,
+
+      startedAt,
+    });
+
+
+  const chinatsuPlan =
+    createGardenCanonicalEventApproachPlan({
+      characterId:
+        "chinatsu",
+
+      sceneId:
+        "moonBridge",
+
+      eventId:
+        event.id,
+
+      startPoint: {
+        x:
+          chinatsuStart.x,
+
+        y:
+          chinatsuStart.y,
+      },
+
+      startDirection:
+        chinatsuStart.direction,
+
+      targetPoint: {
+        x:
+          spot.chinatsu.x,
+
+        y:
+          spot.chinatsu.y,
+      },
+
+      targetDirection:
+        spot.chinatsu.direction,
+
+      startedAt,
+    });
+
+
+  if (
+    !chifuyuPlan ||
+    !chinatsuPlan
+  ) {
+    return null;
+  }
+
+
+  /*
+    兩人的距離通常不同。
+
+    所以真正能一起開始聊天的時間，
+    必須等較晚抵達的人。
+  */
+  const completedAt =
+    Math.max(
+      chifuyuPlan.endsAt,
+      chinatsuPlan.endsAt
+    );
+
+
+  return Object.freeze({
+    eventId:
+      event.id,
+
+    startedAt,
+
+    completedAt,
+
+    spotName:
+      spot.name ??
+      null,
+
+    chifuyu:
+      chifuyuPlan,
+
+    chinatsu:
+      chinatsuPlan,
+  });
+}
+
+
+function resolveGardenMoonBridgeNightChatApproachPlans(
+  pairPlan,
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !pairPlan ||
+    !pairPlan.chifuyu ||
+    !pairPlan.chinatsu ||
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  const chifuyu =
+    resolveGardenCanonicalEventApproach(
+      pairPlan.chifuyu,
+      timestamp
+    );
+
+  const chinatsu =
+    resolveGardenCanonicalEventApproach(
+      pairPlan.chinatsu,
+      timestamp
+    );
+
+
+  if (
+    !chifuyu ||
+    !chinatsu
+  ) {
+    return null;
+  }
+
+
+  /*
+    只有兩人都抵達後，
+    Pair Approach 才真正完成。
+
+    某一人先到時，
+    她會停在自己的聊天位置等待另一人。
+  */
+  const completed =
+    chifuyu.completed === true &&
+    chinatsu.completed === true;
+
+
+  return Object.freeze({
+    eventId:
+      pairPlan.eventId,
+
+    startedAt:
+      pairPlan.startedAt,
+
+    completedAt:
+      pairPlan.completedAt,
+
+    timestamp,
+
+    completed,
+
+    phase:
+      timestamp <
+        pairPlan.startedAt
+        ? "pending"
+        : completed
+          ? "completed"
+          : "approach",
+
+    chifuyu,
+
+    chinatsu,
+  });
+}
+
+function applyGardenCanonicalChatApproachRuntimeForCharacter(
+  characterId,
+  pairResolution
+) {
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  if (
+    !runtime?.moveState ||
+    !worldState
+  ) {
+    return Object.freeze({
+      characterId,
+
+      owned:
+        false,
+
+      applied:
+        false,
+
+      completed:
+        false,
+
+      reason:
+        "runtimeUnavailable",
+    });
+  }
+
+
+  const sample =
+    pairResolution?.[
+      characterId
+    ] ??
+    null;
+
+
+  /*
+    Canonical Chat Approach 已取得 ownership。
+
+    舊 local path 必須完全清掉，
+    否則下一幀可能又被
+    deltaMs integrator 推動。
+  */
+  runtime.setPath?.([]);
+
+  runtime.moveState.path =
+    [];
+
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  /*
+    Pair Plan 已存在時，
+    即使某一幀 Resolver 異常，
+    也不能偷偷掉回 local movement。
+  */
+  if (!sample) {
+    runtime.moveState.isMoving =
+      false;
+
+
+    return Object.freeze({
+      characterId,
+
+      owned:
+        true,
+
+      applied:
+        false,
+
+      completed:
+        false,
+
+      reason:
+        "sampleUnavailable",
+    });
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  state.x =
+    sample.x;
+
+  state.y =
+    sample.y;
+
+
+  if (
+    sample.direction === 1 ||
+    sample.direction === -1
+  ) {
+    state.direction =
+      sample.direction;
+  }
+
+
+  state.isMoving =
+    sample.isMoving === true;
+
+
+  if (
+    sample.sceneId
+  ) {
+    worldState.sceneId =
+      sample.sceneId;
+  }
+
+
+  return Object.freeze({
+    characterId,
+
+    owned:
+      true,
+
+    applied:
+      true,
+
+    completed:
+      sample.completed === true,
+
+    reason:
+      sample.completed
+        ? "canonicalChatApproachReached"
+        : "canonicalChatApproach",
+
+    sceneId:
+      worldState.sceneId,
+
+    sample,
+  });
+}
+
+
+
+function updateGardenCanonicalChatApproachRuntime(
+  timestamp =
+    getGardenWorldNow()
+) {
+  const pairPlan =
+    gardenChatState
+      .canonicalApproachPlan;
+
+
+  /*
+    只有正式 Canonical Approach
+    才取得 Spatial Ownership。
+
+    舊測試 Chat / Legacy Chat
+    仍然可以繼續使用 local path。
+  */
+  const active =
+    gardenChatState.mode ===
+      "approachChat" &&
+    !!pairPlan;
+
+
+  if (!active) {
+    return Object.freeze({
+      timestamp,
+
+      active:
+        false,
+
+      completed:
+        false,
+
+      resolution:
+        null,
+
+      chifuyu:
+        Object.freeze({
+          characterId:
+            "chifuyu",
+
+          owned:
+            false,
+
+          applied:
+            false,
+
+          completed:
+            false,
+
+          reason:
+            "notCanonicalChatApproach",
+        }),
+
+      chinatsu:
+        Object.freeze({
+          characterId:
+            "chinatsu",
+
+          owned:
+            false,
+
+          applied:
+            false,
+
+          completed:
+            false,
+
+          reason:
+            "notCanonicalChatApproach",
+        }),
+    });
+  }
+
+
+  const resolution =
+    resolveGardenMoonBridgeNightChatApproachPlans(
+      pairPlan,
+      timestamp
+    );
+
+
+  /*
+    Plan 已經存在，
+    ownership 就不能因單幀
+    Resolver failure 而失效。
+  */
+  const chifuyu =
+    applyGardenCanonicalChatApproachRuntimeForCharacter(
+      "chifuyu",
+      resolution
+    );
+
+  const chinatsu =
+    applyGardenCanonicalChatApproachRuntimeForCharacter(
+      "chinatsu",
+      resolution
+    );
+
+
+  return Object.freeze({
+    timestamp,
+
+    active:
+      true,
+
+    completed:
+      resolution?.completed ===
+        true,
+
+    resolution,
+
+    chifuyu,
+
+    chinatsu,
+  });
+}
+
+
+
 function getGardenMoonBridgeNightChatTriggerAtTimestamp(
   timestamp =
     getGardenWorldNow()
@@ -45845,12 +47138,52 @@ function getGardenMoonBridgeNightChatLoopCount(
 function inspectGardenMoonBridgeNightChatPlan(
   dateKey = null
 ) {
-  const resolvedDateKey =
-    dateKey ??
-    getGardenWorldCalendarParts(
-      getGardenWorldNow()
-    )?.dateKey ??
+ const currentCalendar =
+  getGardenWorldCalendarParts(
+    getGardenWorldNow()
+  );
+
+
+let resolvedDateKey =
+  dateKey;
+
+
+/*
+  沒有手動指定 dateKey 時：
+
+  00:00 ～ 00:59
+  仍屬於前一天 23:00 開始的
+  Moon Bridge Night Routine。
+
+  01:00 之後則回到
+  當天自己的 dateKey。
+*/
+if (
+  resolvedDateKey == null
+) {
+  const currentDateKey =
+    currentCalendar?.dateKey ??
     null;
+
+
+  if (
+    currentDateKey &&
+    Number.isFinite(
+      currentCalendar?.minuteOfDay
+    ) &&
+    currentCalendar.minuteOfDay <
+      60
+  ) {
+    resolvedDateKey =
+      shiftGardenScheduleDateKey(
+        currentDateKey,
+        -1
+      );
+  } else {
+    resolvedDateKey =
+      currentDateKey;
+  }
+}
 
 
   if (
@@ -46712,13 +48045,10 @@ function tryStartGardenMoonBridgeNightChat(
     ⑧ 真正啟動 Approach Chat。
   */
   const started =
-    startGardenChatApproach(
-      performance.now(),
-      {
-        spot,
-        targetLoops,
-      }
-    );
+  startGardenCanonicalChatApproach(
+    event,
+    targetLoops
+  );
 
 
   if (!started) {
