@@ -13624,12 +13624,15 @@ function canGardenCharacterUseCanonicalTravelRuntime(
 
 
   if (
-    worldState.activity !==
-      GARDEN_CHARACTER_ACTIVITY
-        .TRAVEL
-  ) {
-    return false;
-  }
+  getGardenCharacterActivityOwnership(
+    characterId,
+    worldState
+  )?.owner !==
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .TRAVEL
+) {
+  return false;
+}
 
 
   const travel =
@@ -13824,6 +13827,29 @@ function applyGardenCanonicalTravelRuntimeForCharacter(
   }
 
 
+
+/*
+  Canonical Travel 已正式完成。
+
+  如果目前仍有有效 Schedule，
+  立刻接續下一階段，例如：
+
+  Travel
+  → Afternoon Rest
+  → Activity Spot Approach
+
+  不再等待下一次
+  30 秒 World Live Tick。
+*/
+const scheduleContinuation =
+  completion.ok
+    ? continueGardenCharacterScheduleAfterTravel(
+        characterId,
+        timestamp
+      )
+    : null;
+
+
   return Object.freeze({
     characterId,
 
@@ -13853,6 +13879,8 @@ function applyGardenCanonicalTravelRuntimeForCharacter(
     canonicalState,
 
     completion,
+
+    scheduleContinuation,
   });
 }
 
@@ -19074,6 +19102,77 @@ function runGardenTravelSpatialPlanPersistenceSelfTest() {
 
 
 
+function continueGardenCharacterScheduleAfterTravel(
+  characterId,
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !characterId ||
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  if (
+    typeof gardenWorldScheduleProvider !==
+      "function"
+  ) {
+    return null;
+  }
+
+
+  const schedules =
+    gardenWorldScheduleProvider(
+      timestamp
+    );
+
+
+  const safeSchedules =
+    Array.isArray(schedules)
+      ? schedules.filter(
+          isValidGardenDailySchedule
+        )
+      : [];
+
+
+  if (
+    safeSchedules.length ===
+    0
+  ) {
+    return null;
+  }
+
+
+  const worldPoint =
+    getGardenScheduleWorldPoint(
+      timestamp
+    );
+
+
+  if (!worldPoint) {
+    return null;
+  }
+
+
+  return (
+    executeGardenCharacterScheduleAtWorldPoint(
+      safeSchedules,
+      characterId,
+      worldPoint,
+      {
+        worldTimestamp:
+          timestamp,
+      }
+    )
+  );
+}
+
+
+
 /*
   每一幀更新「單一角色」的旅行。
 */
@@ -19244,12 +19343,33 @@ travel.expectedArrivalAt =
     /*
       正式完成旅行。
     */
-    worldState.travel =
-      null;
+   worldState.travel =
+  null;
+
 setGardenCharacterActivity(
   character,
   GARDEN_CHARACTER_ACTIVITY
     .WANDER
+);
+
+runtime.resetAutoWalk();
+
+
+/*
+  Travel 已正式抵達目標 Scene。
+
+  如果目前仍有有效 Schedule，
+  立刻接續下一步，例如：
+
+  Travel
+  → Rest Spot Approach
+
+  不再等待下一次
+  30 秒 World Live Tick。
+*/
+continueGardenCharacterScheduleAfterTravel(
+  character,
+  getGardenWorldNow()
 );
 
     runtime.resetAutoWalk();
@@ -19279,7 +19399,8 @@ setGardenCharacterActivity(
 */
 function travelGardenCharacter(
   character,
-  toSceneId
+  toSceneId,
+  options = null
 ) {
   const worldState =
     gardenCharacterWorldState[
@@ -19490,6 +19611,36 @@ if (!spatialPlan) {
   return false;
 }
 
+const hasTravelOptions =
+  options &&
+  typeof options ===
+    "object" &&
+  !Array.isArray(
+    options
+  );
+
+
+/*
+  Schedule Bridge 可以明確告訴 Travel：
+  「這趟移動底層是為了什麼 Activity」。
+
+  一般手動 Travel 沒有傳入時，
+  則沿用 Travel 開始前角色原本的
+  semantic activity。
+*/
+const semanticActivityId =
+  (
+    hasTravelOptions
+      ? options.semanticActivityId
+      : null
+  ) ??
+  getGardenCharacterSemanticActivityId(
+    character,
+    worldState
+  ) ??
+  null;
+
+
 
 worldState.travel = {
   fromSceneId,
@@ -19548,6 +19699,8 @@ worldState.travel = {
   {
     fromSceneId,
     toSceneId,
+
+    semanticActivityId,
 
     startedAt:
       travelTimeline.startedAt,
@@ -26386,9 +26539,13 @@ function startGardenCanonicalAfternoonRestChatApproach(
       canonical:
         true,
 
-      parentActivity:
-        GARDEN_CHARACTER_ACTIVITY
-          .REST,
+   semanticActivityId:
+  GARDEN_CHARACTER_ACTIVITY
+    .REST,
+
+parentActivity:
+  GARDEN_CHARACTER_ACTIVITY
+    .REST,
     }
   );
 
@@ -26588,6 +26745,20 @@ function updateGardenChatApproach(now = performance.now()) {
     .pendingTargetLoops;
 
 
+const semanticActivityByCharacter =
+  Object.freeze({
+    chifuyu:
+      getGardenCharacterSemanticActivityId(
+        "chifuyu"
+      ),
+
+    chinatsu:
+      getGardenCharacterSemanticActivityId(
+        "chinatsu"
+      ),
+  });
+
+
 gardenChatState.approachSpot =
   null;
 
@@ -26602,14 +26773,16 @@ gardenChatState.pendingTargetLoops =
 
 
 const started =
-  startGardenChat(
-    now,
-    null,
-    {
-      targetLoops:
-        pendingTargetLoops,
-    }
-  );
+ startGardenChat(
+  now,
+  null,
+  {
+    targetLoops:
+      pendingTargetLoops,
+
+    semanticActivityByCharacter,
+  }
+);
 
   if (!started) {
     cancelGardenChatApproach(now);
@@ -27270,6 +27443,16 @@ setGardenPairActivity(
 
     sceneId:
       getGardenSharedCharacterSceneId(),
+
+    semanticActivityByCharacter:
+  options
+    ?.semanticActivityByCharacter ??
+  null,
+
+semanticActivityId:
+  options
+    ?.semanticActivityId ??
+  null,
   }
 );
 
@@ -39260,13 +39443,157 @@ function advanceGardenWorldClockTestBy(
 
 
 function clearGardenWorldClockTestNow() {
+  const previousTestNow =
+    gardenWorldClockTestNow;
+
+
   gardenWorldClockTestNow =
     null;
 
 
+  const realNow =
+    Date.now();
+
+
+  /*
+    =========================
+    Future Test Travel Guard
+    =========================
+
+    如果 Test Clock 曾經跑到
+    真實時間的未來，
+
+    並在那個未來時間建立 Travel，
+    清除 Test Clock 後不能把這趟
+    「尚未發生的 Travel」留下來。
+
+    否則會出現：
+    activity = travel
+    startedAt > realNow
+    → 原地循環 walk。
+  */
+  if (
+    Number.isFinite(
+      previousTestNow
+    ) &&
+    previousTestNow >
+      realNow
+  ) {
+    for (
+      const characterId of
+      Object.keys(
+        gardenCharacterWorldState
+      )
+    ) {
+      const state =
+        gardenCharacterWorldState[
+          characterId
+        ];
+
+      const runtime =
+        getGardenCharacterRuntime(
+          characterId
+        );
+
+
+      const travelStartedAt =
+        state?.travel?.startedAt ??
+        state?.travel?.spatialPlan
+          ?.startedAt ??
+        null;
+
+
+      const hasFutureTravel =
+        !!state?.travel &&
+        isValidGardenWorldTimestamp(
+          travelStartedAt
+        ) &&
+        travelStartedAt >
+          realNow + 1000;
+
+
+      if (!hasFutureTravel) {
+        continue;
+      }
+
+
+      state.travel =
+        null;
+
+      state.wanderContinuity =
+        null;
+
+
+      setGardenCharacterActivity(
+        characterId,
+        GARDEN_CHARACTER_ACTIVITY
+          .WANDER,
+        null
+      );
+
+
+      runtime?.setPath?.([]);
+
+
+      if (
+        runtime?.moveState
+      ) {
+        runtime.moveState.path =
+          [];
+
+        runtime.moveState.isMoving =
+          false;
+      }
+
+
+      if (
+        runtime?.autoState
+      ) {
+        runtime.autoState.wasMoving =
+          false;
+      }
+    }
+  }
+
+
+  /*
+    Test Clock 時可能 seed 過
+    未來 Schedule signature。
+
+    回到真實時間後重新建立基準。
+  */
+  if (
+    typeof resetGardenScheduleBoundaryWatcher ===
+      "function"
+  ) {
+    resetGardenScheduleBoundaryWatcher();
+  }
+
+
+  /*
+    把 Wander Runtime 重新對齊
+    真實 canonical world time。
+  */
+  if (
+    typeof updateGardenCanonicalWanderRuntime ===
+      "function"
+  ) {
+    updateGardenCanonicalWanderRuntime(
+      realNow
+    );
+  }
+
+
+  if (
+    typeof updateGardenCharacterVisibility ===
+      "function"
+  ) {
+    updateGardenCharacterVisibility();
+  }
+
+
   /*
     離開 Test Clock 後，
-    如果玩家正在 Garden，
     立刻同步回正式世界時間的日夜素材。
   */
   if (
@@ -39902,6 +40229,27 @@ const reconciliationResults =
 
 
 /*
+  Resume 已經把正式 World State
+  reconciliation 到目前時間。
+
+  Boundary Watcher 的舊 signature
+  屬於 Suspend 前的觀測結果，
+  不應跨 Resume 繼續沿用。
+
+  下一個 1 秒 Event Tick
+  會重新 seed 現在的 Schedule state。
+*/
+if (
+  typeof resetGardenScheduleBoundaryWatcher ===
+    "function"
+) {
+  resetGardenScheduleBoundaryWatcher();
+}
+
+
+
+
+/*
   完整 Result。
 
   Context 本身仍保持 immutable。
@@ -40082,6 +40430,411 @@ tryStartGardenAfternoonRestChat(
 }
 
 
+
+/* =========================
+   Garden Lightweight Event Tick
+========================= */
+
+const GARDEN_WORLD_EVENT_TICK_MS =
+  1000;
+
+
+/* =========================
+   Garden Schedule Boundary Watcher
+========================= */
+
+const gardenScheduleBoundarySignatureByCharacter =
+  Object.create(null);
+
+
+function getGardenScheduleBoundarySignature(
+  resolution
+) {
+  if (!resolution) {
+    return null;
+  }
+
+
+  const entry =
+    resolution.activeEntry ??
+    null;
+
+
+  if (!entry) {
+    return "gap";
+  }
+
+
+  return [
+  "active",
+
+  resolution.activeScheduleDateKey ??
+    entry.dateKey ??
+    "unknownDate",
+
+  entry.definitionId ??
+    "unknownDefinition",
+
+  entry.intentId ??
+    "unknownIntent",
+
+  entry.instanceId ??
+    "unknownInstance",
+
+  entry.start
+    ?.timelineMinute ??
+    "unknownStart",
+
+  entry.end
+    ?.timelineMinute ??
+    "unknownEnd",
+].join(":");
+}
+
+
+function resetGardenScheduleBoundaryWatcher() {
+  for (
+    const key of
+    Object.keys(
+      gardenScheduleBoundarySignatureByCharacter
+    )
+  ) {
+    delete gardenScheduleBoundarySignatureByCharacter[
+      key
+    ];
+  }
+
+  return true;
+}
+
+
+function runGardenScheduleBoundaryTick(
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    沿用正式 Schedule Provider，
+    不另外建立第二套 Schedule 資料源。
+  */
+  const schedules =
+    getGardenWorldSchedulesFromProvider({
+      resumedAt:
+        timestamp,
+    });
+
+
+  if (
+    schedules.length ===
+    0
+  ) {
+    return Object.freeze({
+      timestamp,
+
+      changed:
+        false,
+
+      reason:
+        "noSchedules",
+
+      results:
+        Object.freeze([]),
+    });
+  }
+
+
+  const worldPoint =
+    getGardenScheduleWorldPoint(
+      timestamp
+    );
+
+
+  if (!worldPoint) {
+    return null;
+  }
+
+
+  const results =
+    [];
+
+
+  for (
+    const characterId of
+    Object.keys(
+      gardenCharacterWorldState
+    )
+  ) {
+    const resolution =
+      resolveGardenCharacterScheduleAtWorldPoint(
+        schedules,
+        characterId,
+        worldPoint
+      );
+
+
+    const signature =
+      getGardenScheduleBoundarySignature(
+        resolution
+      );
+
+
+    if (!signature) {
+      results.push(
+        Object.freeze({
+          characterId,
+
+          changed:
+            false,
+
+          reason:
+            "resolutionUnavailable",
+        })
+      );
+
+      continue;
+    }
+
+
+    const hasPrevious =
+      Object.prototype.hasOwnProperty.call(
+        gardenScheduleBoundarySignatureByCharacter,
+        characterId
+      );
+
+
+    /*
+      第一次只建立基準。
+
+      Cold Start / Resume 本來就有
+      正式 Reconciliation，
+      Boundary Watcher 不重做一次。
+    */
+    if (!hasPrevious) {
+      gardenScheduleBoundarySignatureByCharacter[
+        characterId
+      ] =
+        signature;
+
+
+      results.push(
+        Object.freeze({
+          characterId,
+
+          changed:
+            false,
+
+          reason:
+            "seeded",
+
+          signature,
+        })
+      );
+
+      continue;
+    }
+
+
+    const previousSignature =
+      gardenScheduleBoundarySignatureByCharacter[
+        characterId
+      ];
+
+
+    if (
+      previousSignature ===
+        signature
+    ) {
+      results.push(
+        Object.freeze({
+          characterId,
+
+          changed:
+            false,
+
+          reason:
+            "unchanged",
+
+          signature,
+        })
+      );
+
+      continue;
+    }
+
+
+    /*
+      真正跨過 Schedule Boundary。
+
+      只在這一刻執行一次
+      正式 Schedule Bridge。
+    */
+    const bridgeResult =
+      executeGardenCharacterScheduleAtWorldPoint(
+        schedules,
+        characterId,
+        worldPoint,
+        {
+          worldTimestamp:
+            timestamp,
+        }
+      );
+
+
+    const failed =
+  !bridgeResult ||
+  bridgeResult.execution?.ok ===
+    false;
+
+
+const deferred =
+  bridgeResult?.decision?.action ===
+    GARDEN_SCHEDULE_BRIDGE_ACTION
+      .PRESERVE_RUNTIME;
+
+
+/*
+  只有真正套用 Boundary 後，
+  才更新 signature。
+
+  failed：
+  執行失敗，下一秒重試。
+
+  deferred：
+  目前被 Travel / Chat 等 Runtime
+  暫時佔用，也保持舊 signature，
+  等 Runtime 結束後下一秒再重試。
+*/
+if (
+  !failed &&
+  !deferred
+) {
+  gardenScheduleBoundarySignatureByCharacter[
+    characterId
+  ] =
+    signature;
+}
+
+
+    results.push(
+      Object.freeze({
+        characterId,
+
+        changed:
+          true,
+
+        applied:
+  !failed &&
+  !deferred,
+
+reason:
+  failed
+    ? "boundaryApplyFailed"
+    : deferred
+      ? "boundaryDeferred"
+      : "boundaryApplied",
+
+        previousSignature,
+
+        signature,
+
+        bridgeResult,
+      })
+    );
+  }
+
+
+  return Object.freeze({
+    timestamp,
+
+    changed:
+      results.some(
+        (result) =>
+          result.changed === true
+      ),
+
+    reason:
+      "checked",
+
+    results:
+      Object.freeze(
+        results
+      ),
+  });
+}
+
+
+
+function runGardenWorldEventTick() {
+  /*
+    只負責需要準時開始的
+    deterministic visual events。
+
+    不執行完整 World Reconciliation。
+  */
+
+  if (
+    !isGardenWorldViewActive()
+  ) {
+    return null;
+  }
+
+
+  if (
+    gardenWorldSuspendState
+      .isSuspended
+  ) {
+    return null;
+  }
+
+
+ const timestamp =
+  getGardenWorldNow();
+
+
+const scheduleBoundary =
+  runGardenScheduleBoundaryTick(
+    timestamp
+  );
+
+
+const afternoonRestChat =
+  tryStartGardenAfternoonRestChat(
+    timestamp
+  );
+
+
+  const moonBridgeNightChat =
+    tryStartGardenMoonBridgeNightChat(
+      timestamp
+    );
+
+
+  return Object.freeze({
+  timestamp,
+
+  scheduleBoundary,
+
+  afternoonRestChat,
+
+  moonBridgeNightChat,
+});
+}
+
+
+setInterval(
+  runGardenWorldEventTick,
+  GARDEN_WORLD_EVENT_TICK_MS
+);
+
+
 setInterval(
   runGardenWorldLiveTick,
   GARDEN_WORLD_LIVE_TICK_MS
@@ -40218,6 +40971,769 @@ const gardenCharacterWorldState = {
   travel: null,
 },
 };
+
+
+/* =========================
+   Garden Character Activity Ownership
+========================= */
+
+const GARDEN_CHARACTER_ACTIVITY_OWNER =
+  Object.freeze({
+    WANDER:
+      "wander",
+
+    TRAVEL:
+      "travel",
+
+    CHAT:
+      "chat",
+
+    SCHEDULE:
+      "schedule",
+
+    ACTIVITY:
+      "activity",
+  });
+
+
+function getGardenCharacterActivityOwnership(
+  characterId,
+  worldStateOverride = null
+) {
+ const hasWorldStateOverride =
+  worldStateOverride &&
+  typeof worldStateOverride ===
+    "object" &&
+  !Array.isArray(
+    worldStateOverride
+  );
+
+
+const worldState =
+  hasWorldStateOverride
+    ? worldStateOverride
+    : gardenCharacterWorldState[
+        characterId
+      ];
+
+
+  if (!worldState) {
+    return null;
+  }
+
+
+  const activity =
+    worldState.activity ??
+    null;
+
+
+  const activityData =
+    worldState.activityData ??
+    null;
+
+
+  let owner =
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .ACTIVITY;
+
+
+  /*
+    Travel / Chat 是暫時取得角色
+    Runtime 控制權的高階狀態。
+
+    即使角色原本來自 Schedule Activity，
+    此刻真正控制移動 / 動畫的仍然是
+    Travel 或 Chat。
+  */
+  if (
+    activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .TRAVEL
+  ) {
+    owner =
+      GARDEN_CHARACTER_ACTIVITY_OWNER
+        .TRAVEL;
+  }
+
+  else if (
+    activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .CHAT
+  ) {
+    owner =
+      GARDEN_CHARACTER_ACTIVITY_OWNER
+        .CHAT;
+  }
+
+  /*
+    正式 Schedule Activity。
+
+    例如：
+    REST
+    未來的 tea / meal / reading 等。
+  */
+  else if (
+    activityData?.source ===
+      "schedule"
+  ) {
+    owner =
+      GARDEN_CHARACTER_ACTIVITY_OWNER
+        .SCHEDULE;
+  }
+
+  else if (
+    activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER
+  ) {
+    owner =
+      GARDEN_CHARACTER_ACTIVITY_OWNER
+        .WANDER;
+  }
+
+
+  return Object.freeze({
+    characterId,
+
+    owner,
+
+    activity,
+
+    sceneId:
+      worldState.sceneId ??
+      null,
+
+    source:
+      activityData?.source ??
+      null,
+
+    semanticActivityId:
+      activityData
+        ?.semanticActivityId ??
+      null,
+
+    scheduleDefinitionId:
+      activityData
+        ?.definitionId ??
+      null,
+
+    scheduleInstanceId:
+      activityData
+        ?.instanceId ??
+      null,
+  });
+}
+
+
+function getGardenCharacterSemanticActivityId(
+  characterId,
+  worldStateOverride = null
+) {
+  const hasWorldStateOverride =
+    worldStateOverride &&
+    typeof worldStateOverride ===
+      "object" &&
+    !Array.isArray(
+      worldStateOverride
+    );
+
+
+  const worldState =
+    hasWorldStateOverride
+      ? worldStateOverride
+      : gardenCharacterWorldState[
+          characterId
+        ];
+
+
+  if (!worldState) {
+    return null;
+  }
+
+
+  const ownership =
+    getGardenCharacterActivityOwnership(
+      characterId,
+      worldState
+    );
+
+
+  const activity =
+    worldState.activity ??
+    null;
+
+
+  const activityData =
+    worldState.activityData ??
+    null;
+
+
+  /*
+    正式 Schedule Activity：
+
+    semanticActivityId
+    才是 Schedule 真正想表達的活動。
+  */
+  if (
+    ownership?.owner ===
+      GARDEN_CHARACTER_ACTIVITY_OWNER
+        .SCHEDULE
+  ) {
+    return (
+      activityData
+        ?.semanticActivityId ??
+      activity
+    );
+  }
+
+
+  /*
+    暫時 Chat 可以保留
+    原本底層 Activity。
+
+    Afternoon Rest Chat
+    已經使用 parentActivity。
+  */
+if (
+  ownership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .CHAT
+) {
+  return (
+    activityData
+      ?.semanticActivityByCharacter
+      ?.[characterId] ??
+    activityData
+      ?.semanticActivityId ??
+    activityData
+      ?.parentActivity ??
+    null
+  );
+}
+
+
+  /*
+    Travel 現階段還沒有保存
+    underlying semantic activity。
+
+    不猜測。
+  */
+  if (
+  ownership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .TRAVEL
+) {
+  return (
+    activityData
+      ?.semanticActivityId ??
+    null
+  );
+}
+
+
+  /*
+    一般 Wander / 非 Schedule Activity
+    本身就是目前 semantic activity。
+  */
+  return activity;
+}
+
+
+function runGardenCharacterSemanticActivitySelfTest() {
+  const fakeWanderState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+
+    activityData:
+      null,
+  };
+
+
+  const fakeScheduleRestState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .REST,
+
+    activityData: {
+      source:
+        "schedule",
+
+      semanticActivityId:
+        "rest",
+    },
+  };
+
+
+  /*
+    舊資料或不完整 Schedule Data
+    即使沒有 semanticActivityId，
+    仍應 fallback 到 Runtime Activity。
+  */
+  const fakeScheduleFallbackState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .REST,
+
+    activityData: {
+      source:
+        "schedule",
+    },
+  };
+
+
+  const fakeRestChatState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .CHAT,
+
+    activityData: {
+      phase:
+        "talk",
+
+      parentActivity:
+        GARDEN_CHARACTER_ACTIVITY
+          .REST,
+    },
+  };
+
+
+  const fakeNormalChatState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .CHAT,
+
+    activityData: {
+      phase:
+        "talk",
+    },
+  };
+
+
+  const fakeTravelState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .TRAVEL,
+
+    activityData: {
+      fromSceneId:
+        "courtyard",
+
+      toSceneId:
+        "moonBridge",
+    },
+  };
+
+
+  const wander =
+    getGardenCharacterSemanticActivityId(
+      "chifuyu",
+      fakeWanderState
+    );
+
+
+  const scheduleRest =
+    getGardenCharacterSemanticActivityId(
+      "chifuyu",
+      fakeScheduleRestState
+    );
+
+
+  const scheduleFallback =
+    getGardenCharacterSemanticActivityId(
+      "chifuyu",
+      fakeScheduleFallbackState
+    );
+
+
+  const restChat =
+    getGardenCharacterSemanticActivityId(
+      "chifuyu",
+      fakeRestChatState
+    );
+
+
+  const normalChat =
+    getGardenCharacterSemanticActivityId(
+      "chifuyu",
+      fakeNormalChatState
+    );
+
+
+  const travel =
+    getGardenCharacterSemanticActivityId(
+      "chifuyu",
+      fakeTravelState
+    );
+
+
+  /*
+    和 Ownership Reader 一樣，
+    Semantic Reader 也允許直接當作
+    Array.map callback。
+
+    index 不得被誤認成
+    worldStateOverride。
+  */
+  let directMapSafe =
+    false;
+
+  let directMapResults =
+    null;
+
+
+  try {
+    directMapResults =
+      [
+        "chifuyu",
+        "chinatsu",
+      ].map(
+        getGardenCharacterSemanticActivityId
+      );
+
+    directMapSafe =
+      Array.isArray(
+        directMapResults
+      ) &&
+      directMapResults.length ===
+        2;
+
+  } catch (error) {
+    directMapSafe =
+      false;
+  }
+
+
+  const checks = {
+    wanderPreserved:
+      wander ===
+        GARDEN_CHARACTER_ACTIVITY
+          .WANDER,
+
+    scheduleSemanticPreserved:
+      scheduleRest ===
+        "rest",
+
+    scheduleFallbackPreserved:
+      scheduleFallback ===
+        GARDEN_CHARACTER_ACTIVITY
+          .REST,
+
+    restChatKeepsParent:
+      restChat ===
+        GARDEN_CHARACTER_ACTIVITY
+          .REST,
+
+    normalChatHasNoSemanticActivity:
+      normalChat ===
+        null,
+
+    travelDoesNotGuessSemanticActivity:
+      travel ===
+        null,
+
+    directMapSafe,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    wander,
+
+    scheduleRest,
+
+    scheduleFallback,
+
+    restChat,
+
+    normalChat,
+
+    travel,
+
+    directMapResults,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Semantic Activity Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Semantic Activity Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+
+function runGardenCharacterActivityOwnershipSelfTest() {
+  const fakeWanderState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+
+    activityData:
+      null,
+  };
+
+
+  const fakeTravelState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .TRAVEL,
+
+    activityData:
+      null,
+  };
+
+
+  const fakeChatState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .CHAT,
+
+    activityData:
+      {
+        phase:
+          "talk",
+      },
+  };
+
+
+  const fakeScheduleState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .REST,
+
+    activityData: {
+      source:
+        "schedule",
+
+      semanticActivityId:
+        "rest",
+
+      definitionId:
+        "ownership-test-rest",
+
+      instanceId:
+        "ownership-test-instance",
+    },
+  };
+
+
+  const fakeActivityState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .REST,
+
+    activityData:
+      null,
+  };
+
+
+  const wander =
+    getGardenCharacterActivityOwnership(
+      "chifuyu",
+      fakeWanderState
+    );
+
+
+  const travel =
+    getGardenCharacterActivityOwnership(
+      "chifuyu",
+      fakeTravelState
+    );
+
+
+  const chat =
+    getGardenCharacterActivityOwnership(
+      "chifuyu",
+      fakeChatState
+    );
+
+
+  const schedule =
+    getGardenCharacterActivityOwnership(
+      "chifuyu",
+      fakeScheduleState
+    );
+
+
+  const activity =
+    getGardenCharacterActivityOwnership(
+      "chifuyu",
+      fakeActivityState
+    );
+
+
+  /*
+    Array.map(callback) 會額外傳入：
+
+    value,
+    index,
+    array
+
+    這裡永久確認 index 不會被誤認成
+    worldStateOverride。
+  */
+  const directMapResults =
+    [
+      "chifuyu",
+      "chinatsu",
+    ].map(
+      getGardenCharacterActivityOwnership
+    );
+
+
+  const checks = {
+    wanderOwned:
+      wander?.owner ===
+        GARDEN_CHARACTER_ACTIVITY_OWNER
+          .WANDER,
+
+    travelOwned:
+      travel?.owner ===
+        GARDEN_CHARACTER_ACTIVITY_OWNER
+          .TRAVEL,
+
+    chatOwned:
+      chat?.owner ===
+        GARDEN_CHARACTER_ACTIVITY_OWNER
+          .CHAT,
+
+    scheduleOwned:
+      schedule?.owner ===
+        GARDEN_CHARACTER_ACTIVITY_OWNER
+          .SCHEDULE,
+
+    genericActivityOwned:
+      activity?.owner ===
+        GARDEN_CHARACTER_ACTIVITY_OWNER
+          .ACTIVITY,
+
+    scheduleSemanticPreserved:
+      schedule
+        ?.semanticActivityId ===
+        "rest",
+
+    scheduleDefinitionPreserved:
+      schedule
+        ?.scheduleDefinitionId ===
+        "ownership-test-rest",
+
+    scheduleInstancePreserved:
+      schedule
+        ?.scheduleInstanceId ===
+        "ownership-test-instance",
+
+    directMapSafe:
+      directMapResults.length ===
+        2 &&
+      directMapResults[0]
+        ?.characterId ===
+        "chifuyu" &&
+      directMapResults[1]
+        ?.characterId ===
+        "chinatsu" &&
+      !!directMapResults[0]
+        ?.owner &&
+      !!directMapResults[1]
+        ?.owner,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    wander,
+
+    travel,
+
+    chat,
+
+    schedule,
+
+    activity,
+
+    directMapResults,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Activity Ownership Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Activity Ownership Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
 
 
 /* =========================
@@ -41745,14 +43261,16 @@ function canGardenCharacterUseCanonicalActivitySpotRuntime(
     Travel 永遠有更高 Spatial Priority。
   */
   if (
-    worldState.travel ||
-    worldState.activity ===
-      GARDEN_CHARACTER_ACTIVITY
-        .TRAVEL
-  ) {
-    return false;
-  }
-
+  worldState.travel ||
+  getGardenCharacterActivityOwnership(
+    characterId,
+    worldState
+  )?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .TRAVEL
+) {
+  return false;
+}
 
   const plan =
     worldState.activitySpotApproach;
@@ -42376,6 +43894,17 @@ registerGardenWorldReconciliationHandler(
   }
 );
 
+registerGardenWorldReconciliationHandler(
+  "scheduleCatchUp",
+  reconcileGardenScheduleCatchUpSystem,
+  {
+    priority:
+      125,
+  }
+);
+
+
+
 
 function runGardenActivitySpotResumeSelfTest() {
   const characterId =
@@ -42835,13 +44364,16 @@ function canGardenCharacterUseAmbientWander(
     只有真正的 WANDER
     才允許參與。
   */
-  if (
-    worldState.activity !==
-      GARDEN_CHARACTER_ACTIVITY
-        .WANDER
-  ) {
-    return false;
-  }
+ if (
+  getGardenCharacterActivityOwnership(
+    character,
+    worldState
+  )?.owner !==
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .WANDER
+) {
+  return false;
+}
 
 
   if (
@@ -43012,6 +44544,13 @@ function createGardenScheduleBridgeDecision(
       .WANDER;
 
 
+const currentOwnership =
+  getGardenCharacterActivityOwnership(
+    safeCharacterId,
+    worldState
+  );
+
+
   /*
     =========================
     1. Travel 有最高 Runtime 保護
@@ -43021,11 +44560,11 @@ function createGardenScheduleBridgeDecision(
     突然把她切成 meal / read。
   */
   if (
-    worldState.travel ||
-    currentRuntimeActivity ===
-      GARDEN_CHARACTER_ACTIVITY
-        .TRAVEL
-  ) {
+  worldState.travel ||
+  currentOwnership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .TRAVEL
+) {
     return Object.freeze({
       characterId:
         safeCharacterId,
@@ -43088,10 +44627,10 @@ function createGardenScheduleBridgeDecision(
     =========================
   */
   if (
-    currentRuntimeActivity ===
-      GARDEN_CHARACTER_ACTIVITY
-        .CHAT
-  ) {
+  currentOwnership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .CHAT
+) {
     return Object.freeze({
       characterId:
         safeCharacterId,
@@ -44244,12 +45783,21 @@ const spotApproachFn =
 
     所以 Executor 必須再檢查一次。
   */
-  if (
-    worldState.travel ||
-    worldState.activity ===
-      GARDEN_CHARACTER_ACTIVITY
-        .TRAVEL
-  ) {
+
+
+const currentOwnership =
+  getGardenCharacterActivityOwnership(
+    characterId,
+    worldState
+  );
+
+
+if (
+  worldState.travel ||
+  currentOwnership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .TRAVEL
+) {
     return (
       createGardenScheduleBridgeExecutionResult({
         characterId,
@@ -44276,11 +45824,11 @@ const spotApproachFn =
   }
 
 
-  if (
-    worldState.activity ===
-      GARDEN_CHARACTER_ACTIVITY
-        .CHAT
-  ) {
+ if (
+  currentOwnership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .CHAT
+) {
     return (
       createGardenScheduleBridgeExecutionResult({
         characterId,
@@ -44555,11 +46103,17 @@ if (
       因為 travelGardenCharacter()
       本身會建立完整 Travel world state。
     */
-    const started =
-      travelFn(
-        characterId,
-        targetSceneId
-      );
+  const started =
+  travelFn(
+    characterId,
+    targetSceneId,
+    {
+      semanticActivityId:
+        decision
+          .semanticActivityId ??
+        null,
+    }
+  );
 
 
     return (
@@ -49273,6 +50827,746 @@ function generateGardenOfficialDailySchedule(
     )
   );
 }
+
+
+/* =========================
+   Garden Schedule Catch-up
+   Pure Scene Resolver
+========================= */
+
+function resolveGardenCharacterScheduleCatchUpScene({
+  characterId,
+
+  suspendedAt,
+
+  resumedAt,
+
+  initialSceneId = null,
+} = {}) {
+  const safeCharacterId =
+    normalizeGardenWorldDecisionToken(
+      characterId
+    );
+
+
+  if (
+    !safeCharacterId ||
+    !isValidGardenWorldTimestamp(
+      suspendedAt
+    ) ||
+    !isValidGardenWorldTimestamp(
+      resumedAt
+    ) ||
+    resumedAt <
+      suspendedAt
+  ) {
+    return null;
+  }
+
+
+  const suspendedCalendar =
+    getGardenWorldCalendarParts(
+      suspendedAt
+    );
+
+  const resumedCalendar =
+    getGardenWorldCalendarParts(
+      resumedAt
+    );
+
+
+  if (
+    !suspendedCalendar ||
+    !resumedCalendar
+  ) {
+    return null;
+  }
+
+
+  const suspendedDayNumber =
+    getGardenScheduleDateDayNumber(
+      suspendedCalendar.dateKey
+    );
+
+  const resumedDayNumber =
+    getGardenScheduleDateDayNumber(
+      resumedCalendar.dateKey
+    );
+
+
+  if (
+    !Number.isInteger(
+      suspendedDayNumber
+    ) ||
+    !Number.isInteger(
+      resumedDayNumber
+    ) ||
+    resumedDayNumber <
+      suspendedDayNumber
+  ) {
+    return null;
+  }
+
+
+  /*
+    收集離線區間內所有可能造成
+    Schedule ownership 改變的時間邊界。
+
+    額外從前一天開始掃，
+    是為了支援未來可能跨午夜的
+    Schedule Entry。
+  */
+  const boundarySet =
+    new Set();
+
+
+  const daySpan =
+    resumedDayNumber -
+    suspendedDayNumber;
+
+
+  for (
+    let dayOffset = -1;
+    dayOffset <= daySpan;
+    dayOffset++
+  ) {
+    const dateKey =
+      shiftGardenScheduleDateKey(
+        suspendedCalendar.dateKey,
+        dayOffset
+      );
+
+
+    if (!dateKey) {
+      continue;
+    }
+
+
+    const schedule =
+      generateGardenOfficialDailySchedule(
+        dateKey
+      );
+
+
+    if (
+      !isValidGardenDailySchedule(
+        schedule
+      )
+    ) {
+      continue;
+    }
+
+
+    for (
+      const entry of
+      schedule.entries
+    ) {
+      if (
+        entry.characterId !==
+          safeCharacterId
+      ) {
+        continue;
+      }
+
+
+      for (
+        const point of
+        [
+          entry.start,
+          entry.end,
+        ]
+      ) {
+        const timestamp =
+          getGardenTimelineTimestamp(
+            schedule.dateKey,
+            point.timelineMinute
+          );
+
+
+        if (
+          !isValidGardenWorldTimestamp(
+            timestamp
+          )
+        ) {
+          continue;
+        }
+
+
+        /*
+          suspendedAt 當下以前的狀態
+          應已存在 Snapshot。
+
+          Catch-up 只處理離開之後
+          發生的 Schedule transition。
+        */
+        if (
+          timestamp >
+            suspendedAt &&
+          timestamp <=
+            resumedAt
+        ) {
+          boundarySet.add(
+            timestamp
+          );
+        }
+      }
+    }
+  }
+
+
+  const boundaries =
+    [...boundarySet].sort(
+      (a, b) =>
+        a - b
+    );
+
+
+  let resolvedSceneId =
+    initialSceneId;
+
+
+  const transitions =
+    [];
+
+
+  for (
+    const timestamp of
+    boundaries
+  ) {
+    /*
+      直接使用正式 Schedule Resolver。
+
+      如有 overlap / priority，
+      由既有 Schedule 系統決定
+      這一刻真正取得 ownership 的 Entry。
+    */
+    const schedules =
+      provideGardenOfficialWorldSchedules(
+        timestamp
+      );
+
+
+    const resolution =
+      resolveGardenCharacterScheduleAtTimestamp(
+        schedules,
+        safeCharacterId,
+        timestamp
+      );
+
+
+    const activeEntry =
+      resolution?.activeEntry ??
+      null;
+
+
+    const scheduleDateKey =
+      resolution
+        ?.activeScheduleDateKey ??
+      null;
+
+
+    const targetSceneId =
+      activeEntry
+        ?.target
+        ?.sceneId ??
+      null;
+
+
+    if (
+      !activeEntry ||
+      !scheduleDateKey ||
+      !targetSceneId
+    ) {
+      continue;
+    }
+
+
+    /*
+      Catch-up 只補「整段已經錯過」
+      的 Schedule。
+
+      如果玩家回來時 Activity
+      還在進行，就交回普通
+      Schedule Reconciliation 處理，
+      不在這裡提前跳到終點。
+    */
+    const activeEndsAt =
+      getGardenTimelineTimestamp(
+        scheduleDateKey,
+        activeEntry
+          .end
+          .timelineMinute
+      );
+
+
+    if (
+      !isValidGardenWorldTimestamp(
+        activeEndsAt
+      ) ||
+      activeEndsAt >
+        resumedAt
+    ) {
+      continue;
+    }
+
+
+    const previousSceneId =
+      resolvedSceneId;
+
+
+    resolvedSceneId =
+      targetSceneId;
+
+
+    transitions.push(
+      Object.freeze({
+        timestamp,
+
+        scheduleDateKey,
+
+        definitionId:
+          activeEntry.definitionId,
+
+        intentId:
+          activeEntry.intentId,
+
+        startsAt:
+          getGardenTimelineTimestamp(
+            scheduleDateKey,
+            activeEntry
+              .start
+              .timelineMinute
+          ),
+
+        endsAt:
+          activeEndsAt,
+
+        fromSceneId:
+          previousSceneId,
+
+        toSceneId:
+          targetSceneId,
+
+        changed:
+          previousSceneId !==
+          targetSceneId,
+      })
+    );
+  }
+
+
+  return Object.freeze({
+    characterId:
+      safeCharacterId,
+
+    suspendedAt,
+
+    resumedAt,
+
+    initialSceneId,
+
+    resolvedSceneId,
+
+    changed:
+      resolvedSceneId !==
+      initialSceneId,
+
+    boundaryCount:
+      boundaries.length,
+
+    transitions:
+      Object.freeze(
+        transitions
+      ),
+
+    latestTransition:
+      transitions[
+        transitions.length - 1
+      ] ??
+      null,
+  });
+}
+
+
+function reconcileGardenScheduleCatchUpSystem(
+  context
+) {
+  if (
+    !context ||
+    !isValidGardenWorldTimestamp(
+      context.suspendedAt
+    ) ||
+    !isValidGardenWorldTimestamp(
+      context.resumedAt
+    )
+  ) {
+    return Object.freeze({
+      ok: false,
+      reason: "invalidContext",
+      results: Object.freeze([]),
+    });
+  }
+
+
+  /*
+    Live Tick 的 context：
+
+    suspendedAt === resumedAt
+
+    沒有離線區間，
+    Catch-up 完全不需要執行。
+  */
+  if (
+    context.resumedAt <=
+      context.suspendedAt
+  ) {
+    return Object.freeze({
+      ok: true,
+      reason: "noElapsedTime",
+      timestamp:
+        context.resumedAt,
+
+      results:
+        Object.freeze([]),
+    });
+  }
+
+
+  const results =
+    [];
+
+  let sceneChanged =
+    false;
+
+
+  for (
+    const characterId of
+    Object.keys(
+      gardenCharacterWorldState
+    )
+  ) {
+    const worldState =
+      gardenCharacterWorldState[
+        characterId
+      ];
+
+
+    if (!worldState) {
+      results.push(
+        Object.freeze({
+          characterId,
+          applied: false,
+          reason:
+            "missingWorldState",
+        })
+      );
+
+      continue;
+    }
+
+
+    /*
+      Travel 仍然 active：
+
+      Travel Reconciliation
+      已經擁有這個角色的空間狀態。
+
+      Catch-up 不搶 ownership。
+    */
+   if (
+  worldState.travel ||
+  getGardenCharacterActivityOwnership(
+    characterId,
+    worldState
+  )?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .TRAVEL
+) {
+      results.push(
+        Object.freeze({
+          characterId,
+          applied: false,
+          reason:
+            "travelStillActive",
+        })
+      );
+
+      continue;
+    }
+
+
+    /*
+      Activity Spot Approach
+      在 priority 150 已先處理。
+
+      若到這裡仍存在，
+      代表它在 resumedAt
+      仍然 legitimately active。
+    */
+    if (
+      worldState
+        .activitySpotApproach
+    ) {
+      results.push(
+        Object.freeze({
+          characterId,
+          applied: false,
+          reason:
+            "activitySpotApproachStillActive",
+        })
+      );
+
+      continue;
+    }
+
+
+    /*
+      Chat Runtime 不由
+      Schedule Catch-up 強制打斷。
+    */
+    if (
+  getGardenCharacterActivityOwnership(
+    characterId,
+    worldState
+  )?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .CHAT ||
+  gardenChatState.mode !==
+    "wander"
+) {
+      results.push(
+        Object.freeze({
+          characterId,
+          applied: false,
+          reason:
+            "chatRuntimeActive",
+        })
+      );
+
+      continue;
+    }
+
+
+    /*
+      可以安全被 Catch-up 修正的狀態：
+
+      1. 普通 Wander
+      2. 舊 Schedule 留下的 Activity
+
+      未來若有玩家互動型／特殊 Activity，
+      不會被這裡擅自覆蓋。
+    */
+    const currentOwnership =
+  getGardenCharacterActivityOwnership(
+    characterId,
+    worldState
+  );
+
+
+const canApply =
+  currentOwnership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .WANDER ||
+  currentOwnership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .SCHEDULE;
+
+
+    if (!canApply) {
+      results.push(
+        Object.freeze({
+          characterId,
+          applied: false,
+          reason:
+            "runtimeOwnedByNonScheduleActivity",
+        })
+      );
+
+      continue;
+    }
+
+
+    const catchUp =
+      resolveGardenCharacterScheduleCatchUpScene({
+        characterId,
+
+        suspendedAt:
+          context.suspendedAt,
+
+        resumedAt:
+          context.resumedAt,
+
+        initialSceneId:
+          worldState.sceneId ??
+          null,
+      });
+
+
+    if (!catchUp) {
+      results.push(
+        Object.freeze({
+          characterId,
+          applied: false,
+          reason:
+            "catchUpUnavailable",
+        })
+      );
+
+      continue;
+    }
+
+
+    /*
+      沒有任何 scene consequence。
+
+      世界狀態完全不動。
+    */
+    if (
+      catchUp.changed !==
+        true ||
+      !catchUp.resolvedSceneId
+    ) {
+      results.push(
+        Object.freeze({
+          characterId,
+          applied: false,
+          reason:
+            "sceneAlreadyCorrect",
+
+          catchUp,
+        })
+      );
+
+      continue;
+    }
+
+
+    const previousSceneId =
+      worldState.sceneId;
+
+
+    /*
+      這裡不是播放 Travel。
+
+      這段移動已經完整發生在
+      玩家離線期間。
+
+      Resume 時只恢復其
+      canonical consequence。
+    */
+    worldState.sceneId =
+      catchUp.resolvedSceneId;
+
+
+    /*
+      被完整錯過的 Schedule
+      已經結束。
+
+      所以 Resume 後先回 Wander。
+
+      若 resumedAt 當下另有
+      active Schedule，
+      priority 100 的正式
+      Schedule Reconciliation
+      稍後會再取得 ownership。
+    */
+    setGardenCharacterActivity(
+      characterId,
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+      null
+    );
+
+
+    worldState.wanderContinuity =
+      null;
+
+
+    /*
+      清除舊 Scene 留下的
+      local movement。
+
+      真正 resumedAt 的位置
+      交給 priority 50
+      Canonical Wander 重建。
+    */
+    const runtime =
+      getGardenCharacterRuntime(
+        characterId
+      );
+
+
+    runtime?.setPath?.([]);
+
+
+    if (
+      runtime?.moveState
+    ) {
+      runtime.moveState.path =
+        [];
+
+      runtime.moveState.isMoving =
+        false;
+    }
+
+
+    if (
+      runtime?.autoState
+    ) {
+      runtime.autoState.wasMoving =
+        false;
+    }
+
+
+    sceneChanged =
+      true;
+
+
+    results.push(
+      Object.freeze({
+        characterId,
+
+        applied:
+          true,
+
+        reason:
+          "missedScheduleSceneApplied",
+
+        previousSceneId,
+
+        sceneId:
+          worldState.sceneId,
+
+        catchUp,
+      })
+    );
+  }
+
+
+  if (sceneChanged) {
+    updateGardenCharacterVisibility();
+  }
+
+
+  return Object.freeze({
+    ok: true,
+
+    reason:
+      sceneChanged
+        ? "catchUpApplied"
+        : "noSceneChange",
+
+    timestamp:
+      context.resumedAt,
+
+    results:
+      Object.freeze(
+        results
+      ),
+  });
+}
+
+
 
 
 /* =========================
@@ -54795,14 +57089,17 @@ function canGardenCharacterUseCanonicalWanderRuntime(
 
 
   return (
-    worldState.activity ===
-      GARDEN_CHARACTER_ACTIVITY
-        .WANDER &&
-    !worldState.travel &&
-    !!worldState.sceneId &&
-    chatMode ===
-      "wander"
-  );
+  getGardenCharacterActivityOwnership(
+    characterId,
+    worldState
+  )?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .WANDER &&
+  !worldState.travel &&
+  !!worldState.sceneId &&
+  chatMode ===
+    "wander"
+);
 }
 
 

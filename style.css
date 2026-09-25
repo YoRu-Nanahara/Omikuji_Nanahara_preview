@@ -2796,7 +2796,31 @@ body.garden-world-night
 body.garden-world-night
 #gardenScreen
 #chinatsuWalkTest {
-  filter: brightness(0.65);
+  filter:
+    brightness(
+      var(
+        --garden-char-brightness,
+        0.65
+      )
+    )
+    saturate(
+      var(
+        --garden-char-saturate,
+        1
+      )
+    )
+    sepia(
+      var(
+        --garden-char-sepia,
+        0
+      )
+    )
+    hue-rotate(
+      var(
+        --garden-char-hue,
+        0deg
+      )
+    );
 }
 
 body.garden-world-night.garden-active #sakura {
