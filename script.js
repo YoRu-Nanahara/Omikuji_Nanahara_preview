@@ -10388,9 +10388,15 @@ const GARDEN_CHARACTER_TRAVEL_TRANSIT_MS =
   → 可跨 Menu / 背景 / Reload
      的絕對世界時間
 */
-function createGardenCharacterTravelTimeline() {
+function createGardenCharacterTravelTimeline(
+  startedAtOverride = null
+) {
   const now =
-    getGardenWorldNow();
+    isValidGardenWorldTimestamp(
+      startedAtOverride
+    )
+      ? startedAtOverride
+      : getGardenWorldNow();
 
 
   return {
@@ -18244,7 +18250,8 @@ function isAnyGardenCharacterTraveling() {
 */
 function buildGardenCharacterExitPath(
   character,
-  route
+  route,
+  startPointOverride = null
 ) {
   const runtime =
     getGardenCharacterRuntime(
@@ -18275,10 +18282,31 @@ function buildGardenCharacterExitPath(
   }
 
 
-  const start = {
-    x: state.x,
-    y: state.y,
-  };
+  const hasStartPointOverride =
+  Number.isFinite(
+    startPointOverride?.x
+  ) &&
+  Number.isFinite(
+    startPointOverride?.y
+  );
+
+
+const start =
+  hasStartPointOverride
+    ? {
+        x:
+          startPointOverride.x,
+
+        y:
+          startPointOverride.y,
+      }
+    : {
+        x:
+          state.x,
+
+        y:
+          state.y,
+      };
 
 
   /*
@@ -19500,67 +19528,135 @@ function travelGardenCharacter(
   }
 
 
-  const path =
-    buildGardenCharacterExitPath(
-      character,
-      route
-    );
+  const hasTravelOptions =
+  options &&
+  typeof options ===
+    "object" &&
+  !Array.isArray(
+    options
+  );
 
 
-  if (
-    !path ||
-    path.length === 0
-  ) {
-    console.warn(
-      "[Garden Travel] exit path not found:",
-      character,
-      fromSceneId,
-      "→",
-      toSceneId
-    );
-
-    return false;
-  }
+const requestedStartedAt =
+  (
+    hasTravelOptions &&
+    isValidGardenWorldTimestamp(
+      options.startedAt
+    )
+  )
+    ? options.startedAt
+    : null;
 
 
 const travelTimeline =
-  createGardenCharacterTravelTimeline();
+  createGardenCharacterTravelTimeline(
+    requestedStartedAt
+  );
 
 
 /*
-  =========================
-  Canonical Travel Spatial Plan
-  12H-4B
-  =========================
+  Historical Schedule Travel：
 
-  Travel 開始的這一瞬間，
-  把角色真正的起始位置、
-  朝向與 Exit Path
-  固定成一份 Canonical Plan。
+  如果外部指定 startedAt，
+  起點也必須使用那一刻的
+  Canonical Wander Position。
 
-  之後即使：
-  - 關閉 Garden
-  - 進 Menu
-  - Browser Background
-  - Reload
-
-  都不需要再從 snapshot x/y
-  猜「角色走到哪裡」。
+  不能拿現在 snapshot 的 x/y
+  去建立一趟過去開始的 Travel。
 */
-const travelStartPoint = {
-  x:
-    runtime.moveState.x,
+const canonicalStart =
+  requestedStartedAt !== null
+    ? resolveGardenDeterministicWanderPositionAtTimestamp(
+        character,
+        fromSceneId,
+        travelTimeline.startedAt
+      )
+    : null;
 
-  y:
-    runtime.moveState.y,
-};
+
+/*
+  有指定 historical startedAt，
+  卻無法取得 canonical 起點時，
+
+  不允許偷偷退回目前 runtime 座標。
+  否則 Reload / 不同裝置會重新分岔。
+*/
+if (
+  requestedStartedAt !== null &&
+  (
+    !canonicalStart ||
+    !Number.isFinite(
+      canonicalStart.x
+    ) ||
+    !Number.isFinite(
+      canonicalStart.y
+    )
+  )
+) {
+  console.warn(
+    "[Garden Travel] historical canonical start unavailable:",
+    character,
+    fromSceneId,
+    travelTimeline.startedAt
+  );
+
+  return false;
+}
+
+
+const travelStartPoint =
+  canonicalStart
+    ? {
+        x:
+          canonicalStart.x,
+
+        y:
+          canonicalStart.y,
+      }
+    : {
+        x:
+          runtime.moveState.x,
+
+        y:
+          runtime.moveState.y,
+      };
 
 
 const travelStartDirection =
-  runtime.moveState.direction ===
+  canonicalStart?.direction ===
     -1
     ? -1
-    : 1;
+    : canonicalStart?.direction ===
+        1
+      ? 1
+      : runtime.moveState.direction ===
+          -1
+        ? -1
+        : 1;
+
+
+const path =
+  buildGardenCharacterExitPath(
+    character,
+    route,
+    travelStartPoint
+  );
+
+
+if (
+  !path ||
+  path.length === 0
+) {
+  console.warn(
+    "[Garden Travel] exit path not found:",
+    character,
+    fromSceneId,
+    "→",
+    toSceneId
+  );
+
+  return false;
+}
 
 
 const spatialPlan =
@@ -19611,13 +19707,6 @@ if (!spatialPlan) {
   return false;
 }
 
-const hasTravelOptions =
-  options &&
-  typeof options ===
-    "object" &&
-  !Array.isArray(
-    options
-  );
 
 
 /*
@@ -45778,6 +45867,93 @@ function createGardenScheduleBridgeExecutionResult(
 }
 
 
+function getGardenScheduleEntryStartTimestamp(
+  entry
+) {
+  if (
+    !entry?.dateKey ||
+    !Number.isFinite(
+      entry.start?.timelineMinute
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    timelineMinute 可能跨過午夜。
+
+    例如：
+    25:00
+    → 下一天 01:00
+  */
+  const start =
+    splitGardenScheduleTimelineMinute(
+      entry.start.timelineMinute
+    );
+
+
+  if (!start) {
+    return null;
+  }
+
+
+  const startDateKey =
+    shiftGardenScheduleDateKey(
+      entry.dateKey,
+      start.dayOffset
+    );
+
+
+  if (!startDateKey) {
+    return null;
+  }
+
+
+  const hour =
+    Math.floor(
+      start.minuteOfDay / 60
+    );
+
+
+  const minute =
+    start.minuteOfDay % 60;
+
+
+  const hourText =
+    String(hour).padStart(
+      2,
+      "0"
+    );
+
+
+  const minuteText =
+    String(minute).padStart(
+      2,
+      "0"
+    );
+
+
+  /*
+    Garden World canonical timezone：
+    JST +09:00
+  */
+  const timestamp =
+    Date.parse(
+      `${startDateKey}T${hourText}:${minuteText}:00+09:00`
+    );
+
+
+  return (
+    isValidGardenWorldTimestamp(
+      timestamp
+    )
+      ? timestamp
+      : null
+  );
+}
+
+
 function getGardenScheduleEntryEndTimestamp(
   entry
 ) {
@@ -46476,6 +46652,14 @@ if (
     }
 
 
+
+const scheduleStartedAt =
+  getGardenScheduleEntryStartTimestamp(
+    decision.activeEntry
+  );
+
+
+
     /*
       注意：
 
@@ -46485,7 +46669,7 @@ if (
       因為 travelGardenCharacter()
       本身會建立完整 Travel world state。
     */
-  const started =
+ const started =
   travelFn(
     characterId,
     targetSceneId,
@@ -46494,6 +46678,9 @@ if (
         decision
           .semanticActivityId ??
         null,
+
+      startedAt:
+        scheduleStartedAt,
     }
   );
 
@@ -47279,17 +47466,24 @@ function runGardenScheduleBridgeExecutorSelfTest() {
   let travelCallCount =
     0;
 
+let capturedTravelOptions =
+  null;
+
 
   let activityCallCount =
     0;
 
 
   const fakeTravelFn =
-    (
-      characterId,
-      targetSceneId
-    ) => {
-      travelCallCount += 1;
+  (
+    characterId,
+    targetSceneId,
+    travelOptions = null
+  ) => {
+    travelCallCount += 1;
+
+    capturedTravelOptions =
+      travelOptions;
 
 
       fakeState.travel = {
@@ -47481,6 +47675,20 @@ function runGardenScheduleBridgeExecutorSelfTest() {
     travelCalledOnce:
       travelCallCount ===
       1,
+
+      scheduleStartPassedToTravel:
+  capturedTravelOptions
+    ?.startedAt ===
+  getGardenScheduleEntryStartTimestamp(
+    travelStep
+      ?.decision
+      ?.activeEntry
+  ),
+
+travelSemanticPassedToTravel:
+  capturedTravelOptions
+    ?.semanticActivityId ===
+    "meal",
 
     secondCallPreservesTravel:
       preserveStep
@@ -57470,13 +57678,26 @@ function canGardenCharacterUseCanonicalWanderRuntime(
     gardenChatState.mode;
 
 
-  return (
-  getGardenCharacterActivityOwnership(
+const timeline =
+  getGardenCharacterActivityTimeline(
     characterId,
     worldState
-  )?.owner ===
-    GARDEN_CHARACTER_ACTIVITY_OWNER
-      .WANDER &&
+  );
+
+
+const wanderRuntimeAllowed =
+  timeline?.runtimeActivityId ===
+    GARDEN_CHARACTER_ACTIVITY.WANDER &&
+  (
+    timeline.runtimeOwner ===
+      GARDEN_CHARACTER_ACTIVITY_OWNER.WANDER ||
+    timeline.runtimeOwner ===
+      GARDEN_CHARACTER_ACTIVITY_OWNER.SCHEDULE
+  );
+
+
+return (
+  wanderRuntimeAllowed &&
   !worldState.travel &&
   !!worldState.sceneId &&
   chatMode ===
@@ -58182,6 +58403,37 @@ function runGardenCanonicalWanderOwnershipSelfTest() {
     );
 
 
+const fakeScheduleWanderState = {
+  ...fakeWanderState,
+
+  sceneId:
+    "moonBridge",
+
+  activityData: {
+    source:
+      "schedule",
+
+    semanticActivityId:
+      "wander",
+
+    definitionId:
+      "official-test-night-walk",
+
+    instanceId:
+      "test-instance",
+  },
+};
+
+
+const scheduleWanderOwned =
+  canGardenCharacterUseCanonicalWanderRuntime(
+    "chifuyu",
+    fakeScheduleWanderState,
+    "wander"
+  );
+
+
+
   const fakeTravelState = {
     ...fakeWanderState,
 
@@ -58235,6 +58487,8 @@ function runGardenCanonicalWanderOwnershipSelfTest() {
       true,
 
     wanderOwned,
+
+    scheduleWanderOwned,
 
     travelNotOwned,
 
