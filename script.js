@@ -41239,6 +41239,388 @@ if (
 }
 
 
+function getGardenCharacterActivityTimeline(
+  characterId,
+  worldStateOverride = null
+) {
+  const hasWorldStateOverride =
+    worldStateOverride &&
+    typeof worldStateOverride ===
+      "object" &&
+    !Array.isArray(
+      worldStateOverride
+    );
+
+
+  const worldState =
+    hasWorldStateOverride
+      ? worldStateOverride
+      : gardenCharacterWorldState[
+          characterId
+        ];
+
+
+  if (!worldState) {
+    return null;
+  }
+
+
+  const ownership =
+    getGardenCharacterActivityOwnership(
+      characterId,
+      worldState
+    );
+
+
+  const semanticActivityId =
+    getGardenCharacterSemanticActivityId(
+      characterId,
+      worldState
+    );
+
+
+  const activityData =
+    worldState.activityData ??
+    null;
+
+
+  return Object.freeze({
+    characterId,
+
+    /*
+      此刻真正控制角色 Runtime 的系統。
+    */
+    runtimeOwner:
+      ownership?.owner ??
+      null,
+
+    /*
+      角色目前實際 World Activity。
+      例如 wander / travel / chat / rest。
+    */
+    runtimeActivityId:
+      worldState.activity ??
+      null,
+
+    /*
+      角色在世界語意上「正在做什麼」。
+
+      Travel / Chat 期間也可以與
+      runtimeActivityId 不同。
+    */
+    semanticActivityId,
+
+    sceneId:
+      worldState.sceneId ??
+      null,
+
+    /*
+      只有目前 activityData 本身
+      有 provenance 時才回傳。
+
+      不做推測。
+    */
+    source:
+      activityData?.source ??
+      null,
+
+    scheduleDefinitionId:
+      ownership
+        ?.scheduleDefinitionId ??
+      null,
+
+    scheduleInstanceId:
+      ownership
+        ?.scheduleInstanceId ??
+      null,
+
+    /*
+      Runtime phase。
+
+      Chat：
+      approach / talk
+
+      Travel：
+      walkingToExit / transit / ...
+    */
+    phase:
+      activityData?.phase ??
+      worldState.travel?.phase ??
+      null,
+  });
+}
+
+function runGardenCharacterActivityTimelineSelfTest() {
+  const fakeWanderState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+
+    activityData:
+      null,
+
+    travel:
+      null,
+  };
+
+
+  const fakeScheduleState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .REST,
+
+    activityData: {
+      source:
+        "schedule",
+
+      semanticActivityId:
+        "rest",
+
+      definitionId:
+        "timeline-test-rest",
+
+      instanceId:
+        "timeline-test-instance",
+    },
+
+    travel:
+      null,
+  };
+
+
+  const fakeTravelState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .TRAVEL,
+
+    activityData: {
+      semanticActivityId:
+        "meal",
+    },
+
+    travel: {
+      phase:
+        "walkingToExit",
+    },
+  };
+
+
+  const fakeChatState = {
+    sceneId:
+      "courtyard",
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .CHAT,
+
+    activityData: {
+      phase:
+        "talk",
+
+      semanticActivityByCharacter: {
+        chifuyu:
+          "reading",
+
+        chinatsu:
+          "tea",
+      },
+    },
+
+    travel:
+      null,
+  };
+
+
+  const wander =
+    getGardenCharacterActivityTimeline(
+      "chifuyu",
+      fakeWanderState
+    );
+
+
+  const schedule =
+    getGardenCharacterActivityTimeline(
+      "chifuyu",
+      fakeScheduleState
+    );
+
+
+  const travel =
+    getGardenCharacterActivityTimeline(
+      "chifuyu",
+      fakeTravelState
+    );
+
+
+  const chifuyuChat =
+    getGardenCharacterActivityTimeline(
+      "chifuyu",
+      fakeChatState
+    );
+
+
+  const chinatsuChat =
+    getGardenCharacterActivityTimeline(
+      "chinatsu",
+      fakeChatState
+    );
+
+
+  /*
+    Array.map(callback) safety。
+
+    index 不得被誤認成
+    worldStateOverride。
+  */
+  let directMapSafe =
+    false;
+
+  let directMapResults =
+    null;
+
+
+  try {
+    directMapResults =
+      [
+        "chifuyu",
+        "chinatsu",
+      ].map(
+        getGardenCharacterActivityTimeline
+      );
+
+    directMapSafe =
+      Array.isArray(
+        directMapResults
+      ) &&
+      directMapResults.length ===
+        2 &&
+      directMapResults[0]
+        ?.characterId ===
+        "chifuyu" &&
+      directMapResults[1]
+        ?.characterId ===
+        "chinatsu";
+
+  } catch (error) {
+    directMapSafe =
+      false;
+  }
+
+
+  const checks = {
+    wanderOwner:
+      wander?.runtimeOwner ===
+        GARDEN_CHARACTER_ACTIVITY_OWNER
+          .WANDER,
+
+    wanderSemantic:
+      wander?.semanticActivityId ===
+        GARDEN_CHARACTER_ACTIVITY
+          .WANDER,
+
+    scheduleOwner:
+      schedule?.runtimeOwner ===
+        GARDEN_CHARACTER_ACTIVITY_OWNER
+          .SCHEDULE,
+
+    scheduleSemantic:
+      schedule?.semanticActivityId ===
+        "rest",
+
+    scheduleMetadata:
+      schedule
+        ?.scheduleDefinitionId ===
+        "timeline-test-rest" &&
+      schedule
+        ?.scheduleInstanceId ===
+        "timeline-test-instance",
+
+    travelOwner:
+      travel?.runtimeOwner ===
+        GARDEN_CHARACTER_ACTIVITY_OWNER
+          .TRAVEL,
+
+    travelSemantic:
+      travel?.semanticActivityId ===
+        "meal",
+
+    travelPhase:
+      travel?.phase ===
+        "walkingToExit",
+
+    chifuyuChatSemantic:
+      chifuyuChat
+        ?.semanticActivityId ===
+        "reading",
+
+    chinatsuChatSemantic:
+      chinatsuChat
+        ?.semanticActivityId ===
+        "tea",
+
+    chatPhase:
+      chifuyuChat?.phase ===
+        "talk" &&
+      chinatsuChat?.phase ===
+        "talk",
+
+    directMapSafe,
+  };
+
+
+  const pass =
+    Object.values(
+      checks
+    ).every(Boolean);
+
+
+  const result = {
+    pass,
+
+    checks,
+
+    wander,
+
+    schedule,
+
+    travel,
+
+    chifuyuChat,
+
+    chinatsuChat,
+
+    directMapResults,
+  };
+
+
+  if (pass) {
+    console.log(
+      "[Garden Activity Timeline Self-Test] PASS",
+      result
+    );
+
+  } else {
+    console.warn(
+      "[Garden Activity Timeline Self-Test] FAIL",
+      result
+    );
+  }
+
+
+  return result;
+}
+
+
+
 function runGardenCharacterSemanticActivitySelfTest() {
   const fakeWanderState = {
     sceneId:
