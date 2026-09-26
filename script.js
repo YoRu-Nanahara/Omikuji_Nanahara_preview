@@ -51054,6 +51054,150 @@ function getGardenOfficialScheduleDefinitionsForDate(
     [];
 
 
+
+  /*
+    =========================
+    Chifuyu — Courtyard Ambient
+    =========================
+
+    Garden 的 baseline spatial schedule。
+
+    01:00 ～ 23:00 JST
+    沒有更高 Priority 行程時，
+    千冬預設在庭院 Wander。
+
+    這不是特殊活動，
+    而是角色日常世界位置的
+    最低優先級 canonical ownership。
+  */
+  const chifuyuCourtyardAmbient =
+    createGardenScheduleIntentDefinition({
+      id:
+        "official-chifuyu-courtyard-ambient",
+
+      characterId:
+        "chifuyu",
+
+      intentId:
+        "courtyardAmbient",
+
+      instanceId:
+        "daily",
+
+      windowStart:
+        "01:00",
+
+      windowEnd:
+        "01:00",
+
+      durationMinMinutes:
+        22 * 60,
+
+      durationMaxMinutes:
+        22 * 60,
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .LOW,
+
+      sceneId:
+        "courtyard",
+
+      activityId:
+        "wander",
+
+      fallbackActivityId:
+        "wander",
+
+      canDelay:
+        false,
+
+      canBeOverridden:
+        true,
+
+      latePolicy:
+        GARDEN_SCHEDULE_LATE_POLICY
+          .SKIP,
+
+      tags: [
+        "official",
+        "dailyRoutine",
+        "ambient",
+        "baseline",
+        "courtyard",
+      ],
+    });
+
+
+  /*
+    =========================
+    Chinatsu — Courtyard Ambient
+    =========================
+
+    與千冬相同：
+
+    01:00 ～ 23:00 JST
+    若沒有更高 Priority 行程，
+    預設在庭院 Wander。
+  */
+  const chinatsuCourtyardAmbient =
+    createGardenScheduleIntentDefinition({
+      id:
+        "official-chinatsu-courtyard-ambient",
+
+      characterId:
+        "chinatsu",
+
+      intentId:
+        "courtyardAmbient",
+
+      instanceId:
+        "daily",
+
+      windowStart:
+        "01:00",
+
+      windowEnd:
+        "01:00",
+
+      durationMinMinutes:
+        22 * 60,
+
+      durationMaxMinutes:
+        22 * 60,
+
+      priority:
+        GARDEN_SCHEDULE_PRIORITY
+          .LOW,
+
+      sceneId:
+        "courtyard",
+
+      activityId:
+        "wander",
+
+      fallbackActivityId:
+        "wander",
+
+      canDelay:
+        false,
+
+      canBeOverridden:
+        true,
+
+      latePolicy:
+        GARDEN_SCHEDULE_LATE_POLICY
+          .SKIP,
+
+      tags: [
+        "official",
+        "dailyRoutine",
+        "ambient",
+        "baseline",
+        "courtyard",
+      ],
+    });
+
   /*
     =========================
     Chifuyu — Afternoon Rest
@@ -51356,6 +51500,24 @@ const chinatsuMoonBridgeNightWalk =
       "nightWalk",
     ],
   });
+
+
+  if (
+    chifuyuCourtyardAmbient
+  ) {
+    definitions.push(
+      chifuyuCourtyardAmbient
+    );
+  }
+
+
+  if (
+    chinatsuCourtyardAmbient
+  ) {
+    definitions.push(
+      chinatsuCourtyardAmbient
+    );
+  }
 
 
 
