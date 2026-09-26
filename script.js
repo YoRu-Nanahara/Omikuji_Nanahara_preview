@@ -46038,20 +46038,48 @@ const timestamp =
 }
 
 
-function createGardenScheduleGapWanderContinuity(
+function createGardenScheduleWanderHandoffContinuity(
   decision,
   timestamp =
     getGardenWorldNow()
 ) {
   if (
     !decision ||
-    decision.action !==
-      GARDEN_SCHEDULE_BRIDGE_ACTION
-        .WANDER ||
     !isValidGardenWorldTimestamp(
       timestamp
     )
   ) {
+    return null;
+  }
+
+
+  /*
+    只要這次 Schedule handoff
+    最終 Runtime 是 WANDER，
+    就允許建立：
+
+    Activity Spot
+    → Wander Continuity
+
+    支援：
+    1. Activity → GAP → Wander
+    2. Activity → Ambient Schedule → Wander
+  */
+  const resolvesToWander =
+    decision.action ===
+      GARDEN_SCHEDULE_BRIDGE_ACTION
+        .WANDER ||
+    (
+      decision.action ===
+        GARDEN_SCHEDULE_BRIDGE_ACTION
+          .ACTIVITY &&
+      decision.runtimeActivityId ===
+        GARDEN_CHARACTER_ACTIVITY
+          .WANDER
+    );
+
+
+  if (!resolvesToWander) {
     return null;
   }
 
@@ -46487,10 +46515,10 @@ if (
     → Wander Continuity
   */
   const continuityPlan =
-    createGardenScheduleGapWanderContinuity(
-      decision,
-      gapTimestamp
-    );
+  createGardenScheduleWanderHandoffContinuity(
+    decision,
+    gapTimestamp
+  );
 
 
   const alreadyWandering =
@@ -46779,6 +46807,24 @@ const activityData =
   );
 
 
+const wanderHandoffTimestamp =
+  isValidGardenWorldTimestamp(
+    options.worldTimestamp
+  )
+    ? options.worldTimestamp
+    : getGardenWorldNow();
+
+
+const wanderContinuityPlan =
+  runtimeActivityId ===
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER
+    ? createGardenScheduleWanderHandoffContinuity(
+        decision,
+        wanderHandoffTimestamp
+      )
+    : null;
+
 
 
     
@@ -47013,6 +47059,16 @@ const activityData =
         runtimeActivityId,
         activityData
       );
+
+
+if (
+  changed !== false &&
+  wanderContinuityPlan
+) {
+  worldState.wanderContinuity =
+    wanderContinuityPlan;
+}
+
 
 
     return (
