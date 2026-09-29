@@ -2776,6 +2776,106 @@ function queueGardenCharacterModeDownload(
   }, delay);
 }
 
+/*
+  =========================
+  Garden Initial Critical Visuals
+
+  只準備目前 Player View
+  真正看得到的角色。
+
+  不在目前 Scene 的角色：
+  不 download
+  不 decode
+  不 warmup
+  =========================
+*/
+function getGardenInitialCriticalCharacterVisuals(
+  sceneId =
+    gardenViewSceneId
+) {
+  const result = [];
+
+  for (
+    const characterId of [
+      "chifuyu",
+      "chinatsu",
+    ]
+  ) {
+    const worldState =
+      gardenCharacterWorldState[
+        characterId
+      ];
+
+    /*
+      角色不在目前 Player View，
+      完全不需要卡住拉門。
+    */
+    if (
+      !worldState ||
+      worldState.sceneId !== sceneId
+    ) {
+      continue;
+    }
+
+    const animationRuntime =
+      getGardenCharacterAnimationRuntime(
+        characterId
+      );
+
+    if (!animationRuntime) {
+      continue;
+    }
+
+    /*
+      直接詢問正式 Animation Resolver。
+
+      例如：
+      wander → idle / walk
+      chat   → talk
+      bath   → bathSoakIdle
+      travel → walk / bathWalk
+    */
+    const command =
+      resolveGardenCharacterAnimationCommand(
+        characterId,
+        animationRuntime
+      );
+
+    const requestedMode =
+      command?.mode ??
+      "idle";
+
+    const resolvedMode =
+      resolveGardenCharacterAnimationFallback(
+        characterId,
+        requestedMode
+      );
+
+    if (!resolvedMode) {
+      continue;
+    }
+
+    const anim =
+      getGardenCharacterAnimationDefinition(
+        characterId,
+        resolvedMode
+      );
+
+    if (!anim) {
+      continue;
+    }
+
+    result.push({
+      characterId,
+      mode:
+        resolvedMode,
+      anim,
+    });
+  }
+
+  return result;
+}
+
 
 
 
@@ -2846,46 +2946,52 @@ applyGardenSceneMode(
     接著只 warmup 這次立刻需要的
     千冬 + 千夏兩張 sheet。
   */
-  await requestGardenAnimationWarmup(
-    "chifuyu",
-    firstMode,
-    CHIFUYU_ANIMS[firstMode] ||
-      CHIFUYU_ANIMS.idle
-  );
-
-  await requestGardenAnimationWarmup(
-    "chinatsu",
-    firstMode,
-    CHINATSU_ANIMS[firstMode] ||
-      CHINATSU_ANIMS.idle
-  );
-
-
 /*
-  首次真正需要的 sheet
-  已經下載 + decode + warmup。
+  =========================
+  Critical Character Visuals
+  =========================
 
-  趁拉門仍然關著，
-  提前建立角色 sprite layer。
+  只 warmup 現在這個 Scene
+  真正會看到的角色。
+
+  如果兩人都在別的 Scene，
+  這裡就是空陣列，
+  完全不 decode 角色 spritesheet。
 */
-ensureChifuyuSpriteLayers();
-ensureChinatsuSpriteLayers();
+const criticalVisuals =
+  getGardenInitialCriticalCharacterVisuals(
+    gardenViewSceneId
+  );
 
-bindGardenSpriteLayerImage(
-  "chifuyu",
-  firstMode
+
+console.log(
+  "[Garden Initial Critical Visuals]",
+  criticalVisuals.map(
+    item => ({
+      character:
+        item.characterId,
+      mode:
+        item.mode,
+    })
+  )
 );
 
-bindGardenSpriteLayerImage(
-  "chinatsu",
-  firstMode
-);
 
+for (
+  const visual of
+  criticalVisuals
+) {
+  await requestGardenAnimationWarmup(
+    visual.characterId,
+    visual.mode,
+    visual.anim
+  );
 
-
-  gardenCharacterModeLoaded[
-    firstMode
-  ] = true;
+  bindGardenSpriteLayerImage(
+    visual.characterId,
+    visual.mode
+  );
+}
 
   /*
     這裡的 loaded 意思改成：
