@@ -1,3 +1,7 @@
+/* =========================
+   Enter
+========================= */
+
 /* 1️⃣ 在 CSS 最上方先載入 Web Font */
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap');
 
@@ -3265,6 +3269,16 @@ body.night-mode #gardenScreen #chinatsuWalkShadow {
   z-index: 820;
 }
 
+/*
+  左下燈籠前方角色層。
+
+  只有角色腳底真正走到
+  燈籠前方時才會進這一層。
+*/
+#gardenCharLanternFrontLayer {
+  z-index: 840;
+}
+
 /* 右上建築轉角 */
 .garden-fg-building-corner {
   z-index: 880;
@@ -3859,11 +3873,586 @@ will-change: transform, opacity;
 
 
 
+/* =========================
+   Hot Spring Scene Layers
+========================= */
+
+/*
+  最底層背景。
+*/
+.hot-spring-bg {
+  z-index: 0;
+}
+
+
+/*
+  下半池水區。
+
+  概念高度：
+  1 = pool lower
+  2 = full-body character
+  3 = pool upper
+  4 = bath soak character
+
+  普通角色層目前是 z-index: 500。
+*/
+.hot-spring-pool-lower {
+  z-index: 300;
+}
+
+
+/*
+  上方入浴區。
+
+  必須高於普通全身角色，
+  讓 full-body 角色可以被它遮擋。
+*/
+.hot-spring-pool-upper {
+  z-index: 650;
+}
+
+
+/*
+  最前方石頭步道。
+  第一版先當純前景遮擋層。
+*/
+.hot-spring-stone-path-front {
+  z-index: 900;
+}
+
+
+/* =========================
+   Hot Spring
+   Ambient Mist
+========================= */
+
+#gardenScene .hot-spring-ambient-mist {
+  position: absolute;
+
+  width: 500px;
+  height: 500px;
+
+  object-fit: contain;
+
+  pointer-events: none;
+  user-select: none;
+
+  opacity: 0;
+
+  transform-origin:
+    center center;
+
+  animation-name:
+    hotSpringAmbientMistRise;
+
+  animation-timing-function:
+    ease-out;
+
+  animation-iteration-count:
+    infinite;
+
+  animation-fill-mode:
+    both;
+}
+
+
+/*
+  左側白霧。
+
+  第一版位置先放在池水左下區域，
+  後面我們直接依實際畫面調整。
+*/
+#gardenScene .hot-spring-ambient-mist-01 {
+  left: 0px;
+  top: 1180px;
+
+  z-index: 760;
+
+  animation-duration:
+    9s;
+
+  animation-delay:
+    0s;
+}
+
+
+/*
+  右側白霧。
+
+  和 Mist 01 錯開週期，
+  避免兩片霧同時出現、
+  同時消失。
+*/
+#gardenScene .hot-spring-ambient-mist-02 {
+  left: 560px;
+  top: 1010px;
+
+  z-index: 760;
+
+  animation-name:
+    hotSpringAmbientMistRiseSoft;
+
+  animation-duration:
+    11s;
+
+  animation-delay:
+    4.8s;
+}
+
+
+@keyframes hotSpringAmbientMistRise {
+  0% {
+    opacity: 0;
+
+    transform:
+      translateY(0px)
+      scale(0.90);
+  }
+
+  18% {
+    opacity: 0.11;
+
+    transform:
+      translateY(-55px)
+      scale(0.97);
+  }
+
+  34% {
+    opacity: 0.24;
+
+    transform:
+      translateY(-100px)
+      scale(1.01);
+  }
+
+  42% {
+    opacity: 0.32;
+
+    transform:
+      translateY(-125px)
+      scale(1.04);
+  }
+
+  48% {
+    opacity: 0.37;
+
+    transform:
+      translateY(-145px)
+      scale(1.07);
+  }
+
+  52% {
+    opacity: 0.39;
+
+    transform:
+      translateY(-160px)
+      scale(1.08);
+  }
+
+  60% {
+    opacity: 0.29;
+
+    transform:
+      translateY(-185px)
+      scale(1.10);
+  }
+
+  76% {
+    opacity: 0.17;
+
+    transform:
+      translateY(-230px)
+      scale(1.13);
+  }
+
+  100% {
+    opacity: 0;
+
+    transform:
+      translateY(-300px)
+      scale(1.16);
+  }
+}
+
+
+@keyframes hotSpringAmbientMistRiseSoft {
+  0% {
+    opacity: 0;
+
+    transform:
+      translateY(0px)
+      scale(0.90);
+  }
+
+  18% {
+    opacity: 0.12;
+
+    transform:
+      translateY(-55px)
+      scale(0.97);
+  }
+
+  34% {
+    opacity: 0.25;
+
+    transform:
+      translateY(-100px)
+      scale(1.01);
+  }
+
+  42% {
+    opacity: 0.33;
+
+    transform:
+      translateY(-125px)
+      scale(1.04);
+  }
+
+  48% {
+    opacity: 0.39;
+
+    transform:
+      translateY(-145px)
+      scale(1.07);
+  }
+
+  52% {
+    opacity: 0.42;
+
+    transform:
+      translateY(-160px)
+      scale(1.08);
+  }
+
+  60% {
+    opacity: 0.31;
+
+    transform:
+      translateY(-185px)
+      scale(1.10);
+  }
+
+  76% {
+    opacity: 0.18;
+
+    transform:
+      translateY(-230px)
+      scale(1.13);
+  }
+
+  100% {
+    opacity: 0;
+
+    transform:
+      translateY(-300px)
+      scale(1.16);
+  }
+}
 
 
 
 
-/* ===== Garden Screen Safety Fix ===== */
+/* =========================
+   Hot Spring
+   Bath Mist Transition
+========================= */
+
+#gameRoot .hot-spring-mist-transition {
+  position: absolute;
+  left: 0;
+  top: 0;
+
+  width: 1080px;
+  height: 1920px;
+
+  z-index: 1400;
+
+  pointer-events: none;
+  user-select: none;
+
+  overflow: hidden;
+
+  visibility: hidden;
+}
+
+#gameRoot
+.hot-spring-mist-transition.is-active {
+  visibility: visible;
+}
+
+
+/* =========================
+   Shared Transition Mist
+========================= */
+
+/*
+  每一團 mist 是 500 × 500 wrapper。
+
+  wrapper 負責：
+  - 位置
+  - scale
+  - opacity
+
+  裡面的兩張 PNG 完全重疊，
+  用來增加霧的厚度。
+*/
+#gameRoot
+.hot-spring-transition-mist {
+  position: absolute;
+
+  width: 500px;
+  height: 500px;
+
+  pointer-events: none;
+  user-select: none;
+
+  opacity: 0;
+
+  transform-origin:
+    center center;
+
+  transform:
+    scale(0.80);
+}
+
+
+/*
+  雙層 PNG 本體。
+*/
+#gameRoot
+.hot-spring-transition-mist-image {
+  position: absolute;
+
+  left: 0;
+  top: 0;
+
+  width: 500px;
+  height: 500px;
+
+  display: block;
+  object-fit: contain;
+
+  opacity: 1;
+
+  pointer-events: none;
+  user-select: none;
+}
+
+
+/* =========================
+   Mist A
+   左下
+========================= */
+
+#gameRoot
+.hot-spring-transition-mist-a {
+  left: -170px;
+  top: 1080px;
+
+  --mist-max-opacity: 1;
+
+  --mist-enter-delay: 0ms;
+  --mist-leave-delay: 0ms;
+}
+
+
+/* =========================
+   Mist B
+   右上
+========================= */
+
+#gameRoot
+.hot-spring-transition-mist-b {
+  left: 620px;
+  top: 620px;
+
+  --mist-max-opacity: 0.96;
+
+  --mist-enter-delay: 200ms;
+  --mist-leave-delay: 120ms;
+}
+
+
+/* =========================
+   Mist C
+   左上
+========================= */
+
+#gameRoot
+.hot-spring-transition-mist-c {
+  left: -100px;
+  top: 500px;
+
+  --mist-max-opacity: 1;
+
+  --mist-enter-delay: 400ms;
+  --mist-leave-delay: 240ms;
+}
+
+
+/* =========================
+   Continuous Scale
+========================= */
+
+/*
+  從出現開始直到消失，
+  transform 永遠只跑這一條動畫。
+
+  進入 is-leaving 時
+  不重新啟動 scale，
+  所以不會跳尺寸。
+*/
+#gameRoot
+.hot-spring-mist-transition.is-active
+.hot-spring-transition-mist {
+  animation-name:
+    hotSpringTransitionMistContinuousGrow;
+
+  animation-duration:
+    5500ms;
+
+  animation-timing-function:
+    linear;
+
+animation-delay:
+  var(--mist-enter-delay);
+
+  animation-fill-mode:
+    both;
+
+  animation-iteration-count:
+    1;
+
+  will-change:
+    transform,
+    opacity;
+}
+
+
+/* =========================
+   Fade In
+========================= */
+
+#gameRoot
+.hot-spring-mist-transition.is-active:not(.is-leaving)
+.hot-spring-transition-mist {
+  opacity:
+    var(--mist-max-opacity);
+
+transition:
+  opacity
+  1050ms
+  ease-out
+  var(--mist-enter-delay);
+}
+
+
+/* =========================
+   Fade Out
+========================= */
+
+/*
+  退場只改 opacity。
+
+  scale 還是沿著原本那條
+  Continuous Grow 繼續走。
+*/
+#gameRoot
+.hot-spring-mist-transition.is-active.is-leaving
+.hot-spring-transition-mist {
+  opacity: 0;
+
+ transition:
+  opacity
+  950ms
+  ease-out
+  var(--mist-leave-delay);
+}
+
+
+/* =========================
+   Growth Curve
+========================= */
+
+/*
+  這次把減速差距拉得很明顯。
+
+  約 1 秒：
+  0.8 → 3.0
+
+  後面幾秒：
+  3.0 → 3.9
+
+  而且越後面，每秒增加量越少。
+*/
+@keyframes
+hotSpringTransitionMistContinuousGrow {
+
+  0% {
+    transform:
+      scale(0.80);
+  }
+
+
+  /*
+    前段快速膨脹。
+  */
+  7% {
+    transform:
+      scale(1.55);
+  }
+
+  13% {
+    transform:
+      scale(2.25);
+  }
+
+  18% {
+    transform:
+      scale(3.00);
+  }
+
+
+  /*
+    抵達 3 倍後，
+    開始明顯減速。
+  */
+  28% {
+    transform:
+      scale(3.42);
+  }
+
+
+  /*
+    再更慢。
+  */
+  42% {
+    transform:
+      scale(3.66);
+  }
+
+
+  /*
+    已經進入非常緩慢的擴張。
+  */
+  60% {
+    transform:
+      scale(3.80);
+  }
+
+
+  80% {
+    transform:
+      scale(3.87);
+  }
+
+
+  100% {
+    transform:
+      scale(3.91);
+  }
+}
+
 
 #gardenScreen {
   position: absolute;
@@ -3915,5 +4504,3 @@ will-change: transform, opacity;
   pointer-events: none;
   display: none
 }
-
-

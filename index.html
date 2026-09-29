@@ -21,8 +21,72 @@
     <!-- 這個是「設計舞台」：固定 1080x1920，只做 scale -->
     <div id="gameRoot">
 
+
+
       <!-- 櫻花粒子：跟著舞台縮放 -->
       <canvas id="sakura"></canvas>
+
+<!-- =========================
+     Hot Spring
+     Bath Mist Transition
+========================= -->
+
+<div
+  id="hotSpringMistTransition"
+  class="hot-spring-mist-transition"
+  aria-hidden="true"
+>
+
+  <!-- A：左下，最先出現 -->
+  <div
+    class="
+      hot-spring-transition-mist
+      hot-spring-transition-mist-a
+    "
+  >
+    <img
+      class="hot-spring-transition-mist-image"
+      src="images/garden/hot-spring/hot-spring-mist-01.png"
+      alt=""
+      draggable="false"
+    >
+  </div>
+
+
+  <!-- B：右上，第二個出現 -->
+  <div
+    class="
+      hot-spring-transition-mist
+      hot-spring-transition-mist-b
+    "
+  >
+    <img
+      class="hot-spring-transition-mist-image"
+      src="images/garden/hot-spring/hot-spring-mist-02.png"
+      alt=""
+      draggable="false"
+    >
+  </div>
+
+
+  <!-- C：左上，第三個出現 -->
+  <div
+    class="
+      hot-spring-transition-mist
+      hot-spring-transition-mist-c
+    "
+  >
+    <img
+      class="hot-spring-transition-mist-image"
+      src="images/garden/hot-spring/hot-spring-mist-01.png"
+      alt=""
+      draggable="false"
+    >
+  </div>
+
+</div>
+<!-- /hotSpringMistTransition -->
+
 
       <!-- 拉門：跟著舞台縮放 -->
       <div id="transitionDoors">
@@ -270,6 +334,63 @@
 >
 
 
+<!-- =========================
+     Hot Spring Scene Layers
+========================= -->
+
+<!-- 最底層背景 -->
+<img
+  class="garden-layer hot-spring-bg"
+  alt=""
+  draggable="false"
+  style="display: none;"
+>
+
+<!-- 下半池水區：位於普通全身角色下方 -->
+<img
+  class="garden-layer hot-spring-pool-lower"
+  alt=""
+  draggable="false"
+  style="display: none;"
+>
+
+<!-- 上方入浴區：位於普通全身角色上方 -->
+<img
+  class="garden-layer hot-spring-pool-upper"
+  alt=""
+  draggable="false"
+  style="display: none;"
+>
+
+
+<!-- Hot Spring Ambient Mist 01 -->
+<img
+  class="hot-spring-ambient-mist hot-spring-ambient-mist-01"
+  alt=""
+  draggable="false"
+  style="display: none;"
+>
+
+<!-- Hot Spring Ambient Mist 02 -->
+<img
+  class="hot-spring-ambient-mist hot-spring-ambient-mist-02"
+  alt=""
+  draggable="false"
+  style="display: none;"
+>
+
+
+
+<!-- 最前方石頭步道區 -->
+<img
+  class="garden-layer hot-spring-stone-path-front"
+  alt=""
+  draggable="false"
+  style="display: none;"
+>
+
+
+
 
     <!-- 遠景角色層 -->
     <div id="gardenCharFarLayer" class="garden-character-layer"></div>
@@ -318,6 +439,12 @@
   class="garden-layer garden-fg-lantern-left"
   alt=""
 >
+
+<!-- 左下燈籠前方角色層 -->
+<div
+  id="gardenCharLanternFrontLayer"
+  class="garden-character-layer"
+></div>
 
     <!-- 右上建築轉角 -->
    <img

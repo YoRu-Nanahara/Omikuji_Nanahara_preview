@@ -1001,7 +1001,29 @@ const CHINATSU_WALK_SHEET_SRC =
 const CHINATSU_TALK_SHEET_SRC =
   "images/garden/chinatsu/chinatsu-talk-sheet-ipad.png?v=1";
 
+/* =========================
+   Hot Spring Bath
+   Character Animation Assets
+========================= */
 
+const CHIFUYU_BATH_WALK_SHEET_SRC =
+  "images/garden/chifuyu/chifuyu-bath-walk-sheet.png?v=1";
+
+const CHIFUYU_BATH_IDLE_SHEET_SRC =
+  "images/garden/chifuyu/chifuyu-bath-idle-sheet.png?v=1";
+
+const CHIFUYU_BATH_SOAK_IDLE_SHEET_SRC =
+  "images/garden/chifuyu/chifuyu-bath-soak-idle-sheet.png?v=1";
+
+
+const CHINATSU_BATH_WALK_SHEET_SRC =
+  "images/garden/chinatsu/chinatsu-bath-walk-sheet.png?v=1";
+
+const CHINATSU_BATH_IDLE_SHEET_SRC =
+  "images/garden/chinatsu/chinatsu-bath-idle-sheet.png?v=1";
+
+const CHINATSU_BATH_SOAK_IDLE_SHEET_SRC =
+  "images/garden/chinatsu/chinatsu-bath-soak-idle-sheet.png?v=1";
 
 
   
@@ -1014,6 +1036,12 @@ const CHINATSU_TALK_SHEET_SRC =
 */
 const GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE = 3924;
 const GARDEN_TALK_LOGICAL_SHEET_SIZE = 5232;
+const GARDEN_BATH_SOAK_LOGICAL_WIDTH =
+  4578;
+
+const GARDEN_BATH_SOAK_LOGICAL_HEIGHT =
+  3924;
+
 
 
 /*
@@ -1076,12 +1104,17 @@ function getGardenAnimationAsset(
 
 
   if (
-    !anim ||
-    !anim.src ||
-    !Number.isFinite(
-      anim.logicalSize
-    )
-  ) {
+  !anim ||
+  !anim.src ||
+
+  !Number.isFinite(
+    anim.logicalWidth
+  ) ||
+
+  !Number.isFinite(
+    anim.logicalHeight
+  )
+) {
     console.warn(
       `[Garden Animation] missing asset definition: ${character}/${resolvedMode}`
     );
@@ -1090,16 +1123,25 @@ function getGardenAnimationAsset(
   }
 
 
-  return {
-    mode:
-      resolvedMode,
+ return {
+  mode:
+    resolvedMode,
 
-    src:
-      anim.src,
+  src:
+    anim.src,
 
-    logicalSize:
-      anim.logicalSize,
-  };
+  /*
+    Legacy compatibility
+  */
+  logicalSize:
+    anim.logicalSize,
+
+  logicalWidth:
+    anim.logicalWidth,
+
+  logicalHeight:
+    anim.logicalHeight,
+};
 }
 
 
@@ -1167,6 +1209,91 @@ const GARDEN_SCENE_LAYER_ASSETS = [
     night: "images/garden/courtyard/courtyard-fg-far-area-night.png",
   },
 ];
+
+
+/* =========================
+   Hot Spring Scene Assets
+========================= */
+
+const HOT_SPRING_SCENE_LAYER_ASSETS = [
+  {
+    selector:
+      ".hot-spring-bg",
+
+    /*
+      白天版尚未完成。
+
+      第一版為了方便任何時間測試，
+      day 暫時沿用 night。
+    */
+    day:
+      "images/garden/hot-spring/hot-spring-bg-night.jpg",
+
+    night:
+      "images/garden/hot-spring/hot-spring-bg-night.jpg",
+  },
+
+
+  {
+    selector:
+      ".hot-spring-pool-lower",
+
+    day:
+      "images/garden/hot-spring/hot-spring-pool-lower-night.png",
+
+    night:
+      "images/garden/hot-spring/hot-spring-pool-lower-night.png",
+  },
+
+
+  {
+    selector:
+      ".hot-spring-pool-upper",
+
+    day:
+      "images/garden/hot-spring/hot-spring-pool-upper-night.png",
+
+    night:
+      "images/garden/hot-spring/hot-spring-pool-upper-night.png",
+  },
+
+
+  {
+    selector:
+      ".hot-spring-ambient-mist-01",
+
+    day:
+      "images/garden/hot-spring/hot-spring-mist-01.png",
+
+    night:
+      "images/garden/hot-spring/hot-spring-mist-01.png",
+  },
+
+  {
+    selector:
+      ".hot-spring-ambient-mist-02",
+
+    day:
+      "images/garden/hot-spring/hot-spring-mist-02.png",
+
+    night:
+      "images/garden/hot-spring/hot-spring-mist-02.png",
+  },
+
+
+  {
+    selector:
+      ".hot-spring-stone-path-front",
+
+    day:
+      "images/garden/hot-spring/hot-spring-stone-path-front-night.png",
+
+    night:
+      "images/garden/hot-spring/hot-spring-stone-path-front-night.png",
+  },
+];
+
+
 
 /* =========================
    Moon Bridge Scene Assets
@@ -1991,6 +2118,7 @@ function applyGardenSceneMode(
 const allRegisteredSceneLayers = [
   ...GARDEN_SCENE_LAYER_ASSETS,
   ...MOON_BRIDGE_SCENE_LAYER_ASSETS,
+  ...HOT_SPRING_SCENE_LAYER_ASSETS,
 ];
 
 for (
@@ -9691,6 +9819,10 @@ document.addEventListener(
 const gardenCharFarLayer = document.getElementById("gardenCharFarLayer");
 const gardenCharNormalLayer = document.getElementById("gardenCharNormalLayer");
 const gardenCharFrontLayer = document.getElementById("gardenCharFrontLayer");
+const gardenCharLanternFrontLayer =
+  document.getElementById(
+    "gardenCharLanternFrontLayer"
+  );
 const gardenCharCornerFrontLayer = document.getElementById("gardenCharCornerFrontLayer");
 
 let chifuyuCurrentDepthLayer = "normal";
@@ -9708,6 +9840,14 @@ function moveChifuyuToDepthLayer(layerName) {
   if (layerName === "front") {
     targetLayer = gardenCharFrontLayer;
   }
+
+  if (
+  layerName ===
+    "lanternFront"
+) {
+  targetLayer =
+    gardenCharLanternFrontLayer;
+}
 
   if (layerName === "cornerFront") {
     targetLayer = gardenCharCornerFrontLayer;
@@ -9783,6 +9923,32 @@ const GARDEN_WALK_AREAS = {
       
       ],
     },
+  /*
+      Courtyard → Hot Spring
+      前景石板出口延伸。
+
+      不擴大整個庭院，
+      只讓溫泉出口這一小段
+      可以走得更靠近畫面底部。
+    */
+{
+  name:
+    "hot-spring-exit-corridor",
+
+  /*
+    只作為 Courtyard → Hot Spring
+    前景石板路線的延伸區。
+
+    讓角色可以先走到右側前景，
+    再沿同一高度一路往左。
+  */
+  points: [
+    { x: 300, y: 1680 },
+    { x: 900, y: 1680 },
+    { x: 900, y: 2050 },
+    { x: 300, y: 2050 },
+  ],
+},
   ],
 
   far: [
@@ -10365,6 +10531,168 @@ const COURTYARD_MOON_BRIDGE_EXIT_TARGETS = {
     y: 560,
   },
 };
+
+/* =========================
+   Courtyard ↔ Hot Spring
+   Travel Anchors
+========================= */
+
+/*
+  Courtyard → Hot Spring
+
+  庭院左下石頭步道左側。
+
+  approach：
+  還在庭院正式可走區內。
+
+  out：
+  往畫面左側離開。
+*/
+const COURTYARD_HOT_SPRING_EXIT = {
+chifuyu: {
+  via: [
+  {
+    x: 700,
+    y: 1880,
+
+    whenStartAboveY:
+      1980,
+  },
+],
+
+  approach: {
+    x: 380,
+    y: 2000,
+  },
+
+  out: {
+    x: -300,
+    y: 2000,
+  },
+},
+
+
+  chinatsu: {
+  via: [
+    {
+      x: 720,
+      y: 1880,
+
+      whenStartAboveY:
+        1880,
+    },
+  ],
+
+  approach: {
+    x: 390,
+    y: 2000,
+  },
+
+  out: {
+    x: -320,
+    y: 2000,
+  },
+},
+};
+
+
+/*
+  從 Hot Spring 回到 Courtyard。
+
+  從庭院左側畫面外出生，
+  再走回左下石頭步道附近。
+*/
+const COURTYARD_HOT_SPRING_ENTRANCE = {
+ chifuyu: {
+  spawn: {
+    x: -300,
+    y: 2000,
+  },
+
+  enter: {
+    x: 340,
+    y: 2000,
+  },
+},
+
+  chinatsu: {
+  spawn: {
+    x: -320,
+    y: 2000,
+  },
+
+  enter: {
+    x: 345,
+    y: 2000,
+  },
+},
+};
+
+
+/*
+  Hot Spring → Courtyard
+
+  露天風呂的進出都位於
+  左上紫色矩形區域。
+*/
+const HOT_SPRING_COURTYARD_EXIT = {
+  chifuyu: {
+    approach: {
+  x: 170,
+  y: 630,
+},
+
+out: {
+  x: -300,
+  y: 630,
+},
+  },
+
+  chinatsu: {
+  approach: {
+    x: 185,
+    y: 630,
+  },
+
+  out: {
+    x: -320,
+    y: 630,
+  },
+},
+};
+
+
+/*
+  Courtyard → Hot Spring Entrance
+
+  從紫色區域左側畫面外進入。
+*/
+const HOT_SPRING_COURTYARD_ENTRANCE = {
+  chifuyu: {
+    spawn: {
+  x: -300,
+  y: 630,
+},
+
+enter: {
+  x: 170,
+  y: 630,
+},
+  },
+
+  chinatsu: {
+    spawn: {
+      x: -320,
+      y: 630,
+    },
+
+    enter: {
+      x: 185,
+      y: 630,
+    },
+  },
+};
+
 
 
 /* =========================
@@ -16125,11 +16453,23 @@ function getChifuyuDepthLayerByPosition(
 const chifuyuWalkTestWrap = document.getElementById("chifuyuWalkTestWrap");
 const chifuyuWalkTest = document.getElementById("chifuyuWalkTest");
 
-
+const chifuyuWalkShadow =
+  document.getElementById(
+    "chifuyuWalkShadow"
+  );
 
 const CHIFUYU_WALK_SHEET_CLASS = "chifuyu-walk-sheet";
 const CHIFUYU_IDLE_SHEET_CLASS = "chifuyu-idle-sheet";
 const CHIFUYU_TALK_SHEET_CLASS = "chifuyu-talk-sheet";
+const CHIFUYU_BATH_WALK_SHEET_CLASS =
+  "chifuyu-bath-walk-sheet";
+
+const CHIFUYU_BATH_IDLE_SHEET_CLASS =
+  "chifuyu-bath-idle-sheet";
+
+const CHIFUYU_BATH_SOAK_IDLE_SHEET_CLASS =
+  "chifuyu-bath-soak-idle-sheet";
+
 
 
 function buildSpriteFramePositions(frameCount, columns, cellW = 654, cellH = 654, offsetX = 2, offsetY = 2) {
@@ -16267,6 +16607,112 @@ const CHIFUYU_FRAME_POSITIONS = [
   "-656px -3272px",
 ];
 
+
+/*
+  Bath full-body：
+  32 幀，沿用一般 32-frame atlas layout。
+*/
+/*
+  Bath Walk / Bath Idle
+  32 幀
+
+  和原本角色 32-frame sheet
+  使用完全相同的 packing 順序。
+*/
+const GARDEN_BATH_FULL_FRAME_POSITIONS =
+  CHIFUYU_FRAME_POSITIONS;
+
+  /*
+  Bath Idle：
+  最後 1 幀不參與循環，
+  避免 loop 尾端跳動。
+*/
+const GARDEN_BATH_IDLE_FRAME_POSITIONS =
+  GARDEN_BATH_FULL_FRAME_POSITIONS.slice(
+    0,
+    31
+  );
+
+
+/*
+  Bath Soak Idle
+  38 幀
+
+  Packing 規則：
+  1 ～ 36 = 6 × 6
+  37 ～ 38 = 第 7 欄上方兩格
+*/
+const GARDEN_BATH_SOAK_IDLE_FRAME_POSITIONS = [
+  /*
+    1 ～ 6
+  */
+  "-2px -2px",
+  "-656px -2px",
+  "-1310px -2px",
+  "-1964px -2px",
+  "-2618px -2px",
+  "-3272px -2px",
+
+  /*
+    7 ～ 12
+  */
+  "-2px -656px",
+  "-656px -656px",
+  "-1310px -656px",
+  "-1964px -656px",
+  "-2618px -656px",
+  "-3272px -656px",
+
+  /*
+    13 ～ 18
+  */
+  "-2px -1310px",
+  "-656px -1310px",
+  "-1310px -1310px",
+  "-1964px -1310px",
+  "-2618px -1310px",
+  "-3272px -1310px",
+
+  /*
+    19 ～ 24
+  */
+  "-2px -1964px",
+  "-656px -1964px",
+  "-1310px -1964px",
+  "-1964px -1964px",
+  "-2618px -1964px",
+  "-3272px -1964px",
+
+  /*
+    25 ～ 30
+  */
+  "-2px -2618px",
+  "-656px -2618px",
+  "-1310px -2618px",
+  "-1964px -2618px",
+  "-2618px -2618px",
+  "-3272px -2618px",
+
+  /*
+    31 ～ 36
+  */
+  "-2px -3272px",
+  "-656px -3272px",
+  "-1310px -3272px",
+  "-1964px -3272px",
+  "-2618px -3272px",
+  "-3272px -3272px",
+
+  /*
+    37 ～ 38
+    第 7 欄最上面兩格
+  */
+  "-3926px -2px",
+  "-3926px -656px",
+];
+
+
+
 const CHIFUYU_IDLE_FRAME_POSITIONS = CHIFUYU_FRAME_POSITIONS.slice(0, 31);
 
 // 暫時關閉 Garden 手機效能模式
@@ -16329,18 +16775,32 @@ function defineGardenAnimation(
   }
 
 
-  const {
-    sheetClass,
-    frameMs,
-    positions,
+ const {
+  sheetClass,
+  frameMs,
+  positions,
 
-    /*
-      spritesheet 素材資訊
-    */
-    src,
+  /*
+    spritesheet 素材資訊
+
+    舊素材：
+    logicalSize
+
+    新素材也可以分別指定：
+    logicalWidth
+    logicalHeight
+  */
+  src,
+
+  logicalSize = null,
+
+  logicalWidth =
     logicalSize,
 
-    type = "generic",
+  logicalHeight =
+    logicalSize,
+
+  type = "generic",
 
     playback = "loop",
 
@@ -16358,15 +16818,23 @@ function defineGardenAnimation(
     目前播放引擎必要欄位。
   */
   if (
-    !sheetClass ||
-    !Number.isFinite(frameMs) ||
-    frameMs <= 0 ||
-    !Array.isArray(positions) ||
-    positions.length === 0 ||
-    !src ||
-    !Number.isFinite(logicalSize) ||
-    logicalSize <= 0
-  ) {
+  !sheetClass ||
+  !Number.isFinite(frameMs) ||
+  frameMs <= 0 ||
+  !Array.isArray(positions) ||
+  positions.length === 0 ||
+  !src ||
+
+  !Number.isFinite(
+    logicalWidth
+  ) ||
+  logicalWidth <= 0 ||
+
+  !Number.isFinite(
+    logicalHeight
+  ) ||
+  logicalHeight <= 0
+) {
     console.warn(
       "[Garden Animation] invalid animation definition:",
       config
@@ -16382,9 +16850,17 @@ function defineGardenAnimation(
     positions,
 
     src,
-    logicalSize,
 
-    type,
+/*
+  舊欄位保留，
+  避免其他還沒整理到的程式碼壞掉。
+*/
+logicalSize,
+
+logicalWidth,
+logicalHeight,
+
+type,
     playback,
     interruptible,
     movementAllowed,
@@ -16510,6 +16986,126 @@ logicalSize:
         holdLastFrame:
           false,
       }),
+
+bathWalk:
+  defineGardenAnimation({
+    sheetClass:
+      CHIFUYU_BATH_WALK_SHEET_CLASS,
+
+    frameMs:
+      CHIFUYU_WALK_FRAME_MS,
+
+    positions:
+      GARDEN_BATH_FULL_FRAME_POSITIONS,
+
+    src:
+      CHIFUYU_BATH_WALK_SHEET_SRC,
+
+    logicalWidth:
+      GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+
+    logicalHeight:
+      GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+
+    type:
+      "locomotion",
+
+    playback:
+      "loop",
+
+    interruptible:
+      true,
+
+    movementAllowed:
+      true,
+
+    preloadTier:
+      "onDemand",
+
+    holdLastFrame:
+      false,
+  }),
+
+
+bathIdle:
+  defineGardenAnimation({
+    sheetClass:
+      CHIFUYU_BATH_IDLE_SHEET_CLASS,
+
+    frameMs:
+      CHIFUYU_IDLE_FRAME_MS,
+
+   positions:
+  GARDEN_BATH_IDLE_FRAME_POSITIONS,
+
+    src:
+      CHIFUYU_BATH_IDLE_SHEET_SRC,
+
+    logicalWidth:
+      GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+
+    logicalHeight:
+      GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+
+    type:
+      "idle",
+
+    playback:
+      "loop",
+
+    interruptible:
+      true,
+
+    movementAllowed:
+      false,
+
+    preloadTier:
+      "onDemand",
+
+    holdLastFrame:
+      false,
+  }),
+
+
+bathSoakIdle:
+  defineGardenAnimation({
+    sheetClass:
+      CHIFUYU_BATH_SOAK_IDLE_SHEET_CLASS,
+
+    frameMs:
+      CHIFUYU_IDLE_FRAME_MS,
+
+    positions:
+      GARDEN_BATH_SOAK_IDLE_FRAME_POSITIONS,
+
+    src:
+      CHIFUYU_BATH_SOAK_IDLE_SHEET_SRC,
+
+    logicalWidth:
+      GARDEN_BATH_SOAK_LOGICAL_WIDTH,
+
+    logicalHeight:
+      GARDEN_BATH_SOAK_LOGICAL_HEIGHT,
+
+    type:
+      "idle",
+
+    playback:
+      "loop",
+
+    interruptible:
+      true,
+
+    movementAllowed:
+      false,
+
+    preloadTier:
+      "onDemand",
+
+    holdLastFrame:
+      false,
+  }),
+
   });
 
 /* =========================
@@ -16696,9 +17292,9 @@ function createChifuyuSpriteLayer(
       : "none";
 
 
-  layer.style.backgroundSize =
-    `${asset.logicalSize}px ` +
-    `${asset.logicalSize}px`;
+ layer.style.backgroundSize =
+  `${asset.logicalWidth}px ` +
+  `${asset.logicalHeight}px`;
 
   layer.style.backgroundRepeat =
     "no-repeat";
@@ -17068,6 +17664,37 @@ async function warmupGardenAnimationSheet(
   const allowIpad =
     options.allowIpad === true;
 
+
+
+    /*
+  Legacy fallback：
+
+  舊的 direct warmup 呼叫
+  沒有傳 logicalWidth /
+  logicalHeight 時，
+  仍照原本規則處理。
+*/
+const fallbackLogicalSize =
+  sheetClass.includes("talk")
+    ? GARDEN_TALK_LOGICAL_SHEET_SIZE
+    : GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE;
+
+
+const logicalWidth =
+  Number.isFinite(
+    options.logicalWidth
+  )
+    ? options.logicalWidth
+    : fallbackLogicalSize;
+
+
+const logicalHeight =
+  Number.isFinite(
+    options.logicalHeight
+  )
+    ? options.logicalHeight
+    : fallbackLogicalSize;
+
   /*
     iPad 不做全量 warmup。
 
@@ -17159,13 +17786,9 @@ if (!loaded) {
     實體 PNG 現在是縮小版本，
     但 CSS 邏輯座標仍然使用原尺寸。
   */
-  const logicalSize =
-    sheetClass.includes("talk")
-      ? GARDEN_TALK_LOGICAL_SHEET_SIZE
-      : GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE;
-
   frame.style.backgroundSize =
-    `${logicalSize}px ${logicalSize}px`;
+  `${logicalWidth}px ` +
+  `${logicalHeight}px`;
 
   holder.appendChild(frame);
 
@@ -17312,8 +17935,14 @@ if (!asset) {
       anim.sheetClass,
       asset.src,
       {
-        allowIpad: true,
-      }
+  allowIpad: true,
+
+  logicalWidth:
+    asset.logicalWidth,
+
+  logicalHeight:
+    asset.logicalHeight,
+}
     );
 
   let promise;
@@ -17393,9 +18022,9 @@ function bindGardenSpriteLayerImage(
     layer.style.backgroundImage =
       `url("${asset.src}")`;
 
-    layer.style.backgroundSize =
-      `${asset.logicalSize}px ` +
-      `${asset.logicalSize}px`;
+   layer.style.backgroundSize =
+  `${asset.logicalWidth}px ` +
+  `${asset.logicalHeight}px`;
 
     layer.style.backgroundRepeat =
       "no-repeat";
@@ -18222,6 +18851,184 @@ function getGardenCharacterTravelRoute(
 }
 
 
+
+/*
+  =========================
+  Garden Character Travel
+  Multi-hop Route Resolver
+  =========================
+
+  Travel 本身仍然一次只跑一個
+  Scene → Scene。
+
+  這裡只負責回答：
+
+  「如果最終目的地不是直接鄰接，
+    現在第一站應該去哪裡？」
+
+  例如：
+
+  hotSpring
+      ↓
+  courtyard
+      ↓
+  moonBridge
+
+  hotSpring → moonBridge
+  的 next hop 就是 courtyard。
+*/
+function getGardenCharacterTravelNextHop(
+  characterId,
+  fromSceneId,
+  finalSceneId
+) {
+  if (
+    !characterId ||
+    !fromSceneId ||
+    !finalSceneId
+  ) {
+    return null;
+  }
+
+
+  if (
+    fromSceneId ===
+      finalSceneId
+  ) {
+    return finalSceneId;
+  }
+
+
+  /*
+    BFS：
+
+    找 Scene Graph 上最短的
+    可用角色旅行路徑。
+  */
+  const visited =
+    new Set([
+      fromSceneId,
+    ]);
+
+
+  const queue = [
+    {
+      sceneId:
+        fromSceneId,
+
+      firstHop:
+        null,
+    },
+  ];
+
+
+  while (
+    queue.length > 0
+  ) {
+    const current =
+      queue.shift();
+
+
+    const currentScene =
+      getGardenSceneById(
+        current.sceneId
+      );
+
+
+    if (!currentScene) {
+      continue;
+    }
+
+
+    const nextSceneIds =
+      Object.keys(
+        currentScene.exits ??
+          {}
+      );
+
+
+    for (
+      const nextSceneId of
+      nextSceneIds
+    ) {
+      if (
+        visited.has(
+          nextSceneId
+        )
+      ) {
+        continue;
+      }
+
+
+      /*
+        不是只看 Scene Graph。
+
+        這個角色本身也必須真的有：
+        - Exit
+        - Entrance
+      */
+      const route =
+        getGardenCharacterTravelRoute(
+          current.sceneId,
+          nextSceneId
+        );
+
+
+      if (
+        !route ||
+        !route.exitByCharacter?.[
+          characterId
+        ] ||
+        !route.entranceByCharacter?.[
+          characterId
+        ]
+      ) {
+        continue;
+      }
+
+
+      const firstHop =
+        current.firstHop ??
+        nextSceneId;
+
+
+      /*
+        已找到最終目的地。
+
+        回傳的不是 finalSceneId，
+        而是從目前場景出發時
+        第一個真正要走的 Scene。
+      */
+      if (
+        nextSceneId ===
+          finalSceneId
+      ) {
+        return firstHop;
+      }
+
+
+      visited.add(
+        nextSceneId
+      );
+
+
+      queue.push({
+        sceneId:
+          nextSceneId,
+
+        firstHop,
+      });
+    }
+  }
+
+
+  /*
+    Scene Graph 上不存在
+    可供此角色使用的路徑。
+  */
+  return null;
+}
+
 function isGardenCharacterTraveling(
   character
 ) {
@@ -18334,32 +19141,171 @@ const start =
     先正常走到橋面左端，
     再追加一個位於畫面外的 out。
   */
+ if (
+  route.exitType ===
+  "approachOut"
+) {
+  /*
+    approachOut 可以選擇加入
+    一個或多個強制經過點。
+
+    沒有 via 的舊 Route：
+      start → approach → out
+
+    有 via：
+      start
+      → via[0]
+      → via[1]
+      → ...
+      → approach
+      → out
+  */
+  const viaPoints =
+  Array.isArray(exit.via)
+    ? exit.via.filter(
+        (point) => {
+          if (
+            !Number.isFinite(
+              point?.x
+            ) ||
+            !Number.isFinite(
+              point?.y
+            )
+          ) {
+            return false;
+          }
+
+
+          /*
+            可選條件：
+            只有角色起始位置
+            位於指定 Y 上方時
+            才強制經過這個 waypoint。
+          */
+          if (
+            Number.isFinite(
+              point.whenStartAboveY
+            ) &&
+            start.y >=
+              point.whenStartAboveY
+          ) {
+            return false;
+          }
+
+
+          return true;
+        }
+      )
+    : [];
+
+
   if (
-    route.exitType ===
-    "approachOut"
+    !Number.isFinite(
+      exit.approach?.x
+    ) ||
+    !Number.isFinite(
+      exit.approach?.y
+    ) ||
+    !Number.isFinite(
+      exit.out?.x
+    ) ||
+    !Number.isFinite(
+      exit.out?.y
+    )
   ) {
-    const approachPath =
+    return null;
+  }
+
+
+  const waypoints = [
+    ...viaPoints,
+
+    {
+      x:
+        exit.approach.x,
+
+      y:
+        exit.approach.y,
+    },
+  ];
+
+
+  const combinedPath = [];
+
+  let currentPoint = {
+    x: start.x,
+    y: start.y,
+  };
+
+
+  for (
+    const waypoint of
+    waypoints
+  ) {
+    const segmentPath =
       findGardenPath(
-        start,
-        exit.approach,
+        currentPoint,
+        waypoint,
         route.fromSceneId
       );
 
 
-    if (!approachPath) {
+    if (!segmentPath) {
       return null;
     }
 
 
-    return [
-      ...approachPath,
+    for (
+      const point of
+      segmentPath
+    ) {
+      const previous =
+        combinedPath[
+          combinedPath.length - 1
+        ];
 
-      {
-        x: exit.out.x,
-        y: exit.out.y,
-      },
-    ];
+
+      /*
+        避免相鄰區段產生
+        完全相同的重複點。
+      */
+      if (
+        previous &&
+        previous.x ===
+          point.x &&
+        previous.y ===
+          point.y
+      ) {
+        continue;
+      }
+
+
+      combinedPath.push({
+        x: point.x,
+        y: point.y,
+      });
+    }
+
+
+    currentPoint = {
+      x: waypoint.x,
+      y: waypoint.y,
+    };
   }
+
+
+  /*
+    最後一步允許走出
+    正式 walkArea。
+  */
+  combinedPath.push({
+    x: exit.out.x,
+    y: exit.out.y,
+  });
+
+
+  return combinedPath;
+}
 
 
   return null;
@@ -19509,23 +20455,64 @@ function travelGardenCharacter(
   }
 
 
-  const route =
-    getGardenCharacterTravelRoute(
-      fromSceneId,
-      toSceneId
-    );
+  /*
+  =========================
+  Multi-hop Travel
+  =========================
+
+  toSceneId 是 Schedule / 呼叫端想去的
+  「最終目的地」。
+
+  Travel Runtime 每一次只負責
+  一個相鄰 Scene hop。
+*/
+const finalSceneId =
+  toSceneId;
 
 
-  if (!route) {
-    console.warn(
-      "[Garden Travel] route not found:",
-      fromSceneId,
-      "→",
-      toSceneId
-    );
+const travelSceneId =
+  getGardenCharacterTravelNextHop(
+    character,
+    fromSceneId,
+    finalSceneId
+  );
 
-    return false;
-  }
+
+if (!travelSceneId) {
+  console.warn(
+    "[Garden Travel] route not found:",
+    fromSceneId,
+    "→",
+    finalSceneId
+  );
+
+  return false;
+}
+
+
+/*
+  本次真正執行的相鄰路線。
+*/
+const route =
+  getGardenCharacterTravelRoute(
+    fromSceneId,
+    travelSceneId
+  );
+
+
+if (!route) {
+  console.warn(
+    "[Garden Travel] next-hop route not found:",
+    fromSceneId,
+    "→",
+    travelSceneId,
+    {
+      finalSceneId,
+    }
+  );
+
+  return false;
+}
 
 
   const hasTravelOptions =
@@ -19648,12 +20635,12 @@ if (
   path.length === 0
 ) {
   console.warn(
-    "[Garden Travel] exit path not found:",
-    character,
-    fromSceneId,
-    "→",
-    toSceneId
-  );
+  "[Garden Travel] exit path not found:",
+  character,
+  fromSceneId,
+  "→",
+  travelSceneId
+);
 
   return false;
 }
@@ -19697,12 +20684,12 @@ const spatialPlan =
 */
 if (!spatialPlan) {
   console.warn(
-    "[Garden Travel] canonical spatial plan build failed:",
-    character,
-    fromSceneId,
-    "→",
-    toSceneId
-  );
+  "[Garden Travel] canonical spatial plan build failed:",
+  character,
+  fromSceneId,
+  "→",
+  travelSceneId
+);
 
   return false;
 }
@@ -19733,7 +20720,13 @@ const semanticActivityId =
 
 worldState.travel = {
   fromSceneId,
-  toSceneId,
+
+  /*
+    Travel State 只描述
+    「這一段真正正在走的 hop」。
+  */
+  toSceneId:
+    travelSceneId,
 
   phase:
     "walkingToExit",
@@ -19787,7 +20780,9 @@ worldState.travel = {
     .TRAVEL,
   {
     fromSceneId,
-    toSceneId,
+
+    toSceneId:
+      travelSceneId,
 
     semanticActivityId,
 
@@ -19809,12 +20804,13 @@ worldState.travel = {
   updateGardenCharacterVisibility();
 
 
-  console.log(
-    `[Garden Travel] ${character}: ${fromSceneId} → ${toSceneId}`,
-    {
-      path,
-    }
-  );
+ console.log(
+  `[Garden Travel] ${character}: ${fromSceneId} → ${travelSceneId}`,
+  {
+    finalSceneId,
+    path,
+  }
+);
 
 
   return true;
@@ -19895,9 +20891,26 @@ window.testChifuyuCourtyardMoonBridgeTravel =
 const chinatsuWalkTestWrap = document.getElementById("chinatsuWalkTestWrap");
 const chinatsuWalkTest = document.getElementById("chinatsuWalkTest");
 
+const chinatsuWalkShadow =
+  document.getElementById(
+    "chinatsuWalkShadow"
+  );
+
 const CHINATSU_WALK_SHEET_CLASS = "chinatsu-walk-sheet";
 const CHINATSU_IDLE_SHEET_CLASS = "chinatsu-idle-sheet";
 const CHINATSU_TALK_SHEET_CLASS = "chinatsu-talk-sheet";
+
+const CHINATSU_BATH_WALK_SHEET_CLASS =
+  "chinatsu-bath-walk-sheet";
+
+const CHINATSU_BATH_IDLE_SHEET_CLASS =
+  "chinatsu-bath-idle-sheet";
+
+const CHINATSU_BATH_SOAK_IDLE_SHEET_CLASS =
+  "chinatsu-bath-soak-idle-sheet";
+
+
+
 
 const CHINATSU_ANIMS =
   Object.freeze({
@@ -20010,6 +21023,126 @@ logicalSize:
         holdLastFrame:
           false,
       }),
+
+bathWalk:
+  defineGardenAnimation({
+    sheetClass:
+      CHINATSU_BATH_WALK_SHEET_CLASS,
+
+    frameMs:
+      CHINATSU_WALK_FRAME_MS,
+
+    positions:
+      GARDEN_BATH_FULL_FRAME_POSITIONS,
+
+    src:
+      CHINATSU_BATH_WALK_SHEET_SRC,
+
+    logicalWidth:
+      GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+
+    logicalHeight:
+      GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+
+    type:
+      "locomotion",
+
+    playback:
+      "loop",
+
+    interruptible:
+      true,
+
+    movementAllowed:
+      true,
+
+    preloadTier:
+      "onDemand",
+
+    holdLastFrame:
+      false,
+  }),
+
+
+bathIdle:
+  defineGardenAnimation({
+    sheetClass:
+      CHINATSU_BATH_IDLE_SHEET_CLASS,
+
+    frameMs:
+      CHINATSU_IDLE_FRAME_MS,
+
+   positions:
+  GARDEN_BATH_IDLE_FRAME_POSITIONS,
+
+    src:
+      CHINATSU_BATH_IDLE_SHEET_SRC,
+
+    logicalWidth:
+      GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+
+    logicalHeight:
+      GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE,
+
+    type:
+      "idle",
+
+    playback:
+      "loop",
+
+    interruptible:
+      true,
+
+    movementAllowed:
+      false,
+
+    preloadTier:
+      "onDemand",
+
+    holdLastFrame:
+      false,
+  }),
+
+
+bathSoakIdle:
+  defineGardenAnimation({
+    sheetClass:
+      CHINATSU_BATH_SOAK_IDLE_SHEET_CLASS,
+
+    frameMs:
+      CHINATSU_IDLE_FRAME_MS,
+
+    positions:
+      GARDEN_BATH_SOAK_IDLE_FRAME_POSITIONS,
+
+    src:
+      CHINATSU_BATH_SOAK_IDLE_SHEET_SRC,
+
+    logicalWidth:
+      GARDEN_BATH_SOAK_LOGICAL_WIDTH,
+
+    logicalHeight:
+      GARDEN_BATH_SOAK_LOGICAL_HEIGHT,
+
+    type:
+      "idle",
+
+    playback:
+      "loop",
+
+    interruptible:
+      true,
+
+    movementAllowed:
+      false,
+
+    preloadTier:
+      "onDemand",
+
+    holdLastFrame:
+      false,
+  }),
+
   });
 
 /* =========================
@@ -20164,8 +21297,8 @@ function createChinatsuSpriteLayer(
 
 
   layer.style.backgroundSize =
-    `${asset.logicalSize}px ` +
-    `${asset.logicalSize}px`;
+  `${asset.logicalWidth}px ` +
+  `${asset.logicalHeight}px`;
 
   layer.style.backgroundRepeat =
     "no-repeat";
@@ -20321,6 +21454,16 @@ function moveChinatsuToDepthLayer(layerName) {
   if (layerName === "front") {
     targetLayer = gardenCharFrontLayer;
   }
+
+
+if (
+  layerName ===
+    "lanternFront"
+) {
+  targetLayer =
+    gardenCharLanternFrontLayer;
+}
+
 
   if (layerName === "cornerFront") {
     targetLayer = gardenCharCornerFrontLayer;
@@ -26893,6 +28036,172 @@ function faceGardenCharactersToEachOther() {
   }
 }
 
+
+/* =========================
+   Garden Character
+   Ground Shadow Visibility
+========================= */
+
+function updateGardenCharacterGroundShadow(
+  characterId,
+  shadowElement
+) {
+  if (!shadowElement) {
+    return;
+  }
+
+
+  const runtime =
+    getGardenCharacterAnimationRuntime(
+      characterId
+    );
+
+  const mode =
+    runtime?.state?.animMode ??
+    null;
+
+
+  /*
+    泡湯差分本身只保留水面以上角色，
+    此時不能再顯示地面陰影。
+  */
+  const shouldHide =
+    mode ===
+      "bathSoakIdle";
+
+
+  shadowElement.style.display =
+    shouldHide
+      ? "none"
+      : "";
+}
+
+/* =========================
+   Garden Character
+   Visual Depth Override
+========================= */
+
+function getGardenCharacterVisualDepthLayer(
+  characterId,
+  baseDepthLayer
+) {
+  const currentAnimation =
+    getGardenCharacterCurrentAnimation(
+      characterId
+    );
+
+
+  /*
+    泡湯差分已經只剩水面以上身體。
+
+    此時角色必須：
+    - 高於 hot-spring-pool-upper
+    - 但仍低於最前方 stone path
+
+    gardenCharFrontLayer = 700
+    pool-upper = 650
+    stone-front = 900
+  */
+  if (
+    currentAnimation ===
+      "bathSoakIdle"
+  ) {
+    return "front";
+  }
+
+
+  /*
+    其他動畫維持原本
+    依位置計算的 depth。
+  */
+  return baseDepthLayer;
+}
+
+function getGardenCharacterVisualZIndex(
+  characterId,
+  y
+) {
+  const baseZ =
+    Math.round(y);
+
+
+  /*
+    Hot Spring Bath Tie Breaker
+
+    兩人泡澡期間如果處於同一個
+    顯示深度，固定：
+
+    千夏在上
+    千冬在下
+
+    避免相同 z-index 時結果依賴
+    DOM append 順序。
+  */
+  const chifuyuWorldState =
+    gardenCharacterWorldState
+      .chifuyu;
+
+  const chinatsuWorldState =
+    gardenCharacterWorldState
+      .chinatsu;
+
+
+  const bothBathing =
+    chifuyuWorldState?.sceneId ===
+      "hotSpring" &&
+    chinatsuWorldState?.sceneId ===
+      "hotSpring" &&
+    chifuyuWorldState?.activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .BATH &&
+    chinatsuWorldState?.activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .BATH;
+
+
+  if (!bothBathing) {
+    return baseZ;
+  }
+
+
+  const chifuyuZ =
+    Math.round(
+      chifuyuWalkTestState.y
+    );
+
+  const chinatsuZ =
+    Math.round(
+      chinatsuWalkTestState.y
+    );
+
+
+  /*
+    只有兩人的實際顯示深度相同
+    才介入。
+
+    Y 不同時仍完全沿用原本排序。
+  */
+  if (
+    chifuyuZ !==
+    chinatsuZ
+  ) {
+    return baseZ;
+  }
+
+
+  if (
+    characterId ===
+      "chinatsu"
+  ) {
+    return baseZ + 1;
+  }
+
+
+  return baseZ;
+}
+
+
+
 function applyGardenChatSpot(spot) {
   if (!spot) return false;
 
@@ -28329,17 +29638,24 @@ function renderChinatsuWalkTest() {
   }
 
 
-  const depthLayer =
-    getGardenDepthLayerByPositionInScene(
-      sceneId,
-      chinatsuWalkTestState.x,
-      chinatsuWalkTestState.y
-    );
-
-
-  moveChinatsuToDepthLayer(
-    depthLayer
+const baseDepthLayer =
+  getGardenDepthLayerByPositionInScene(
+    sceneId,
+    chinatsuWalkTestState.x,
+    chinatsuWalkTestState.y
   );
+
+
+const visualDepthLayer =
+  getGardenCharacterVisualDepthLayer(
+    "chinatsu",
+    baseDepthLayer
+  );
+
+
+moveChinatsuToDepthLayer(
+  visualDepthLayer
+);
 
 
   const facingScale =
@@ -28355,7 +29671,17 @@ function renderChinatsuWalkTest() {
     `scaleX(${facingScale}) ` +
     `scale(${depthScale})`;
 
-  chinatsuWalkTestWrap.style.zIndex = Math.round(chinatsuWalkTestState.y);
+ chinatsuWalkTestWrap.style.zIndex =
+  getGardenCharacterVisualZIndex(
+    "chinatsu",
+    chinatsuWalkTestState.y
+  );
+
+updateGardenCharacterGroundShadow(
+  "chinatsu",
+  chinatsuWalkShadow
+);
+
 
  updateGardenCharacterNightLighting(
   "chinatsu",
@@ -29030,14 +30356,24 @@ function renderChifuyuWalkTest() {
   }
 
 
-  const depthLayer =
-    getGardenDepthLayerByPositionInScene(
-      sceneId,
-      chifuyuWalkTestState.x,
-      chifuyuWalkTestState.y
-    );
+  const baseDepthLayer =
+  getGardenDepthLayerByPositionInScene(
+    sceneId,
+    chifuyuWalkTestState.x,
+    chifuyuWalkTestState.y
+  );
 
-  moveChifuyuToDepthLayer(depthLayer);
+
+const visualDepthLayer =
+  getGardenCharacterVisualDepthLayer(
+    "chifuyu",
+    baseDepthLayer
+  );
+
+
+moveChifuyuToDepthLayer(
+  visualDepthLayer
+);
 
   const facingScale =
     chifuyuWalkTestState.direction === 1
@@ -29066,8 +30402,16 @@ function renderChifuyuWalkTest() {
     chifuyuWalkTest.style.transformOrigin = "";
   }
 
-  chifuyuWalkTestWrap.style.zIndex =
-    Math.round(chifuyuWalkTestState.y);
+ chifuyuWalkTestWrap.style.zIndex =
+  getGardenCharacterVisualZIndex(
+    "chifuyu",
+    chifuyuWalkTestState.y
+  );
+
+    updateGardenCharacterGroundShadow(
+  "chifuyu",
+  chifuyuWalkShadow
+);
 
 updateGardenCharacterNightLighting(
   "chifuyu",
@@ -29231,6 +30575,213 @@ function resolveGardenCharacterAnimationMode(
       : null;
 
 
+
+/*
+  =========================
+  Hot Spring
+  Bath Transition
+  =========================
+
+  入浴途中：
+
+  D 以前
+  → 一般 walk
+
+  D 後白霧開始，
+  等白霧達到指定遮蔽點後
+  → bathSoakIdle
+*/
+/*
+  =========================
+  Hot Spring
+  Bath Transition
+  =========================
+*/
+if (
+  activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH_TRANSITION
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+  const plan =
+    worldState?.bathTransition ??
+    null;
+
+
+  /*
+    =========================
+    Exit
+    =========================
+
+    mistLeadIn
+      → bathSoakIdle
+
+    開始離開浴池後
+      → bathWalk
+  */
+  if (
+    plan?.direction ===
+      "exit"
+  ) {
+    const sample =
+      resolveGardenHotSpringBathTransitionSpatialState(
+        plan,
+        getGardenWorldNow()
+      );
+
+
+    if (
+      sample?.phase ===
+        "mistLeadIn"
+    ) {
+      return "bathSoakIdle";
+    }
+
+
+    return moveState?.isMoving
+      ? "bathWalk"
+      : "bathIdle";
+  }
+
+
+  /*
+    =========================
+    Enter
+    =========================
+
+    D → E 的後段，
+    白霧已經遮住角色後，
+    切到 bathSoakIdle。
+  */
+  if (
+    plan?.direction ===
+      "enter"
+  ) {
+    const sample =
+      resolveGardenHotSpringBathTransitionSpatialState(
+        plan,
+        getGardenWorldNow()
+      );
+
+    const bathEntryElapsedMs =
+      plan.checkpoints
+        ?.bathEntry
+        ?.elapsedMs;
+
+    const bathStartElapsedMs =
+      plan.checkpoints
+        ?.bathStart
+        ?.elapsedMs;
+
+
+    if (
+      sample &&
+      Number.isFinite(
+        sample.elapsedMs
+      ) &&
+      Number.isFinite(
+        bathEntryElapsedMs
+      ) &&
+      Number.isFinite(
+        bathStartElapsedMs
+      )
+    ) {
+      const settlingDurationMs =
+        bathStartElapsedMs -
+        bathEntryElapsedMs;
+
+      const swapElapsedMs =
+        bathEntryElapsedMs +
+        settlingDurationMs *
+          HOT_SPRING_BATH_VISUAL_SWAP_SETTLING_PROGRESS;
+
+
+      if (
+        sample.elapsedMs >=
+          swapElapsedMs
+      ) {
+        return "bathSoakIdle";
+      }
+    }
+  }
+
+
+  /*
+    Enter：
+    入水前維持 bathWalk / bathIdle。
+
+    Exit：
+    理論上上面已經 return；
+    這裡同時作為安全 fallback。
+  */
+  return moveState?.isMoving
+    ? "bathWalk"
+    : "bathIdle";
+}
+
+/*
+  =========================
+  Hot Spring
+  Bath
+  =========================
+
+  BATH 代表角色目前仍處於
+  Hot Spring bathing session。
+
+  是否使用 soak 差分，
+  由角色目前是不是實際位於浴池內決定。
+*/
+if (
+  activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH
+) {
+  const x =
+    moveState?.x;
+
+  const y =
+    moveState?.y;
+
+
+  const isInsideBath =
+    Number.isFinite(x) &&
+    Number.isFinite(y) &&
+    HOT_SPRING_BATH_AREAS
+      .bath
+      .some(
+        area =>
+          pointInPolygon(
+            x,
+            y,
+            area.points
+          )
+      );
+
+
+  /*
+    池內：
+    使用泡湯上半身差分。
+  */
+  if (isInsideBath) {
+    return "bathSoakIdle";
+  }
+
+
+  /*
+    已經離開池水，
+    但仍處於 bathing session：
+
+    保持浴場服裝。
+  */
+  return moveState?.isMoving
+    ? "bathWalk"
+    : "bathIdle";
+}
+
   /*
     =========================
     Chat
@@ -29286,15 +30837,93 @@ function resolveGardenCharacterAnimationMode(
     所以即使這裡回 idle，
     也不影響畫面。
   */
+ /*
+  =========================
+  Travel
+  =========================
+*/
+if (
+  activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .TRAVEL
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+  const travel =
+    worldState?.travel ??
+    null;
+
+
+  /*
+    =========================
+    Leaving Hot Spring
+    =========================
+
+    還在 Hot Spring 畫面內，
+    正往出口走：
+
+    bathWalk
+
+    等進入 transit 後角色不可見，
+    就可以安全換回普通服裝。
+  */
   if (
-    activity ===
-      GARDEN_CHARACTER_ACTIVITY
-        .TRAVEL
+    travel?.fromSceneId ===
+      "hotSpring" &&
+    travel.phase ===
+      "walkingToExit"
   ) {
     return moveState?.isMoving
-      ? "walk"
-      : "idle";
+      ? "bathWalk"
+      : "bathIdle";
   }
+
+
+  /*
+    =========================
+    Entering Hot Spring
+    =========================
+
+    Courtyard → Hot Spring：
+
+    transit 開始後角色已不可見，
+    因此提前換成 bath outfit。
+
+    等真正從 Hot Spring 入口出現時，
+    已經是 bathWalk。
+  */
+  if (
+    travel?.toSceneId ===
+      "hotSpring" &&
+    (
+      travel.phase ===
+        "transit" ||
+      travel.phase ===
+        "walkingFromEntrance"
+    )
+  ) {
+    return moveState?.isMoving
+      ? "bathWalk"
+      : "bathIdle";
+  }
+
+
+  /*
+    其他情況：
+
+    包含 Hot Spring → Courtyard
+    的 transit / walkingFromEntrance。
+
+    transit 時角色不可見，
+    所以此處正好完成換回普通服裝。
+  */
+  return moveState?.isMoving
+    ? "walk"
+    : "idle";
+}
 
 
 /*
@@ -29327,19 +30956,45 @@ if (
 
 
   /*
-    =========================
-    Wander
-    =========================
+  =========================
+  Wander
+  =========================
+*/
+if (
+  activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .WANDER
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  /*
+    Hot Spring 乾地 Wander：
+
+    角色已經完成換裝，
+    只要仍位於 Hot Spring，
+    就維持 bath outfit。
   */
   if (
-    activity ===
-      GARDEN_CHARACTER_ACTIVITY
-        .WANDER
+    worldState?.sceneId ===
+      "hotSpring"
   ) {
     return moveState?.isMoving
-      ? "walk"
-      : "idle";
+      ? "bathWalk"
+      : "bathIdle";
   }
+
+
+  /*
+    其他場景維持普通服裝。
+  */
+  return moveState?.isMoving
+    ? "walk"
+    : "idle";
+}
 
 
   /*
@@ -29438,6 +31093,82 @@ const canonicalChatApproachRuntime =
     canonicalWorldTimestamp
   );
 
+/*
+  =========================
+  Canonical Hot Spring
+  Bath Transition
+  =========================
+
+  與 Wander / Travel /
+  Activity Spot / Chat Approach
+  使用同一個 Absolute World Timestamp。
+*/
+const canonicalBathTransitionRuntime = {
+  chifuyu:
+    applyGardenCanonicalHotSpringBathTransitionRuntimeForCharacter(
+      "chifuyu",
+      canonicalWorldTimestamp
+    ),
+
+  chinatsu:
+    applyGardenCanonicalHotSpringBathTransitionRuntimeForCharacter(
+      "chinatsu",
+      canonicalWorldTimestamp
+    ),
+};
+
+
+/*
+  Bath Transition 的 Presentation Bridge。
+
+  只有進入 settling（D → E）
+  且玩家正在 Hot Spring 時，
+  才真正觸發白霧。
+*/
+
+
+
+finalizeGardenCanonicalHotSpringBathTransition(
+  canonicalBathTransitionRuntime
+    .chifuyu
+);
+
+finalizeGardenCanonicalHotSpringBathTransition(
+  canonicalBathTransitionRuntime
+    .chinatsu
+);
+
+const canonicalBathPositioningRuntime =
+  updateGardenCanonicalHotSpringBathPositioningRuntime(
+    canonicalWorldTimestamp
+  );
+
+
+updateGardenHotSpringBathMistFromRuntimeResults([
+  /*
+    Enter / Exit Bath Transition
+  */
+  canonicalBathTransitionRuntime
+    .chifuyu,
+
+  canonicalBathTransitionRuntime
+    .chinatsu,
+
+
+  /*
+    Enter 完成後：
+    E → 正式 Bath Spot
+
+    Positioning 結束以前，
+    白霧都不能消失。
+  */
+  canonicalBathPositioningRuntime
+    .chifuyu,
+
+  canonicalBathPositioningRuntime
+    .chinatsu,
+]);
+
 
 const chifuyuCanonicalSpatialOwned =
   canonicalWanderRuntime
@@ -29451,7 +31182,13 @@ const chifuyuCanonicalSpatialOwned =
     .owned ||
   canonicalChatApproachRuntime
     .chifuyu
-    .owned;
+    .owned ||
+ canonicalBathTransitionRuntime
+  .chifuyu
+  .owned ||
+canonicalBathPositioningRuntime
+  .chifuyu
+  .owned;
 
 
 const chinatsuCanonicalSpatialOwned =
@@ -29466,7 +31203,13 @@ const chinatsuCanonicalSpatialOwned =
     .owned ||
   canonicalChatApproachRuntime
     .chinatsu
-    .owned;
+    .owned ||
+canonicalBathTransitionRuntime
+  .chinatsu
+  .owned ||
+canonicalBathPositioningRuntime
+  .chinatsu
+  .owned;
 
 
 /*
@@ -30753,6 +32496,3925 @@ const MOON_BRIDGE_CHAT_SPOTS = [
     },
   },
 ];
+
+
+
+/* =========================
+   Hot Spring Walk Areas
+========================= */
+
+const HOT_SPRING_WALK_AREAS = {
+  /*
+    Hot Spring 一般 Wander 區。
+
+    包含：
+    - 左上入口乾地
+    - 池邊乾地
+    - Bath Transition Route
+      位於乾地側、仍允許普通 Wander 的部分
+
+    普通 Wander 的腳底座標
+    不允許越過池邊進入 Bath Area。
+  */
+  ground: [
+    {
+      name:
+        "hot-spring-dry-ground",
+
+      points: [
+        { x: 17,  y: 515 },
+        { x: 399, y: 534 },
+        { x: 604, y: 561 },
+        { x: 597, y: 853 },
+        { x: 19,  y: 865 },
+      ],
+    },
+  ],
+
+  far: [],
+};
+
+
+/*
+  入口區目前是單純凸矩形，
+  兩點之間可以直接尋路，
+  所以第一版不需要中繼點。
+*/
+const HOT_SPRING_PATH_NODES = [];
+
+
+/* =========================
+   Hot Spring
+   Bath Transition Route
+========================= */
+
+/*
+  Hot Spring 乾地 ↔ 浴池
+  的指定入浴 / 離浴路線。
+
+  A / B：
+  位於一般 ground Wander Area 內。
+
+  C / D：
+  已超出一般 Wander Area，
+  只有 Bath Transition
+  可以沿這條路線進入。
+
+  注意：
+  這不是一般 path node，
+  不應加入 HOT_SPRING_PATH_NODES。
+*/
+const HOT_SPRING_BATH_TRANSITION = {
+  main: {
+    /*
+      A
+      普通 pathfinder 可以抵達的
+      入浴準備位置。
+    */
+    approach: {
+      x: 75,
+      y: 670,
+    },
+
+    /*
+      B
+      普通 navigation 與
+      Bath Transition navigation
+      的交接位置。
+    */
+    transitionStart: {
+      x: 97,
+      y: 812,
+    },
+
+    /*
+      B → C → D
+
+      只有 Bath Transition
+      才允許使用的路線。
+    */
+    route: [
+      {
+        x: 97,
+        y: 812,
+      },
+
+      {
+        x: 261,
+        y: 959,
+      },
+
+      {
+        x: 343,
+        y: 1073,
+      },
+    ],
+
+    /*
+      D
+      入水 Transition 的終點。
+    */
+    bathEntry: {
+      x: 343,
+      y: 1073,
+    },
+
+    /*
+      E
+      正式進入 Bath Area 後
+      的第一個安全位置。
+
+      抵達這裡後，
+      Bath Transition 才算完全結束。
+    */
+   bathStart: {
+  x: 476,
+  y: 1400,
+},
+  },
+};
+
+/* =========================
+   Hot Spring
+   Bath Areas
+========================= */
+
+/*
+  露天風呂池內活動區。
+
+  這裡不是普通 Garden Wander Area。
+
+  只有角色已經完成 Bath Transition，
+  並處於 bathing 狀態時，
+  才允許在這個區域內活動。
+
+  座標仍沿用 Garden 世界座標，
+  不另外建立 Bath 專用座標系。
+*/
+const HOT_SPRING_BATH_AREAS = {
+  bath: [
+    {
+      name:
+        "hot-spring-main-bath",
+
+      points: [
+        { x: 698,  y: 1034 },
+        { x: 1041, y: 1037 },
+        { x: 1053, y: 1522 },
+        { x: 63,   y: 1503 },
+        { x: 17,   y: 1092 },
+        { x: 483,  y: 1107 },
+        { x: 681,  y: 993 },
+      ],
+    },
+  ],
+};
+
+
+
+
+
+
+
+/*
+  暫時只有兩個安全測試位置。
+
+  之後正式 Wander Area
+  會等露天風呂角色比例確認後重畫。
+*/
+const HOT_SPRING_AUTO_TARGET_POINTS = [
+  {
+    name:
+      "hot-spring-entry-a",
+
+    x: 150,
+    y: 580,
+    zone:
+      "ground",
+  },
+
+  {
+    name:
+      "hot-spring-entry-b",
+
+    x: 240,
+    y: 640,
+    zone:
+      "ground",
+  },
+];
+
+
+
+/* =========================
+   Hot Spring
+   Bath Spot Positioning Plan
+========================= */
+
+const GARDEN_HOT_SPRING_BATH_POSITIONING_SCHEMA =
+  "gardenHotSpringBathPositioning";
+
+const GARDEN_HOT_SPRING_BATH_POSITIONING_VERSION =
+  1;
+
+
+function getGardenHotSpringBathSpot(
+  spotName =
+    "hot-spring-night-pair"
+) {
+  return (
+    HOT_SPRING_BATH_SPOTS.find(
+      spot =>
+        spot?.name ===
+        spotName
+    ) ??
+    null
+  );
+}
+
+
+function createGardenHotSpringBathPositioningPlan({
+  characterId,
+
+  spotName =
+    "hot-spring-night-pair",
+
+  startPoint =
+    HOT_SPRING_BATH_TRANSITION
+      .main
+      .bathStart,
+
+  startedAt =
+    getGardenWorldNow(),
+} = {}) {
+  /*
+    =========================
+    Validate
+    =========================
+  */
+
+  if (
+    !characterId ||
+    !startPoint ||
+    !Number.isFinite(
+      startPoint.x
+    ) ||
+    !Number.isFinite(
+      startPoint.y
+    ) ||
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  const spot =
+    getGardenHotSpringBathSpot(
+      spotName
+    );
+
+
+  if (!spot) {
+    return null;
+  }
+
+
+  const target =
+    spot[characterId];
+
+
+  if (
+    !target ||
+    !Number.isFinite(
+      target.x
+    ) ||
+    !Number.isFinite(
+      target.y
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    Bath Spot 必須真的位於
+    Bath Area 內。
+
+    不允許錯誤座標把角色
+    帶回乾地或場景外。
+  */
+  const targetInsideBath =
+    HOT_SPRING_BATH_AREAS
+      .bath
+      .some(
+        area =>
+          pointInPolygon(
+            target.x,
+            target.y,
+            area.points
+          )
+      );
+
+
+  if (!targetInsideBath) {
+    console.warn(
+      "[Bath Positioning] target outside bath area:",
+      characterId,
+      target
+    );
+
+    return null;
+  }
+
+
+  /*
+    E
+    ↓
+    character-specific Bath Spot
+
+    池內不走普通 Garden Pathfinder，
+    因為 Bath Area 本來就不是
+    normal Wander Area。
+
+    這裡直接建立指定的
+    Canonical Bath Path。
+  */
+  const pathRecord =
+    createGardenCanonicalTravelPathRecord(
+      characterId,
+      {
+        x:
+          startPoint.x,
+
+        y:
+          startPoint.y,
+      },
+      [
+        {
+          x:
+            target.x,
+
+          y:
+            target.y,
+        },
+      ]
+    );
+
+
+  if (!pathRecord) {
+    return null;
+  }
+
+
+  const durationMs =
+    pathRecord.totalDurationMs;
+
+
+  const endsAt =
+    startedAt +
+    durationMs;
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_HOT_SPRING_BATH_POSITIONING_SCHEMA,
+
+    version:
+      GARDEN_HOT_SPRING_BATH_POSITIONING_VERSION,
+
+    characterId,
+
+   sceneId:
+  "hotSpring",
+
+/*
+  入浴後：
+  E → 正式 Bath Spot
+*/
+intent:
+  "toSpot",
+
+spotName,
+
+startedAt,
+    endsAt,
+
+    durationMs,
+
+    startPoint:
+      Object.freeze({
+        x:
+          startPoint.x,
+
+        y:
+          startPoint.y,
+      }),
+
+    targetPoint:
+      Object.freeze({
+        x:
+          target.x,
+
+        y:
+          target.y,
+
+        direction:
+          Number.isFinite(
+            target.direction
+          )
+            ? target.direction
+            : 1,
+      }),
+
+    path:
+      pathRecord,
+  });
+}
+function createGardenHotSpringBathReturnPlan({
+  characterId,
+
+  startPoint,
+
+  startedAt =
+    getGardenWorldNow(),
+} = {}) {
+  if (
+    !characterId ||
+    !startPoint ||
+    !Number.isFinite(startPoint.x) ||
+    !Number.isFinite(startPoint.y) ||
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  const bathStart =
+    HOT_SPRING_BATH_TRANSITION
+      .main
+      .bathStart;
+
+
+  /*
+    起點必須仍在 Bath Area。
+  */
+  const startInsideBath =
+    HOT_SPRING_BATH_AREAS
+      .bath
+      .some(
+        area =>
+          pointInPolygon(
+            startPoint.x,
+            startPoint.y,
+            area.points
+          )
+      );
+
+
+  if (!startInsideBath) {
+    return null;
+  }
+
+
+  /*
+    Bath Spot
+      ↓
+    E / bathStart
+
+    和進場 Positioning 一樣，
+    池內不使用一般 Pathfinder。
+  */
+  const pathRecord =
+    createGardenCanonicalTravelPathRecord(
+      characterId,
+
+      {
+        x:
+          startPoint.x,
+
+        y:
+          startPoint.y,
+      },
+
+      [
+        {
+          x:
+            bathStart.x,
+
+          y:
+            bathStart.y,
+        },
+      ]
+    );
+
+
+  if (!pathRecord) {
+    return null;
+  }
+
+
+  const durationMs =
+    pathRecord.totalDurationMs;
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_HOT_SPRING_BATH_POSITIONING_SCHEMA,
+
+    version:
+      GARDEN_HOT_SPRING_BATH_POSITIONING_VERSION,
+
+    characterId,
+
+    sceneId:
+      "hotSpring",
+
+    /*
+      先用 intent 區分：
+
+      toSpot
+      → 入浴後前往固定位置
+
+      toExit
+      → 泡完澡回 E 準備出浴
+    */
+    intent:
+      "toExit",
+
+    spotName:
+      "hot-spring-exit-staging",
+
+    startedAt,
+
+    endsAt:
+      startedAt +
+      durationMs,
+
+    durationMs,
+
+    startPoint:
+      Object.freeze({
+        x:
+          startPoint.x,
+
+        y:
+          startPoint.y,
+      }),
+
+    targetPoint:
+      Object.freeze({
+        x:
+          bathStart.x,
+
+        y:
+          bathStart.y,
+
+        /*
+          回到 E 後的最終方向
+          暫時不重要。
+
+          Exit Transition 開始後
+          會依 E → D 的真正行進方向
+          重新控制。
+        */
+        direction:
+          1,
+      }),
+
+    path:
+      pathRecord,
+  });
+}
+
+
+/* =========================
+   Hot Spring
+   Bath Transition Plan
+========================= */
+
+
+function resolveGardenHotSpringBathPositioningPlan(
+  plan,
+
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !plan ||
+    plan.schema !==
+      GARDEN_HOT_SPRING_BATH_POSITIONING_SCHEMA ||
+    plan.version !==
+      GARDEN_HOT_SPRING_BATH_POSITIONING_VERSION ||
+    plan.sceneId !==
+      "hotSpring" ||
+    !plan.path ||
+    !plan.startPoint ||
+    !plan.targetPoint ||
+    !isValidGardenWorldTimestamp(
+      plan.startedAt
+    ) ||
+    !isValidGardenWorldTimestamp(
+      plan.endsAt
+    ) ||
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    =========================
+    尚未開始
+    =========================
+  */
+  if (
+    timestamp <
+    plan.startedAt
+  ) {
+    return Object.freeze({
+      phase:
+        "pending",
+
+      completed:
+        false,
+
+      sceneId:
+        "hotSpring",
+
+      x:
+        plan.startPoint.x,
+
+      y:
+        plan.startPoint.y,
+
+      direction:
+        null,
+
+      isMoving:
+        false,
+
+      progress:
+        0,
+    });
+  }
+
+
+  /*
+    =========================
+    已抵達 Bath Spot
+    =========================
+
+    最後要改成 Bath Spot
+    指定的面向。
+
+    千冬：
+    往右走 → 抵達後轉向左
+
+    千夏：
+    往左走 → 抵達後轉向右
+  */
+  if (
+    timestamp >=
+    plan.endsAt
+  ) {
+    return Object.freeze({
+      phase:
+        "completed",
+
+      completed:
+        true,
+
+      sceneId:
+        "hotSpring",
+
+      x:
+        plan.targetPoint.x,
+
+      y:
+        plan.targetPoint.y,
+
+      direction:
+        plan.targetPoint.direction,
+
+      isMoving:
+        false,
+
+      progress:
+        1,
+    });
+  }
+
+
+  /*
+    =========================
+    Positioning 中
+    =========================
+  */
+  const elapsedMs =
+    timestamp -
+    plan.startedAt;
+
+
+  const sample =
+    sampleGardenCanonicalTravelPath(
+      plan.path,
+      elapsedMs
+    );
+
+
+  if (!sample) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    phase:
+      "positioning",
+
+    completed:
+      false,
+
+    sceneId:
+      "hotSpring",
+
+    x:
+      sample.x,
+
+    y:
+      sample.y,
+
+    /*
+      移動途中使用真正行進方向。
+
+      所以：
+      千冬 E → 右側 = 1
+      千夏 E → 左側 = -1
+
+      抵達後才轉成 Spot 指定面向。
+    */
+    direction:
+      sample.direction,
+
+    isMoving:
+      true,
+
+    progress:
+      sample.progress,
+
+    sample,
+  });
+}
+
+function canGardenCharacterUseCanonicalHotSpringBathPositioningRuntime(
+  characterId,
+  worldStateOverride =
+    null
+) {
+  const worldState =
+    worldStateOverride ??
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  if (
+    !worldState ||
+    worldState.sceneId !==
+      "hotSpring" ||
+    worldState.activity !==
+      GARDEN_CHARACTER_ACTIVITY
+        .BATH ||
+    worldState.travel ||
+    worldState.bathTransition
+  ) {
+    return false;
+  }
+
+
+  const plan =
+    worldState.bathPositioning;
+
+
+  if (
+    !plan ||
+    plan.schema !==
+      GARDEN_HOT_SPRING_BATH_POSITIONING_SCHEMA ||
+    plan.version !==
+      GARDEN_HOT_SPRING_BATH_POSITIONING_VERSION ||
+    plan.characterId !==
+      characterId ||
+    plan.sceneId !==
+      "hotSpring"
+  ) {
+    return false;
+  }
+
+
+  return !!(
+    resolveGardenHotSpringBathPositioningPlan(
+      plan,
+      plan.startedAt
+    )
+  );
+}
+
+
+function applyGardenCanonicalHotSpringBathPositioningRuntimeForCharacter(
+  characterId,
+
+  timestamp =
+    getGardenWorldNow()
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  if (
+    !worldState ||
+    !runtime?.moveState
+  ) {
+    return Object.freeze({
+      characterId,
+      owned: false,
+      applied: false,
+      completed: false,
+      reason:
+        "runtimeUnavailable",
+    });
+  }
+
+
+  if (
+    !canGardenCharacterUseCanonicalHotSpringBathPositioningRuntime(
+      characterId,
+      worldState
+    )
+  ) {
+    return Object.freeze({
+      characterId,
+      owned: false,
+      applied: false,
+      completed: false,
+      reason:
+        "notBathPositioning",
+    });
+  }
+
+
+  const plan =
+    worldState.bathPositioning;
+
+
+  const sample =
+    resolveGardenHotSpringBathPositioningPlan(
+      plan,
+      timestamp
+    );
+
+
+  /*
+    Canonical Positioning 已取得控制權，
+    local movement 必須停止。
+  */
+  runtime.setPath?.([]);
+
+  runtime.moveState.path =
+    [];
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  if (!sample) {
+    runtime.moveState.isMoving =
+      false;
+
+    return Object.freeze({
+      characterId,
+      owned: true,
+      applied: false,
+      completed: false,
+      reason:
+        "sampleUnavailable",
+      plan,
+    });
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  state.x =
+    sample.x;
+
+  state.y =
+    sample.y;
+
+
+  if (
+    sample.direction === 1 ||
+    sample.direction === -1
+  ) {
+    state.direction =
+      sample.direction;
+  }
+
+
+  state.isMoving =
+    sample.isMoving ===
+      true;
+
+
+  worldState.sceneId =
+    "hotSpring";
+
+
+  /*
+    抵達固定 Bath Spot。
+  */
+  if (
+  sample.completed === true
+) {
+  state.isMoving =
+    false;
+
+
+  /*
+    Positioning 本身正式結束。
+  */
+  worldState.bathPositioning =
+    null;
+
+
+  /*
+    =========================
+    Return → Exit Bath Handoff
+    =========================
+
+    只有 toExit 才自動接出浴。
+
+    一般 Enter 後的 toSpot
+    抵達固定泡澡點後就停著。
+  */
+  if (
+    plan.intent ===
+      "toExit"
+  ) {
+    const exitPlan =
+      startGardenHotSpringBathExitTransition(
+        characterId,
+
+        /*
+          使用 Return Plan 的 canonical
+          結束時間作為 Exit 起點。
+
+          這樣：
+          Bath Spot → E
+          E → D → C → B → A
+
+          會使用同一條絕對時間軸。
+        */
+        plan.endsAt
+      );
+
+
+    if (!exitPlan) {
+      console.warn(
+        "[Bath Return] failed to start exit transition:",
+        characterId
+      );
+    }
+  }
+
+
+  return Object.freeze({
+    characterId,
+
+    owned:
+      true,
+
+    applied:
+      true,
+
+    completed:
+      true,
+
+    reason:
+      plan.intent ===
+        "toExit"
+        ? "bathReturnReached"
+        : "bathSpotReached",
+
+    sceneId:
+      "hotSpring",
+
+    spotName:
+      plan.spotName,
+
+    sample,
+
+    plan,
+  });
+}
+
+
+  return Object.freeze({
+    characterId,
+    owned: true,
+    applied: true,
+    completed: false,
+    reason:
+      "bathPositioning",
+    sceneId:
+      "hotSpring",
+    spotName:
+      plan.spotName,
+    sample,
+    plan,
+  });
+}
+
+
+function updateGardenCanonicalHotSpringBathPositioningRuntime(
+  timestamp =
+    getGardenWorldNow()
+) {
+  return Object.freeze({
+    chifuyu:
+      applyGardenCanonicalHotSpringBathPositioningRuntimeForCharacter(
+        "chifuyu",
+        timestamp
+      ),
+
+    chinatsu:
+      applyGardenCanonicalHotSpringBathPositioningRuntimeForCharacter(
+        "chinatsu",
+        timestamp
+      ),
+  });
+}
+
+
+function startGardenHotSpringBathPositioning(
+  characterId,
+  spotName =
+    "hot-spring-night-pair",
+  startedAt =
+    getGardenWorldNow()
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  if (
+    !worldState ||
+    !runtime?.moveState
+  ) {
+    return null;
+  }
+
+
+  /*
+    必須已經完成 Enter Bath。
+  */
+  if (
+    worldState.sceneId !==
+      "hotSpring" ||
+    worldState.activity !==
+      GARDEN_CHARACTER_ACTIVITY
+        .BATH ||
+    worldState.travel ||
+    worldState.bathTransition ||
+    worldState.bathPositioning
+  ) {
+    return null;
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  /*
+    起點本身也必須已經在浴池內。
+  */
+  const startInsideBath =
+    HOT_SPRING_BATH_AREAS
+      .bath
+      .some(
+        area =>
+          pointInPolygon(
+            state.x,
+            state.y,
+            area.points
+          )
+      );
+
+
+  if (!startInsideBath) {
+    console.warn(
+      "[Bath Positioning] character is not inside bath:",
+      characterId,
+      {
+        x: state.x,
+        y: state.y,
+      }
+    );
+
+    return null;
+  }
+
+
+  const plan =
+    createGardenHotSpringBathPositioningPlan({
+      characterId,
+
+      spotName,
+
+      startPoint: {
+        x:
+          state.x,
+
+        y:
+          state.y,
+      },
+
+      startedAt,
+    });
+
+
+  if (!plan) {
+    return null;
+  }
+
+
+  runtime.setPath?.([]);
+
+  state.path =
+    [];
+
+  state.isMoving =
+    false;
+
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  worldState.bathPositioning =
+    plan;
+
+
+  console.log(
+    "[Bath Positioning] started",
+    {
+      characterId,
+      spotName,
+      from:
+        plan.startPoint,
+      to:
+        plan.targetPoint,
+      durationMs:
+        plan.durationMs,
+    }
+  );
+
+
+  return plan;
+}
+
+function startGardenHotSpringBathReturnPositioning(
+  characterId,
+  startedAt =
+    getGardenWorldNow()
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  if (
+    !worldState ||
+    !runtime?.moveState
+  ) {
+    return null;
+  }
+
+
+  /*
+    必須正在 Hot Spring 泡澡，
+    而且沒有其他 Spatial Owner。
+  */
+  if (
+    worldState.sceneId !==
+      "hotSpring" ||
+    worldState.activity !==
+      GARDEN_CHARACTER_ACTIVITY
+        .BATH ||
+    worldState.travel ||
+    worldState.bathTransition ||
+    worldState.bathPositioning
+  ) {
+    return null;
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  /*
+    回程必須從 Bath Area 內開始。
+  */
+  const startInsideBath =
+    HOT_SPRING_BATH_AREAS
+      .bath
+      .some(
+        area =>
+          pointInPolygon(
+            state.x,
+            state.y,
+            area.points
+          )
+      );
+
+
+  if (!startInsideBath) {
+    console.warn(
+      "[Bath Return] character is not inside bath:",
+      characterId,
+      {
+        x: state.x,
+        y: state.y,
+      }
+    );
+
+    return null;
+  }
+
+
+  const plan =
+    createGardenHotSpringBathReturnPlan({
+      characterId,
+
+      startPoint: {
+        x:
+          state.x,
+
+        y:
+          state.y,
+      },
+
+      startedAt,
+    });
+
+
+  if (!plan) {
+    console.warn(
+      "[Bath Return] failed to create plan:",
+      characterId
+    );
+
+    return null;
+  }
+
+
+  /*
+    Canonical Positioning 接管。
+  */
+  runtime.setPath?.([]);
+
+  state.path =
+    [];
+
+  state.isMoving =
+    false;
+
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  worldState.bathPositioning =
+    plan;
+
+
+  console.log(
+    "[Bath Return] started",
+    {
+      characterId,
+
+      from:
+        plan.startPoint,
+
+      to:
+        plan.targetPoint,
+
+      durationMs:
+        plan.durationMs,
+    }
+  );
+
+
+  return plan;
+}
+
+
+const GARDEN_HOT_SPRING_BATH_TRANSITION_SCHEMA =
+  "gardenHotSpringBathTransition";
+
+const GARDEN_HOT_SPRING_BATH_TRANSITION_VERSION =
+  1;
+
+  /*
+  出浴時先讓白霧升起，
+  再開始從 E 往 D 移動。
+
+  之後 Presentation Bridge
+  會使用這段時間做遮蔽。
+*/
+const HOT_SPRING_BATH_EXIT_MIST_LEAD_IN_MS =
+  600;
+
+function createGardenHotSpringBathEnterPlan({
+  characterId,
+
+  startPoint,
+
+  startDirection = 1,
+
+  startedAt =
+    getGardenWorldNow(),
+} = {}) {
+  /*
+    =========================
+    Validate
+    =========================
+  */
+
+  if (
+    !characterId ||
+    !startPoint ||
+    !Number.isFinite(
+      startPoint.x
+    ) ||
+    !Number.isFinite(
+      startPoint.y
+    ) ||
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  const sceneId =
+    "hotSpring";
+
+
+  /*
+    入浴開始點必須位於
+    Hot Spring 普通可走區。
+
+    Bath Transition 不允許從：
+    - Courtyard
+    - Moon Bridge
+    - Bath Area
+    - Transition-only space
+
+    憑空開始。
+  */
+  if (
+    !isGardenWalkablePointInScene(
+      sceneId,
+      startPoint.x,
+      startPoint.y
+    )
+  ) {
+    return null;
+  }
+
+
+  const transition =
+    HOT_SPRING_BATH_TRANSITION
+      ?.main;
+
+
+  if (
+    !transition ||
+    !transition.approach ||
+    !transition.transitionStart ||
+    !transition.bathEntry ||
+    !transition.bathStart
+  ) {
+    return null;
+  }
+
+
+  /*
+    =========================
+    Ground Approach
+    =========================
+
+    目前位置
+      ↓
+    A / approach
+
+    這一段仍必須遵守
+    Hot Spring 普通 walk area。
+  */
+
+  const approachPath =
+    findGardenPath(
+      startPoint,
+
+      transition.approach,
+
+      sceneId
+    );
+
+
+  if (
+    !Array.isArray(
+      approachPath
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    =========================
+    Full Enter Path
+    =========================
+
+    approachPath 最後會抵達 A。
+
+    接著：
+
+    A
+    ↓
+    B transitionStart
+    ↓
+    C
+    ↓
+    D bathEntry
+    ↓
+    E bathStart
+
+    route 目前是：
+    [
+      B,
+      C,
+      D
+    ]
+
+    所以直接展開 route，
+    最後再接 bathStart。
+  */
+
+  const fullPath = [
+    ...approachPath,
+
+    ...transition.route,
+
+    transition.bathStart,
+  ];
+
+
+  /*
+    重用 Canonical Travel
+    已經驗證完成的 Path-Time Model。
+  */
+
+  const pathRecord =
+    createGardenCanonicalTravelPathRecord(
+      characterId,
+
+      startPoint,
+
+      fullPath
+    );
+
+
+  if (!pathRecord) {
+    return null;
+  }
+
+
+  const durationMs =
+    pathRecord.totalDurationMs;
+
+
+  const endsAt =
+    startedAt +
+    durationMs;
+
+
+  /*
+    =========================
+    Find Checkpoint Timing
+    =========================
+
+    不把 Runtime 邏輯綁死在
+    segmentIndex。
+
+    因為 start → A 的 approach
+    waypoint 數量可能不同。
+
+    改為從 canonical path 裡
+    找 A/B/C/D/E 對應的
+    cumulative time。
+  */
+
+  function findPointTiming(
+    targetPoint
+  ) {
+    if (
+      !targetPoint ||
+      !Array.isArray(
+        pathRecord.points
+      )
+    ) {
+      return null;
+    }
+
+
+    const index =
+      pathRecord.points.findIndex(
+        point =>
+          Math.abs(
+            point.x -
+            targetPoint.x
+          ) < 0.001 &&
+          Math.abs(
+            point.y -
+            targetPoint.y
+          ) < 0.001
+      );
+
+
+    if (index < 0) {
+      return null;
+    }
+
+
+    const elapsedMs =
+      pathRecord
+        .cumulativeDurationMs[
+          index
+        ];
+
+
+    if (
+      !Number.isFinite(
+        elapsedMs
+      )
+    ) {
+      return null;
+    }
+
+
+    return Object.freeze({
+      pointIndex:
+        index,
+
+      elapsedMs,
+
+      timestamp:
+        startedAt +
+        elapsedMs,
+    });
+  }
+
+
+  const approachTiming =
+    findPointTiming(
+      transition.approach
+    );
+
+
+  const transitionStartTiming =
+    findPointTiming(
+      transition.transitionStart
+    );
+
+
+  const bathEntryTiming =
+    findPointTiming(
+      transition.bathEntry
+    );
+
+
+  const bathStartTiming =
+    findPointTiming(
+      transition.bathStart
+    );
+
+
+  if (
+    !approachTiming ||
+    !transitionStartTiming ||
+    !bathEntryTiming ||
+    !bathStartTiming
+  ) {
+    return null;
+  }
+
+
+  /*
+    =========================
+    Canonical Plan
+    =========================
+  */
+
+  return Object.freeze({
+    schema:
+      GARDEN_HOT_SPRING_BATH_TRANSITION_SCHEMA,
+
+    version:
+      GARDEN_HOT_SPRING_BATH_TRANSITION_VERSION,
+
+
+    characterId,
+
+    sceneId,
+
+    direction:
+      "enter",
+
+
+    startedAt,
+
+    endsAt,
+
+    durationMs,
+
+
+    startPoint:
+      Object.freeze({
+        x:
+          startPoint.x,
+
+        y:
+          startPoint.y,
+      }),
+
+
+    startDirection:
+      startDirection === -1
+        ? -1
+        : 1,
+
+
+    /*
+      完整 deterministic path。
+    */
+    path:
+      pathRecord,
+
+
+    /*
+      語意 checkpoint。
+
+      Runtime / Sprite Transition
+      不需要猜 segmentIndex。
+    */
+    checkpoints:
+      Object.freeze({
+        approach:
+          approachTiming,
+
+        transitionStart:
+          transitionStartTiming,
+
+        bathEntry:
+          bathEntryTiming,
+
+        bathStart:
+          bathStartTiming,
+      }),
+  });
+}
+
+/*
+  =========================
+  Hot Spring
+  Start Bath Enter Transition
+  =========================
+*/
+function startGardenHotSpringBathEnterTransition(
+  characterId,
+  startedAt =
+    getGardenWorldNow(),
+  activityData =
+    null
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  if (
+    !worldState ||
+    !runtime?.moveState
+  ) {
+    return null;
+  }
+
+
+  /*
+    必須位於 Hot Spring。
+  */
+  if (
+    worldState.sceneId !==
+      "hotSpring"
+  ) {
+    console.warn(
+      "[Bath Enter] character is not in hotSpring:",
+      characterId
+    );
+
+    return null;
+  }
+
+
+  /*
+    不能與其他 Canonical Spatial Owner
+    同時存在。
+  */
+  if (
+    worldState.travel ||
+    worldState.bathTransition
+  ) {
+    console.warn(
+      "[Bath Enter] spatial owner already active:",
+      characterId
+    );
+
+    return null;
+  }
+
+
+  /*
+    已經在泡湯就不能再次 Enter。
+  */
+  if (
+    worldState.activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .BATH
+  ) {
+    console.warn(
+      "[Bath Enter] character is already bathing:",
+      characterId
+    );
+
+    return null;
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  /*
+    由目前乾地位置建立：
+
+    current
+      → A
+      → B
+      → C
+      → D
+      → E
+  */
+  const plan =
+    createGardenHotSpringBathEnterPlan({
+      characterId,
+
+      startPoint: {
+        x:
+          state.x,
+
+        y:
+          state.y,
+      },
+
+      startDirection:
+        state.direction,
+
+      startedAt,
+    });
+
+
+  if (!plan) {
+    console.warn(
+      "[Bath Enter] failed to create plan:",
+      characterId,
+      {
+        x:
+          state.x,
+
+        y:
+          state.y,
+      }
+    );
+
+    return null;
+  }
+
+
+  /*
+    Bath Transition 接管位置前，
+    清掉 local movement。
+  */
+  runtime.setPath?.([]);
+
+  state.path =
+    [];
+
+  state.isMoving =
+    false;
+
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  /*
+    保存 Canonical Bath Plan。
+  */
+  worldState.bathTransition =
+    plan;
+
+
+  /*
+    正式交給 BATH_TRANSITION。
+  */
+ const bathTransitionActivityData =
+  activityData &&
+  typeof activityData ===
+    "object"
+    ? cloneGardenWorldSerializableValue(
+        activityData
+      )
+    : {
+        source:
+          "bath",
+
+        semanticActivityId:
+          GARDEN_CHARACTER_ACTIVITY
+            .BATH,
+
+        direction:
+          "enter",
+      };
+
+
+setGardenCharacterActivity(
+  characterId,
+  GARDEN_CHARACTER_ACTIVITY
+    .BATH_TRANSITION,
+  bathTransitionActivityData
+);
+
+  console.log(
+    "[Bath Enter] started",
+    {
+      characterId,
+
+      direction:
+        plan.direction,
+
+      startedAt:
+        plan.startedAt,
+
+      endsAt:
+        plan.endsAt,
+
+      durationMs:
+        plan.durationMs,
+    }
+  );
+
+
+  return plan;
+}
+
+
+function createGardenHotSpringBathExitPlan({
+  characterId,
+
+  startPoint,
+
+  startDirection = -1,
+
+  startedAt =
+    getGardenWorldNow(),
+} = {}) {
+  /*
+    =========================
+    Validate
+    =========================
+  */
+
+  if (
+    !characterId ||
+    !startPoint ||
+    !Number.isFinite(
+      startPoint.x
+    ) ||
+    !Number.isFinite(
+      startPoint.y
+    ) ||
+    !isValidGardenWorldTimestamp(
+      startedAt
+    )
+  ) {
+    return null;
+  }
+
+
+  const sceneId =
+    "hotSpring";
+
+
+  const transition =
+    HOT_SPRING_BATH_TRANSITION
+      ?.main;
+
+
+  if (
+    !transition ||
+    !transition.approach ||
+    !transition.transitionStart ||
+    !transition.bathEntry ||
+    !transition.bathStart ||
+    !Array.isArray(
+      transition.route
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    第一版 Exit 只接受角色
+    已正式位於 E / bathStart。
+
+    現在 BATH Finalizer
+    本來就會精確停在 E，
+    所以正式流程符合此條件。
+
+    未來做 Bath Area Wander 後，
+    再補：
+    current bath position
+      → E
+      → Exit
+  */
+  const distanceToBathStart =
+    Math.hypot(
+      startPoint.x -
+        transition.bathStart.x,
+
+      startPoint.y -
+        transition.bathStart.y
+    );
+
+
+  if (
+    distanceToBathStart >
+      2
+  ) {
+    return null;
+  }
+
+
+  /*
+    =========================
+    Reverse Exit Path
+    =========================
+
+    Enter：
+    A → B → C → D → E
+
+    Exit：
+    E → D → C → B → A
+  */
+
+  const reverseTransitionRoute =
+    [
+      ...transition.route,
+    ].reverse();
+
+
+  const exitPath = [
+    ...reverseTransitionRoute,
+
+    transition.approach,
+  ];
+
+
+  const pathRecord =
+    createGardenCanonicalTravelPathRecord(
+      characterId,
+
+      transition.bathStart,
+
+      exitPath
+    );
+
+
+  if (!pathRecord) {
+    return null;
+  }
+
+
+  /*
+    Exit 開頭先保留一段時間：
+
+    E
+    ↓
+    白霧升起
+    ↓ 600ms
+    才真正開始 E → D
+
+    所以整體 duration =
+    mist lead-in + movement duration。
+  */
+  const leadInMs =
+    HOT_SPRING_BATH_EXIT_MIST_LEAD_IN_MS;
+
+
+  const durationMs =
+    leadInMs +
+    pathRecord.totalDurationMs;
+
+
+  const endsAt =
+    startedAt +
+    durationMs;
+
+
+  /*
+    PathRecord 的 elapsed
+    是從「開始移動」算起。
+
+    Exit Plan 的 elapsed
+    則還要加上前面的
+    mist lead-in。
+  */
+  function findExitPointTiming(
+    targetPoint
+  ) {
+    if (
+      !targetPoint ||
+      !Array.isArray(
+        pathRecord.points
+      )
+    ) {
+      return null;
+    }
+
+
+    const index =
+      pathRecord.points.findIndex(
+        point =>
+          Math.abs(
+            point.x -
+            targetPoint.x
+          ) < 0.001 &&
+          Math.abs(
+            point.y -
+            targetPoint.y
+          ) < 0.001
+      );
+
+
+    if (index < 0) {
+      return null;
+    }
+
+
+    const movementElapsedMs =
+      pathRecord
+        .cumulativeDurationMs[
+          index
+        ];
+
+
+    if (
+      !Number.isFinite(
+        movementElapsedMs
+      )
+    ) {
+      return null;
+    }
+
+
+    const elapsedMs =
+      leadInMs +
+      movementElapsedMs;
+
+
+    return Object.freeze({
+      pointIndex:
+        index,
+
+      movementElapsedMs,
+
+      elapsedMs,
+
+      timestamp:
+        startedAt +
+        elapsedMs,
+    });
+  }
+
+
+  const bathEntryTiming =
+    findExitPointTiming(
+      transition.bathEntry
+    );
+
+
+  const transitionStartTiming =
+    findExitPointTiming(
+      transition.transitionStart
+    );
+
+
+  const approachTiming =
+    findExitPointTiming(
+      transition.approach
+    );
+
+
+  if (
+    !bathEntryTiming ||
+    !transitionStartTiming ||
+    !approachTiming
+  ) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_HOT_SPRING_BATH_TRANSITION_SCHEMA,
+
+    version:
+      GARDEN_HOT_SPRING_BATH_TRANSITION_VERSION,
+
+
+    characterId,
+
+    sceneId,
+
+    direction:
+      "exit",
+
+
+    startedAt,
+
+    endsAt,
+
+    durationMs,
+
+    leadInMs,
+
+
+    startPoint:
+      Object.freeze({
+        x:
+          transition.bathStart.x,
+
+        y:
+          transition.bathStart.y,
+      }),
+
+
+    startDirection:
+      startDirection === -1
+        ? -1
+        : 1,
+
+
+    path:
+      pathRecord,
+
+
+    checkpoints:
+      Object.freeze({
+        /*
+          Exit 開始：
+          還停在 E。
+        */
+        bathStart:
+          Object.freeze({
+            pointIndex:
+              0,
+
+            elapsedMs:
+              0,
+
+            timestamp:
+              startedAt,
+          }),
+
+
+        /*
+          白霧已升起，
+          從這時開始真正移動。
+        */
+        movementStart:
+          Object.freeze({
+            elapsedMs:
+              leadInMs,
+
+            timestamp:
+              startedAt +
+              leadInMs,
+          }),
+
+
+        /*
+          E → D 完成。
+        */
+        bathEntry:
+          bathEntryTiming,
+
+
+        /*
+          抵達 B。
+        */
+        transitionStart:
+          transitionStartTiming,
+
+
+        /*
+          抵達 A，
+          Exit 完成。
+        */
+        approach:
+          approachTiming,
+      }),
+  });
+}
+
+/*
+  =========================
+  Hot Spring
+  Start Bath Exit Transition
+  =========================
+*/
+function startGardenHotSpringBathExitTransition(
+  characterId,
+  startedAt =
+    getGardenWorldNow()
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  if (
+    !worldState ||
+    !runtime?.moveState
+  ) {
+    return null;
+  }
+
+
+  /*
+    必須真的位於 Hot Spring，
+    而且已正式處於 BATH。
+  */
+  if (
+    worldState.sceneId !==
+      "hotSpring" ||
+    worldState.activity !==
+      GARDEN_CHARACTER_ACTIVITY
+        .BATH
+  ) {
+    console.warn(
+      "[Bath Exit] character is not bathing:",
+      characterId
+    );
+
+    return null;
+  }
+
+
+  /*
+    不允許和 Travel /
+    另一份 Bath Transition
+    同時存在。
+  */
+  if (
+    worldState.travel ||
+    worldState.bathTransition
+  ) {
+    console.warn(
+      "[Bath Exit] spatial owner already active:",
+      characterId
+    );
+
+    return null;
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  /*
+    依目前 E 點位置
+    建立正式 Exit Plan。
+  */
+  const plan =
+    createGardenHotSpringBathExitPlan({
+      characterId,
+
+      startPoint: {
+        x:
+          state.x,
+
+        y:
+          state.y,
+      },
+
+      startDirection:
+        state.direction,
+
+      startedAt,
+    });
+
+
+  if (!plan) {
+    console.warn(
+      "[Bath Exit] failed to create plan:",
+      characterId,
+      {
+        x:
+          state.x,
+        y:
+          state.y,
+      }
+    );
+
+    return null;
+  }
+
+
+  /*
+    Canonical Bath Transition
+    接下來會完全接管位置。
+
+    先清掉 local movement。
+  */
+  runtime.setPath?.([]);
+
+  state.path =
+    [];
+
+  state.isMoving =
+    false;
+
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  /*
+    正式保存 Canonical Plan。
+  */
+  worldState.bathTransition =
+    plan;
+
+
+  /*
+    切換 Activity，
+    讓 BATH_TRANSITION
+    取得 Spatial Ownership。
+  */
+  setGardenCharacterActivity(
+    characterId,
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH_TRANSITION,
+    {
+      source:
+        "bath",
+
+      semanticActivityId:
+        GARDEN_CHARACTER_ACTIVITY
+          .BATH,
+
+      direction:
+        "exit",
+    }
+  );
+
+
+  console.log(
+    "[Bath Exit] started",
+    {
+      characterId,
+
+      direction:
+        plan.direction,
+
+      startedAt:
+        plan.startedAt,
+
+      endsAt:
+        plan.endsAt,
+
+      durationMs:
+        plan.durationMs,
+    }
+  );
+
+
+  return plan;
+}
+
+
+function resolveGardenHotSpringBathTransitionSpatialState(
+  plan,
+  timestamp =
+    getGardenWorldNow()
+) {
+  /*
+    =========================
+    Validate
+    =========================
+  */
+  if (
+    !plan ||
+    plan.schema !==
+      GARDEN_HOT_SPRING_BATH_TRANSITION_SCHEMA ||
+    plan.version !==
+      GARDEN_HOT_SPRING_BATH_TRANSITION_VERSION ||
+    !plan.path ||
+    !plan.checkpoints ||
+    !isValidGardenWorldTimestamp(
+      plan.startedAt
+    ) ||
+    !isValidGardenWorldTimestamp(
+      plan.endsAt
+    ) ||
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  /*
+    現在正式支援：
+
+    enter
+      A → B → C → D → E
+
+    exit
+      E
+      → mist lead-in
+      → D → C → B → A
+  */
+  if (
+    plan.direction !==
+      "enter" &&
+    plan.direction !==
+      "exit"
+  ) {
+    return null;
+  }
+
+
+  const elapsedMs =
+    Math.max(
+      0,
+
+      Math.min(
+        timestamp -
+          plan.startedAt,
+
+        plan.durationMs
+      )
+    );
+
+
+  /*
+    =========================
+    Movement Clock
+    =========================
+
+    Enter：
+      elapsed 直接就是 path elapsed。
+
+    Exit：
+      前面有 mist lead-in，
+      這段時間角色必須留在 E。
+
+      所以真正拿去 sample path 的時間：
+
+      elapsed - leadIn
+  */
+  let movementElapsedMs =
+    elapsedMs;
+
+
+  if (
+    plan.direction ===
+      "exit"
+  ) {
+    const leadInMs =
+      Number.isFinite(
+        plan.leadInMs
+      )
+        ? plan.leadInMs
+        : 0;
+
+
+    movementElapsedMs =
+      Math.max(
+        0,
+        elapsedMs -
+          leadInMs
+      );
+
+
+    if (
+      Number.isFinite(
+        plan.path
+          ?.totalDurationMs
+      )
+    ) {
+      movementElapsedMs =
+        Math.min(
+          movementElapsedMs,
+          plan.path
+            .totalDurationMs
+        );
+    }
+  }
+
+
+  /*
+    重用既有 Canonical
+    Travel Path Sampler。
+  */
+  const sample =
+    sampleGardenCanonicalTravelPath(
+      plan.path,
+      movementElapsedMs
+    );
+
+
+  if (!sample) {
+    return null;
+  }
+
+
+  const checkpoints =
+    plan.checkpoints;
+
+
+  /*
+    浮點 checkpoint 容錯。
+  */
+  const PHASE_EPSILON_MS =
+    0.01;
+
+
+  const hasReachedCheckpoint =
+    checkpoint =>
+      checkpoint &&
+      Number.isFinite(
+        checkpoint.elapsedMs
+      ) &&
+      elapsedMs +
+        PHASE_EPSILON_MS >=
+        checkpoint.elapsedMs;
+
+
+  /*
+    =========================
+    Semantic Phase
+    =========================
+  */
+  let phase =
+    null;
+
+
+  /*
+    -------------------------
+    Enter
+    -------------------------
+
+    start → A
+      approaching
+
+    A → B
+      transition
+
+    B → D
+      entering
+
+    D → E
+      settling
+
+    E
+      completed
+  */
+  if (
+    plan.direction ===
+      "enter"
+  ) {
+    phase =
+      "approaching";
+
+
+    if (
+      elapsedMs +
+        PHASE_EPSILON_MS >=
+      plan.durationMs
+    ) {
+      phase =
+        "completed";
+    }
+    else if (
+      hasReachedCheckpoint(
+        checkpoints.bathEntry
+      )
+    ) {
+      phase =
+        "settling";
+    }
+    else if (
+      hasReachedCheckpoint(
+        checkpoints.transitionStart
+      )
+    ) {
+      phase =
+        "entering";
+    }
+    else if (
+      hasReachedCheckpoint(
+        checkpoints.approach
+      )
+    ) {
+      phase =
+        "transition";
+    }
+  }
+
+
+  /*
+    -------------------------
+    Exit
+    -------------------------
+
+    E
+      mistLeadIn
+
+    E → D
+      leavingBath
+
+    D → B
+      exiting
+
+    B → A
+      approachingGround
+
+    A
+      completed
+  */
+  else {
+    phase =
+      "mistLeadIn";
+
+
+    if (
+      elapsedMs +
+        PHASE_EPSILON_MS >=
+      plan.durationMs
+    ) {
+      phase =
+        "completed";
+    }
+    else if (
+      hasReachedCheckpoint(
+        checkpoints.transitionStart
+      )
+    ) {
+      phase =
+        "approachingGround";
+    }
+    else if (
+      hasReachedCheckpoint(
+        checkpoints.bathEntry
+      )
+    ) {
+      phase =
+        "exiting";
+    }
+    else if (
+      hasReachedCheckpoint(
+        checkpoints.movementStart
+      )
+    ) {
+      phase =
+        "leavingBath";
+    }
+  }
+
+
+  /*
+    =========================
+    Movement State
+    =========================
+  */
+
+  let isMoving =
+    phase !==
+      "completed";
+
+
+  /*
+    Exit 白霧 lead-in：
+    時間正在跑，
+    但角色仍停在 E。
+  */
+  if (
+    plan.direction ===
+      "exit" &&
+    phase ===
+      "mistLeadIn"
+  ) {
+    isMoving =
+      false;
+  }
+
+
+  /*
+    起點極端情況下
+    sample.direction 可能為 null。
+  */
+  const direction =
+    sample.direction === 1 ||
+    sample.direction === -1
+      ? sample.direction
+      : plan.startDirection;
+
+
+  return Object.freeze({
+    characterId:
+      plan.characterId,
+
+    sceneId:
+      plan.sceneId,
+
+    directionMode:
+      plan.direction,
+
+    phase,
+
+    x:
+      sample.x,
+
+    y:
+      sample.y,
+
+    direction,
+
+    isMoving,
+
+
+    /*
+      Plan 全體時間。
+      Exit 包含 mist lead-in。
+    */
+    elapsedMs,
+
+    durationMs:
+      plan.durationMs,
+
+
+    /*
+      真正 path movement
+      已經經過的時間。
+
+      Enter 時與 elapsedMs 相同；
+      Exit 時會扣掉 lead-in。
+    */
+    movementElapsedMs,
+
+
+    progress:
+      plan.durationMs > 0
+        ? elapsedMs /
+          plan.durationMs
+        : 1,
+
+
+    segmentIndex:
+      sample.segmentIndex,
+
+    segmentProgress:
+      sample.segmentProgress,
+
+
+    startedAt:
+      plan.startedAt,
+
+    endsAt:
+      plan.endsAt,
+  });
+}
+
+/* =========================
+   Hot Spring
+   Canonical Bath Transition Runtime
+========================= */
+
+
+function canGardenCharacterUseCanonicalHotSpringBathTransitionRuntime(
+  characterId,
+  worldStateOverride = null
+) {
+  const worldState =
+    worldStateOverride ??
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  if (!worldState) {
+    return false;
+  }
+
+
+  /*
+    Bath Transition 必須正式取得
+    Activity Ownership。
+
+    不能只因為 bathTransition
+    欄位存在就接管角色。
+  */
+  if (
+    getGardenCharacterActivityOwnership(
+      characterId,
+      worldState
+    )?.owner !==
+      GARDEN_CHARACTER_ACTIVITY_OWNER
+        .BATH_TRANSITION
+  ) {
+    return false;
+  }
+
+
+  const plan =
+    worldState.bathTransition;
+
+
+  if (
+    !plan ||
+    typeof plan !==
+      "object"
+  ) {
+    return false;
+  }
+
+
+  /*
+    現階段 Hot Spring Bath Transition
+    只允許發生於 hotSpring。
+  */
+  if (
+    worldState.sceneId !==
+      "hotSpring" ||
+    plan.sceneId !==
+      "hotSpring"
+  ) {
+    return false;
+  }
+
+
+  if (
+    plan.characterId !==
+      characterId
+  ) {
+    return false;
+  }
+
+
+  /*
+    不重新發明第二套 validator。
+
+    直接讓既有 canonical resolver
+    判斷這份 Plan 是否可解析。
+  */
+  const sample =
+    resolveGardenHotSpringBathTransitionSpatialState(
+      plan,
+      plan.startedAt
+    );
+
+
+  return !!sample;
+}
+
+
+function applyGardenCanonicalHotSpringBathTransitionRuntimeForCharacter(
+  characterId,
+
+  timestamp =
+    getGardenWorldNow()
+) {
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  /*
+    =========================
+    Runtime Availability
+    =========================
+  */
+  if (
+    !worldState ||
+    !runtime ||
+    !runtime.moveState
+  ) {
+    return Object.freeze({
+      characterId,
+
+      owned:
+        false,
+
+      applied:
+        false,
+
+      completed:
+        false,
+
+      reason:
+        "runtimeUnavailable",
+
+      sample:
+        null,
+    });
+  }
+
+
+  /*
+    =========================
+    Ownership
+    =========================
+  */
+  if (
+    !canGardenCharacterUseCanonicalHotSpringBathTransitionRuntime(
+      characterId,
+      worldState
+    )
+  ) {
+    return Object.freeze({
+      characterId,
+
+      owned:
+        false,
+
+      applied:
+        false,
+
+      completed:
+        false,
+
+      reason:
+        "notBathTransition",
+
+      sample:
+        null,
+    });
+  }
+
+
+  const plan =
+    worldState.bathTransition;
+
+
+  const sample =
+    resolveGardenHotSpringBathTransitionSpatialState(
+      plan,
+      timestamp
+    );
+
+
+  /*
+    Canonical Owner 一旦成立，
+    local path 就絕對不能繼續推進。
+
+    這與 Travel / Activity Spot /
+    Canonical Wander 的原則一致。
+  */
+  runtime.setPath?.([]);
+
+  runtime.moveState.path =
+    [];
+
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  /*
+    Plan 存在且 Ownership 正確，
+    但這一刻無法 resolve：
+
+    不允許 fallback 到舊 local movement。
+  */
+  if (!sample) {
+    runtime.moveState.isMoving =
+      false;
+
+
+    return Object.freeze({
+      characterId,
+
+      owned:
+        true,
+
+      applied:
+        false,
+
+      completed:
+        false,
+
+      reason:
+        "sampleUnavailable",
+
+      sample:
+        null,
+
+      plan,
+    });
+  }
+
+
+  const state =
+    runtime.moveState;
+
+
+  /*
+    =========================
+    Canonical Spatial Apply
+    =========================
+  */
+  if (
+    Number.isFinite(
+      sample.x
+    ) &&
+    Number.isFinite(
+      sample.y
+    )
+  ) {
+    state.x =
+      sample.x;
+
+    state.y =
+      sample.y;
+  }
+
+
+  if (
+    sample.direction === 1 ||
+    sample.direction === -1
+  ) {
+    state.direction =
+      sample.direction;
+  }
+
+
+  state.isMoving =
+    sample.isMoving ===
+      true;
+
+
+  /*
+    Bath Transition 不跨 Scene。
+
+    仍同步 canonical sceneId，
+    避免 Reload / reconciliation
+    後 World State 與 Spatial State
+    出現不一致。
+  */
+  if (
+    sample.sceneId
+  ) {
+    worldState.sceneId =
+      sample.sceneId;
+  }
+
+
+  /*
+    =========================
+    Completed
+    =========================
+
+    注意：
+    這一步暫時「只回報完成」。
+
+    還不：
+    - 清 bathTransition
+    - 切 activity = BATH
+    - 換泡湯 sprite
+    - 改 depth
+    - 開 bath movement
+
+    下一步再建立正式 Finalizer。
+  */
+  if (
+    sample.completed ===
+      true ||
+    sample.phase ===
+      "completed"
+  ) {
+    state.isMoving =
+      false;
+
+
+    return Object.freeze({
+      characterId,
+
+      owned:
+        true,
+
+      applied:
+        true,
+
+      completed:
+        true,
+
+      reason:
+        "bathTransitionCompleted",
+
+      sceneId:
+        worldState.sceneId,
+
+      phase:
+        sample.phase,
+
+      sample,
+
+      plan,
+    });
+  }
+
+
+  return Object.freeze({
+    characterId,
+
+    owned:
+      true,
+
+    applied:
+      true,
+
+    completed:
+      false,
+
+    reason:
+      "canonicalBathTransition",
+
+    sceneId:
+      worldState.sceneId,
+
+    phase:
+      sample.phase,
+
+    sample,
+
+    plan,
+  });
+}
+
+/* =========================
+   Hot Spring
+   Bath Transition Finalizer
+========================= */
+
+function finalizeGardenCanonicalHotSpringBathTransition(
+  runtimeResult
+) {
+  if (
+    !runtimeResult ||
+    runtimeResult.owned !== true ||
+    runtimeResult.applied !== true ||
+    runtimeResult.completed !== true
+  ) {
+    return false;
+  }
+
+
+  const {
+    characterId,
+    plan,
+    sample,
+  } =
+    runtimeResult;
+
+
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  if (
+    !worldState ||
+    !runtime?.moveState ||
+    !plan ||
+    !sample
+  ) {
+    return false;
+  }
+
+
+  /*
+    防止舊 result 誤完成
+    已被其他 plan 取代的新 Transition。
+  */
+  if (
+    worldState.bathTransition !==
+      plan
+  ) {
+    return false;
+  }
+
+
+  /*
+    Final endpoint 已由
+    Canonical Runtime 套到 E。
+
+    這裡只確保 local movement
+    完全停止。
+  */
+  runtime.setPath?.([]);
+
+  runtime.moveState.path =
+    [];
+
+  runtime.moveState.isMoving =
+    false;
+
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
+
+
+  /*
+  Bath Transition 正式結束。
+*/
+worldState.bathTransition =
+  null;
+
+
+/*
+  =========================
+  Semantic Activity Handoff
+  =========================
+*/
+
+if (
+  plan.direction ===
+    "enter"
+) {
+  /*
+    A → E 已完成。
+
+    先正式切成 BATH，
+    讓角色使用 bathSoakIdle。
+  */
+ const settledBathActivityData =
+  worldState.activityData
+    ?.source ===
+      "schedule"
+    ? cloneGardenWorldSerializableValue(
+        worldState.activityData
+      )
+    : null;
+
+
+setGardenCharacterActivity(
+  characterId,
+  GARDEN_CHARACTER_ACTIVITY
+    .BATH,
+  settledBathActivityData
+);
+
+
+  /*
+    接著立刻從共同安全點 E
+    前往角色自己的 Bath Spot。
+
+    使用 Enter 的 endsAt
+    作為下一段 Canonical 起點，
+    兩段時間軸會無縫銜接。
+  */
+  const positioningPlan =
+    startGardenHotSpringBathPositioning(
+      characterId,
+      "hot-spring-night-pair",
+      plan.endsAt
+    );
+
+
+  if (!positioningPlan) {
+    console.warn(
+      "[Bath Transition] failed to start bath positioning:",
+      characterId
+    );
+  }
+}
+
+else if (
+  plan.direction ===
+    "exit"
+) {
+  /*
+    E → A 完成：
+
+    已經離開池水，
+    但仍然處於 Hot Spring
+    bathing session。
+
+    不可以切 WANDER，
+    否則 Canonical Wander
+    會立刻重新取得 Spatial Ownership，
+    造成位置跳動。
+  */
+  setGardenCharacterActivity(
+    characterId,
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH,
+    null
+  );
+}
+
+else {
+  /*
+    理論上不應出現，
+    防止未知 direction
+    被當成正常完成。
+  */
+  console.warn(
+    "[Bath Transition] unknown direction:",
+    plan.direction
+  );
+
+  return false;
+}
+
+
+console.log(
+  "[Bath Transition] finalized",
+  {
+    characterId,
+
+    direction:
+      plan.direction,
+
+    activity:
+      worldState.activity,
+
+    x:
+      Math.round(
+        runtime.moveState.x
+      ),
+
+    y:
+      Math.round(
+        runtime.moveState.y
+      ),
+
+    animation:
+      plan.direction ===
+        "enter"
+        ? "bathSoakIdle"
+        : "bathIdle",
+  }
+);
+
+
+  return true;
+}
+
+
+
+/* =========================
+   Hot Spring
+   Bath Mist Presentation
+========================= */
+
+const HOT_SPRING_BATH_MIST_DURATION_MS =
+  3200;
+
+
+  /*
+  白霧播放到 45% 時，
+  已經足以完全遮住角色。
+
+  2400 × 0.45 = 1080ms
+*/
+/*
+  D → E 途中，
+  走到約 88% 時切入 soak 差分。
+
+  0   = D
+  1   = E
+*/
+const HOT_SPRING_BATH_VISUAL_SWAP_SETTLING_PROGRESS =
+  0.88;
+
+/* =========================
+   Hot Spring
+   Shared Bath Mist
+========================= */
+
+const HOT_SPRING_BATH_MIST_LINGER_MS =
+  800;
+
+
+const HOT_SPRING_BATH_MIST_LEAVE_TOTAL_MS =
+  1250;
+
+
+const gardenHotSpringBathMistState = {
+  /*
+    原本 Runtime 使用的 linger timer。
+  */
+  hideTimerId: null,
+
+  /*
+    新增：
+    三片霧完成依序退場後，
+    才真正移除 is-active。
+  */
+  leaveTimerId: null,
+};
+
+
+function clearGardenHotSpringBathMistHideTimer() {
+  if (
+    gardenHotSpringBathMistState.hideTimerId !==
+    null
+  ) {
+    clearTimeout(
+      gardenHotSpringBathMistState.hideTimerId
+    );
+
+    gardenHotSpringBathMistState.hideTimerId =
+      null;
+  }
+}
+
+
+function clearGardenHotSpringBathMistLeaveTimer() {
+  if (
+    gardenHotSpringBathMistState
+      .leaveTimerId !==
+    null
+  ) {
+    clearTimeout(
+      gardenHotSpringBathMistState
+        .leaveTimerId
+    );
+
+    gardenHotSpringBathMistState
+      .leaveTimerId =
+      null;
+  }
+}
+
+
+
+function setGardenHotSpringBathMistActive(
+  active
+) {
+  const mist =
+    document.getElementById(
+      "hotSpringMistTransition"
+    );
+
+
+  if (!mist) {
+    return false;
+  }
+
+
+  const isHotSpring =
+    gardenViewSceneId ===
+      "hotSpring";
+
+
+  const shouldActive =
+    active === true &&
+    isHotSpring;
+
+
+  const wasActive =
+    mist.classList.contains(
+      "is-active"
+    );
+
+
+  const wasLeaving =
+    mist.classList.contains(
+      "is-leaving"
+    );
+
+
+  /*
+    =========================
+    Start / Hold Mist
+    =========================
+  */
+
+  if (shouldActive) {
+    /*
+      如果上一輪正在退場，
+      新的 Bath Runtime 又需要霧，
+      立即取消尚未完成的清除。
+    */
+    clearGardenHotSpringBathMistLeaveTimer();
+
+
+    mist.classList.remove(
+      "is-leaving"
+    );
+
+
+    if (!wasActive) {
+      mist.classList.add(
+        "is-active"
+      );
+    }
+
+
+    return (
+      !wasActive ||
+      wasLeaving
+    );
+  }
+
+
+  /*
+    =========================
+    Scene Hard Reset
+    =========================
+
+    如果玩家已經不在 Hot Spring，
+    不需要讓 900ms 退場動畫
+    疊到下一張場景上。
+
+    因此切場景時直接清掉。
+  */
+
+  if (!isHotSpring) {
+    clearGardenHotSpringBathMistLeaveTimer();
+
+
+    mist.classList.remove(
+      "is-active"
+    );
+
+    mist.classList.remove(
+      "is-leaving"
+    );
+
+
+    return (
+      wasActive ||
+      wasLeaving
+    );
+  }
+
+
+  /*
+    本來就沒有顯示，
+    不需要做任何事。
+  */
+  if (!wasActive) {
+    mist.classList.remove(
+      "is-leaving"
+    );
+
+    return false;
+  }
+
+
+  /*
+    已經正在退場，
+    不重複建立 timer。
+  */
+  if (wasLeaving) {
+    return false;
+  }
+
+
+  /*
+    =========================
+    Begin Ordered Fade Out
+    =========================
+
+    注意：
+    此時先不要移除 is-active。
+
+    A / B / C 必須留在畫面上，
+    才能完成依序散去動畫。
+  */
+
+  mist.classList.add(
+    "is-leaving"
+  );
+
+
+  clearGardenHotSpringBathMistLeaveTimer();
+
+
+  gardenHotSpringBathMistState
+    .leaveTimerId =
+    setTimeout(() => {
+      mist.classList.remove(
+        "is-active"
+      );
+
+      mist.classList.remove(
+        "is-leaving"
+      );
+
+
+      gardenHotSpringBathMistState
+        .leaveTimerId =
+        null;
+    },
+    HOT_SPRING_BATH_MIST_LEAVE_TOTAL_MS
+  );
+
+
+  return true;
+}
+
+
+function playGardenHotSpringBathMistTransition() {
+  clearGardenHotSpringBathMistHideTimer();
+
+  return setGardenHotSpringBathMistActive(
+    true
+  );
+}
+
+function stopGardenHotSpringBathMistTransition() {
+  clearGardenHotSpringBathMistHideTimer();
+
+  return setGardenHotSpringBathMistActive(
+    false
+  );
+}
+
+
+/*
+  單一角色是否目前需要
+  Bath Mist 遮蔽。
+*/
+function doesGardenBathRuntimeNeedMist(
+  runtimeResult
+) {
+  if (
+    runtimeResult?.owned !== true ||
+    runtimeResult?.applied !== true
+  ) {
+    return false;
+  }
+
+/*
+  Bath Positioning：
+
+  Enter Bath 抵達 E 之後，
+  角色還要從共同入水點
+  前往自己的正式 Bath Spot。
+
+  這整段期間白霧都必須維持，
+  避免玩家看到角色在池內
+  切完差分後滑向定位點。
+*/
+if (
+  runtimeResult?.reason ===
+    "bathPositioning" ||
+  runtimeResult?.sample
+    ?.phase ===
+    "positioning"
+) {
+  return true;
+}
+
+
+  const phase =
+    runtimeResult?.sample
+      ?.phase ??
+    null;
+
+  const direction =
+    runtimeResult?.plan
+      ?.direction ??
+    null;
+
+
+  /*
+    Enter：
+    D → E settling 時開霧。
+  */
+  if (
+    direction === "enter"
+  ) {
+    return (
+      phase ===
+      "settling"
+    );
+  }
+
+
+  /*
+    Exit：
+    E 上先升起白霧。
+
+    600ms 後離開 mistLeadIn，
+    既有 800ms linger
+    會繼續把霧保留一段時間，
+    不會瞬間消失。
+  */
+  if (
+    direction === "exit"
+  ) {
+    return (
+      phase ===
+      "mistLeadIn"
+    );
+  }
+
+
+  return false;
+}
+
+
+/*
+  白霧是整個 Hot Spring
+  共用的一個 Presentation State。
+
+  不再屬於某一個 Character Plan。
+*/
+function updateGardenHotSpringBathMistFromRuntimeResults(
+  runtimeResults
+) {
+  const list =
+    Array.isArray(runtimeResults)
+      ? runtimeResults
+      : [];
+
+
+  const shouldShowMist =
+    gardenViewSceneId ===
+      "hotSpring" &&
+    list.some(
+      doesGardenBathRuntimeNeedMist
+    );
+
+
+  /*
+    目前至少有一人正在 D → E。
+    立即保持白霧，
+    並取消任何待關閉計時。
+  */
+  if (shouldShowMist) {
+    clearGardenHotSpringBathMistHideTimer();
+
+    setGardenHotSpringBathMistActive(
+      true
+    );
+
+    return true;
+  }
+
+
+  /*
+    沒有人正在 settling：
+
+    不要立刻關閉，
+    先保留一小段 grace period。
+    如果另一人很快接上，
+    白霧就能連續維持，
+    不會 OFF → ON 再跑一次。
+  */
+  if (
+    gardenHotSpringBathMistState.hideTimerId ===
+    null
+  ) {
+    gardenHotSpringBathMistState.hideTimerId =
+      setTimeout(() => {
+        gardenHotSpringBathMistState.hideTimerId =
+          null;
+
+        setGardenHotSpringBathMistActive(
+          false
+        );
+      }, HOT_SPRING_BATH_MIST_LINGER_MS);
+  }
+
+
+  return false;
+}
 
 /* =========================
    Garden World Clock
@@ -41012,11 +46674,33 @@ gardenWorldLastReconciliationResults =
 
 const GARDEN_CHARACTER_ACTIVITY =
   Object.freeze({
-    WANDER: "wander",
-    TRAVEL: "travel",
-    CHAT: "chat",
+    WANDER:
+      "wander",
 
-    REST: "rest",
+    TRAVEL:
+      "travel",
+
+    CHAT:
+      "chat",
+
+    REST:
+      "rest",
+
+    /*
+      Hot Spring
+
+      BATH_TRANSITION：
+      進浴 / 出浴途中，
+      暫時取得角色 Spatial Runtime。
+
+      BATH：
+      已正式位於池中。
+    */
+    BATH_TRANSITION:
+      "bathTransition",
+
+    BATH:
+      "bath",
   });
 
 
@@ -41039,9 +46723,17 @@ const gardenCharacterWorldState = {
   */
   wanderContinuity: null,
 
-  activitySpotApproach: null,
+ activitySpotApproach: null,
 
-  travel: null,
+bathTransition:
+  null,
+
+bathPositioning:
+  null,
+
+travel: null,
+
+
 },
 
   chinatsu: {
@@ -41055,9 +46747,15 @@ const gardenCharacterWorldState = {
 
   wanderContinuity: null,
 
-  activitySpotApproach: null,
+ activitySpotApproach: null,
 
-  travel: null,
+bathTransition:
+  null,
+
+bathPositioning:
+  null,
+
+travel: null,
 },
 };
 
@@ -41077,8 +46775,21 @@ const GARDEN_CHARACTER_ACTIVITY_OWNER =
     CHAT:
       "chat",
 
-    SCHEDULE:
-      "schedule",
+    /*
+      Hot Spring Bath Transition
+
+      和 Travel / Chat 一樣，
+      是暫時取得角色 Runtime
+      控制權的高階 Spatial Owner。
+    */
+   BATH_TRANSITION:
+  "bathTransition",
+
+BATH_POSITIONING:
+  "bathPositioning",
+
+SCHEDULE:
+  "schedule",
 
     ACTIVITY:
       "activity",
@@ -41134,41 +46845,64 @@ const worldState =
     此刻真正控制移動 / 動畫的仍然是
     Travel 或 Chat。
   */
-  if (
-    activity ===
-      GARDEN_CHARACTER_ACTIVITY
-        .TRAVEL
-  ) {
-    owner =
-      GARDEN_CHARACTER_ACTIVITY_OWNER
-        .TRAVEL;
-  }
+ if (
+  activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .TRAVEL
+) {
+  owner =
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .TRAVEL;
+}
 
-  else if (
-    activity ===
-      GARDEN_CHARACTER_ACTIVITY
-        .CHAT
-  ) {
-    owner =
-      GARDEN_CHARACTER_ACTIVITY_OWNER
-        .CHAT;
-  }
+else if (
+  activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .CHAT
+) {
+  owner =
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .CHAT;
+}
 
-  /*
-    正式 Schedule Activity。
+else if (
+  activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH_TRANSITION
+) {
+  owner =
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .BATH_TRANSITION;
+}
 
-    例如：
-    REST
-    未來的 tea / meal / reading 等。
-  */
-  else if (
-    activityData?.source ===
-      "schedule"
-  ) {
-    owner =
-      GARDEN_CHARACTER_ACTIVITY_OWNER
-        .SCHEDULE;
-  }
+
+else if (
+  activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH &&
+  worldState.bathPositioning
+) {
+  owner =
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .BATH_POSITIONING;
+}
+
+
+/*
+  正式 Schedule Activity。
+
+  例如：
+  REST
+  未來的 tea / meal / reading 等。
+*/
+else if (
+  activityData?.source ===
+    "schedule"
+) {
+  owner =
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .SCHEDULE;
+}
 
   else if (
     activity ===
@@ -41318,6 +47052,30 @@ if (
     null
   );
 }
+
+
+/*
+  Bath Transition 和 Travel 一樣，
+  是暫時的 Spatial Activity。
+
+  真正 semantic activity
+  應由 activityData 保存；
+  不把 "bathTransition"
+  本身誤認成日常活動。
+*/
+if (
+  ownership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .BATH_TRANSITION
+) {
+  return (
+    activityData
+      ?.semanticActivityId ??
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH
+  );
+}
+
 
 
   /*
@@ -42203,6 +47961,8 @@ function runGardenCharacterActivityOwnershipSelfTest() {
 
   return result;
 }
+
+
 
 
 
@@ -45158,6 +50918,89 @@ const currentOwnership =
   }
 
 
+/*
+  =========================
+  3. Bath Transition
+     也不能被 Schedule 硬切
+  =========================
+
+  Enter / Exit Bath
+  都是正式 Canonical Spatial Owner。
+
+  只要 Transition 還沒完成，
+  Schedule 必須等待。
+*/
+if (
+  worldState.bathTransition ||
+  worldState.bathPositioning ||
+  currentOwnership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .BATH_TRANSITION ||
+  currentOwnership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .BATH_POSITIONING
+) {
+  return Object.freeze({
+    characterId:
+      safeCharacterId,
+
+    action:
+      GARDEN_SCHEDULE_BRIDGE_ACTION
+        .PRESERVE_RUNTIME,
+
+    reason:
+  worldState.bathPositioning ||
+  currentOwnership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .BATH_POSITIONING
+    ? "bathPositioningInProgress"
+    : "bathTransitionInProgress",
+
+    currentSceneId:
+      worldState.sceneId ??
+      null,
+
+    currentRuntimeActivity,
+
+    scheduleState:
+      resolution.state,
+
+    resolution,
+
+    activeEntry:
+      resolution.activeEntry ??
+      null,
+
+    semanticActivityId:
+      resolution.activeEntry
+        ?.activity
+        ?.selectedActivityId ??
+      null,
+
+    runtimeActivityId:
+      currentRuntimeActivity,
+
+    targetSceneId:
+      resolution.activeEntry
+        ?.target
+        ?.sceneId ??
+      null,
+
+    targetSpotId:
+      resolution.activeEntry
+        ?.target
+        ?.spotId ??
+      null,
+
+    needsTravel:
+      false,
+
+    needsSpotMovement:
+      false,
+  });
+}
+
+
   /*
     =========================
     3. Schedule GAP
@@ -46441,6 +52284,56 @@ if (
   }
 
 
+/*
+  Bath Transition 在 Decision
+  建立後也可能才剛開始。
+
+  Executor 必須再次保護，
+  避免 stale Decision
+  中途覆寫 Enter / Exit。
+*/
+if (
+  worldState.bathTransition ||
+  worldState.bathPositioning ||
+  currentOwnership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .BATH_TRANSITION ||
+  currentOwnership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .BATH_POSITIONING
+) {
+  return (
+    createGardenScheduleBridgeExecutionResult({
+      characterId,
+
+      action:
+        decision.action,
+
+      reason:
+  worldState.bathPositioning ||
+  currentOwnership?.owner ===
+    GARDEN_CHARACTER_ACTIVITY_OWNER
+      .BATH_POSITIONING
+    ? "bathPositioningInProgress"
+    : "bathTransitionInProgress",
+
+      runtimeActivityId:
+        worldState.activity,
+
+      semanticActivityId:
+        decision.semanticActivityId,
+
+      targetSceneId:
+        decision.targetSceneId,
+
+      targetSpotId:
+        decision.targetSpotId,
+    })
+  );
+}
+
+
+
   /*
     =========================
     PRESERVE_RUNTIME
@@ -46476,6 +52369,157 @@ if (
       })
     );
   }
+
+
+/*
+  =========================
+  Schedule BATH Exit Gate
+  =========================
+
+  角色目前仍在正式 BATH，
+  但新的 Schedule 已經不再要求 BATH 時：
+
+  Bath Spot
+  → E
+  → Exit Transition
+  → 乾地
+
+  完成出浴以前，
+  不允許 GAP / TRAVEL / 下一個 ACTIVITY
+  直接搶走角色。
+*/
+const scheduleStillWantsBath =
+  decision.action ===
+    GARDEN_SCHEDULE_BRIDGE_ACTION
+      .ACTIVITY &&
+  decision.runtimeActivityId ===
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH;
+
+
+if (
+  worldState.activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH &&
+  !scheduleStillWantsBath &&
+  !worldState.bathTransition &&
+  !worldState.bathPositioning &&
+  worldState.sceneId ===
+    "hotSpring"
+) {
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+  const state =
+    runtime?.moveState;
+
+
+  /*
+    Exit Gate 只在角色真的還位於
+    Bath Area 內時啟動。
+
+    出浴完成後角色仍暫時保持 BATH，
+    但已經站回乾地 A。
+
+    那時這裡會自然放行，
+    讓下一個 Schedule 接手。
+  */
+  const insideBathArea =
+    !!state &&
+    HOT_SPRING_BATH_AREAS
+      .bath
+      .some(
+        area =>
+          pointInPolygon(
+            state.x,
+            state.y,
+            area.points
+          )
+      );
+
+
+  if (insideBathArea) {
+    /*
+      優先使用上一個 BATH Entry
+      真正結束的 canonical timestamp。
+
+      如果拿不到，
+      才退回本次 Schedule reconciliation
+      的 world timestamp。
+    */
+    const previousEntry =
+      decision.resolution
+        ?.previousEntry ??
+      null;
+
+
+    const previousEndsAt =
+      previousEntry
+        ? getGardenScheduleEntryEndTimestamp(
+            previousEntry
+          )
+        : null;
+
+
+    const exitStartedAt =
+      isValidGardenWorldTimestamp(
+        previousEndsAt
+      )
+        ? previousEndsAt
+        : isValidGardenWorldTimestamp(
+            options.worldTimestamp
+          )
+          ? options.worldTimestamp
+          : getGardenWorldNow();
+
+
+    const exitPlan =
+      startGardenHotSpringBathReturnPositioning(
+        characterId,
+        exitStartedAt
+      );
+
+
+    return (
+      createGardenScheduleBridgeExecutionResult({
+        ok:
+          !!exitPlan,
+
+        executed:
+          !!exitPlan,
+
+        changed:
+          !!exitPlan,
+
+        characterId,
+
+        action:
+          decision.action,
+
+        reason:
+          exitPlan
+            ? "bathExitStarted"
+            : "bathExitStartFailed",
+
+        runtimeActivityId:
+          worldState.activity,
+
+        semanticActivityId:
+          decision.semanticActivityId,
+
+        targetSceneId:
+          decision.targetSceneId,
+
+        targetSpotId:
+          decision.targetSpotId,
+      })
+    );
+  }
+}
+
+
 
 
   /*
@@ -46514,7 +52558,37 @@ if (
     Activity Spot
     → Wander Continuity
   */
-  const continuityPlan =
+ /*
+  Bath Exit → Wander：
+
+  出浴完成後角色仍暫時是 BATH，
+  但已經站回 Hot Spring 乾地 A。
+
+  此時 Wander 必須從「目前真正位置」
+  建立 Continuity，
+  不能直接跳進 Standard Wander。
+*/
+const bathExitContinuityPlan =
+  worldState.activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH &&
+  worldState.sceneId ===
+    "hotSpring" &&
+  !worldState.bathTransition &&
+  !worldState.bathPositioning
+    ? createGardenWanderContinuityFromCurrentPosition(
+        characterId,
+        gapTimestamp
+      )
+    : null;
+
+
+/*
+  一般 Activity Spot → Wander
+  繼續沿用原本 Schedule Continuity。
+*/
+const continuityPlan =
+  bathExitContinuityPlan ??
   createGardenScheduleWanderHandoffContinuity(
     decision,
     gapTimestamp
@@ -46686,7 +52760,52 @@ const scheduleStartedAt =
     decision.activeEntry
   );
 
+/*
+  Bath Exit → Travel Handoff
 
+  Bath 已經完成實際出浴，
+  角色現在正站在 Hot Spring 乾地 A。
+
+  這種 Travel 不能沿用 Schedule Entry
+  原本的 historical startedAt。
+
+  否則：
+  1. Travel 會改用 historical
+     Standard Wander position 起步
+  2. Absolute Travel Timeline
+     可能早已完成，造成瞬移
+*/
+const isBathExitTravelHandoff =
+  worldState.activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH &&
+  worldState.sceneId ===
+    "hotSpring" &&
+  !worldState.bathTransition &&
+  !worldState.bathPositioning;
+
+
+/*
+  Multi-hop Travel Continuation
+
+  上一段 Travel 剛完成時，
+  Finalizer 會留下 Wander Continuity。
+
+  如果 Schedule 此時仍要求前往
+  另一個 Scene，代表這是下一個 hop。
+
+  下一段必須從「實際抵達位置」
+  繼續走，而不是重新使用
+  Schedule Entry 的歷史 startedAt。
+*/
+const isTravelContinuationHandoff =
+  worldState.activity ===
+    GARDEN_CHARACTER_ACTIVITY.WANDER &&
+  !!worldState.wanderContinuity &&
+  worldState.wanderContinuity.characterId ===
+    characterId &&
+  worldState.wanderContinuity.sceneId ===
+    worldState.sceneId;
 
     /*
       注意：
@@ -46707,8 +52826,13 @@ const scheduleStartedAt =
           .semanticActivityId ??
         null,
 
-      startedAt:
-        scheduleStartedAt,
+     startedAt:
+  (
+    isBathExitTravelHandoff ||
+    isTravelContinuationHandoff
+  )
+    ? null
+    : scheduleStartedAt,
     }
   );
 
@@ -46805,6 +52929,126 @@ const activityData =
   createGardenScheduleActivityData(
     decision
   );
+
+/*
+  =========================
+  Schedule BATH Bridge
+  =========================
+
+  BATH 不能像一般 Activity 一樣
+  直接 setGardenCharacterActivity(BATH)。
+
+  必須先走完整：
+
+  Hot Spring 乾地
+  → A
+  → B
+  → C
+  → D
+  → E
+  → Bath Spot
+*/
+if (
+  runtimeActivityId ===
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH
+) {
+  /*
+    已經正式在泡澡。
+
+    Schedule Reconciliation
+    再次掃到同一個 BATH 時，
+    不可以重新啟動 Enter。
+  */
+  if (
+    worldState.activity ===
+      GARDEN_CHARACTER_ACTIVITY
+        .BATH &&
+    !worldState.bathTransition &&
+    !worldState.bathPositioning
+  ) {
+    return (
+      createGardenScheduleBridgeExecutionResult({
+        characterId,
+
+        action:
+          decision.action,
+
+        reason:
+          "bathAlreadyActive",
+
+        runtimeActivityId:
+          GARDEN_CHARACTER_ACTIVITY
+            .BATH,
+
+        semanticActivityId:
+          decision.semanticActivityId,
+
+        targetSceneId:
+          decision.targetSceneId,
+
+        targetSpotId:
+          decision.targetSpotId,
+      })
+    );
+  }
+
+
+  const bathStartedAt =
+    isValidGardenWorldTimestamp(
+      options.worldTimestamp
+    )
+      ? options.worldTimestamp
+      : getGardenWorldNow();
+
+
+  const bathPlan =
+  startGardenHotSpringBathEnterTransition(
+    characterId,
+    bathStartedAt,
+    activityData
+  );
+
+
+  return (
+    createGardenScheduleBridgeExecutionResult({
+      ok:
+        !!bathPlan,
+
+      executed:
+        !!bathPlan,
+
+      changed:
+        !!bathPlan,
+
+      characterId,
+
+      action:
+        decision.action,
+
+      reason:
+        bathPlan
+          ? "bathEnterStarted"
+          : "bathEnterStartFailed",
+
+      runtimeActivityId:
+        bathPlan
+          ? GARDEN_CHARACTER_ACTIVITY
+              .BATH_TRANSITION
+          : worldState.activity,
+
+      semanticActivityId:
+        decision.semanticActivityId,
+
+      targetSceneId:
+        decision.targetSceneId,
+
+      targetSpotId:
+        decision.targetSpotId,
+    })
+  );
+}
+
 
 
 const wanderHandoffTimestamp =
@@ -51091,6 +57335,48 @@ function tryStartGardenMoonBridgeNightChat(
 }
 
 
+/*
+  =========================
+  Garden Official Routine
+  Night Schedule Config
+  =========================
+
+  夜間固定日程的時間全部集中在這裡。
+
+  未來如果想調整：
+  - 泡澡開始時間
+  - 泡澡長度
+  - 賞月橋開始時間
+  - 賞月橋活動長度
+
+  只需要修改這個設定區，
+  不需要進各角色 Schedule Definition 裡找時間。
+*/
+const GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME =
+  Object.freeze({
+
+    hotSpringBath:
+      Object.freeze({
+        start:
+          "22:00",
+
+        durationMinutes:
+          60,
+      }),
+
+
+    moonBridgeNightWalk:
+      Object.freeze({
+        start:
+          "23:00",
+
+        durationMinutes:
+          120,
+      }),
+
+  });
+
+
 
 function getGardenOfficialScheduleDefinitionsForDate(
   dateKey
@@ -51415,6 +57701,176 @@ const chinatsuAfternoonRest =
   });
 
 
+
+
+/*
+  =========================
+  Chifuyu — Hot Spring Bath
+  =========================
+
+  夜間泡澡。
+
+  時間不寫死在 Definition，
+  統一由：
+
+  GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+    .hotSpringBath
+
+  管理。
+
+  預設：
+  22:00 ～ 23:00
+*/
+const chifuyuHotSpringBath =
+  createGardenScheduleIntentDefinition({
+    id:
+      "official-chifuyu-hot-spring-bath",
+
+    characterId:
+      "chifuyu",
+
+    intentId:
+      "hotSpringBath",
+
+    instanceId:
+      "daily",
+
+    windowStart:
+      GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+        .hotSpringBath
+        .start,
+
+    windowEnd:
+      GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+        .hotSpringBath
+        .start,
+
+    durationMinMinutes:
+      GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+        .hotSpringBath
+        .durationMinutes,
+
+    durationMaxMinutes:
+      GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+        .hotSpringBath
+        .durationMinutes,
+
+    priority:
+      GARDEN_SCHEDULE_PRIORITY
+        .NORMAL,
+
+    sceneId:
+      "hotSpring",
+
+    activityId:
+      GARDEN_CHARACTER_ACTIVITY
+        .BATH,
+
+    fallbackActivityId:
+      "wander",
+
+    canDelay:
+      false,
+
+    canBeOverridden:
+      true,
+
+    latePolicy:
+      GARDEN_SCHEDULE_LATE_POLICY
+        .SKIP,
+
+    tags: [
+      "official",
+      "dailyRoutine",
+      "hotSpring",
+      "bath",
+    ],
+  });
+
+
+/*
+  =========================
+  Chinatsu — Hot Spring Bath
+  =========================
+
+  與千冬共用同一段夜間泡澡時段。
+
+  時間統一由：
+
+  GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+    .hotSpringBath
+
+  管理。
+*/
+const chinatsuHotSpringBath =
+  createGardenScheduleIntentDefinition({
+    id:
+      "official-chinatsu-hot-spring-bath",
+
+    characterId:
+      "chinatsu",
+
+    intentId:
+      "hotSpringBath",
+
+    instanceId:
+      "daily",
+
+    windowStart:
+      GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+        .hotSpringBath
+        .start,
+
+    windowEnd:
+      GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+        .hotSpringBath
+        .start,
+
+    durationMinMinutes:
+      GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+        .hotSpringBath
+        .durationMinutes,
+
+    durationMaxMinutes:
+      GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+        .hotSpringBath
+        .durationMinutes,
+
+    priority:
+      GARDEN_SCHEDULE_PRIORITY
+        .NORMAL,
+
+    sceneId:
+      "hotSpring",
+
+    activityId:
+      GARDEN_CHARACTER_ACTIVITY
+        .BATH,
+
+    fallbackActivityId:
+      "wander",
+
+    canDelay:
+      false,
+
+    canBeOverridden:
+      true,
+
+    latePolicy:
+      GARDEN_SCHEDULE_LATE_POLICY
+        .SKIP,
+
+    tags: [
+      "official",
+      "dailyRoutine",
+      "hotSpring",
+      "bath",
+    ],
+  });
+
+
+
+
 /*
   =========================
   Chifuyu — Moon Bridge Night Walk
@@ -51444,16 +57900,24 @@ const chifuyuMoonBridgeNightWalk =
       "daily",
 
     windowStart:
-      "23:00",
+  GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+    .moonBridgeNightWalk
+    .start,
 
-    windowEnd:
-      "23:00",
+windowEnd:
+  GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+    .moonBridgeNightWalk
+    .start,
 
-    durationMinMinutes:
-      120,
+durationMinMinutes:
+  GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+    .moonBridgeNightWalk
+    .durationMinutes,
 
-    durationMaxMinutes:
-      120,
+durationMaxMinutes:
+  GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+    .moonBridgeNightWalk
+    .durationMinutes,
 
     priority:
       GARDEN_SCHEDULE_PRIORITY
@@ -51515,16 +57979,24 @@ const chinatsuMoonBridgeNightWalk =
       "daily",
 
     windowStart:
-      "23:00",
+  GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+    .moonBridgeNightWalk
+    .start,
 
-    windowEnd:
-      "23:00",
+windowEnd:
+  GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+    .moonBridgeNightWalk
+    .start,
 
-    durationMinMinutes:
-      120,
+durationMinMinutes:
+  GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+    .moonBridgeNightWalk
+    .durationMinutes,
 
-    durationMaxMinutes:
-      120,
+durationMaxMinutes:
+  GARDEN_OFFICIAL_NIGHT_ROUTINE_TIME
+    .moonBridgeNightWalk
+    .durationMinutes,
 
     priority:
       GARDEN_SCHEDULE_PRIORITY
@@ -51590,6 +58062,25 @@ if (
 ) {
   definitions.push(
     chinatsuAfternoonRest
+  );
+}
+
+
+
+if (
+  chifuyuHotSpringBath
+) {
+  definitions.push(
+    chifuyuHotSpringBath
+  );
+}
+
+
+if (
+  chinatsuHotSpringBath
+) {
+  definitions.push(
+    chinatsuHotSpringBath
   );
 }
 
@@ -58500,6 +64991,7 @@ function inspectGardenCanonicalWanderRuntime(
     );
 
 
+
   const runtime =
     getGardenCharacterRuntime(
       characterId
@@ -59999,12 +66491,20 @@ activitySpotApproach:
     worldState.activitySpotApproach
   ),
 
-  
+bathTransition:
+  cloneGardenWorldSerializableValue(
+    worldState.bathTransition
+  ),
 
-    travel:
-      cloneGardenWorldSerializableValue(
-        worldState.travel
-      ),
+bathPositioning:
+  cloneGardenWorldSerializableValue(
+    worldState.bathPositioning
+  ),
+
+travel:
+  cloneGardenWorldSerializableValue(
+    worldState.travel
+  ),
 
 
     /*
@@ -60569,6 +67069,17 @@ const savedActivitySpotApproach =
     snapshot.activitySpotApproach
   );
 
+  const savedBathTransition =
+  cloneGardenWorldSerializableValue(
+    snapshot.bathTransition
+  );
+
+const savedBathPositioning =
+  cloneGardenWorldSerializableValue(
+    snapshot.bathPositioning
+  );
+
+  
   /*
     如果有有效 Travel，
     Travel 優先於一般 Activity。
@@ -60643,6 +67154,313 @@ worldState.activitySpotApproach =
     return true;
   }
 
+
+/*
+  =========================
+  Bath Transition
+  Cold Start Restore
+  =========================
+
+  Travel 的 Spatial Priority
+  高於 Bath Transition。
+
+  因此只有沒有有效 Travel 時，
+  Bath Transition 才能取得
+  Character Spatial Ownership。
+*/
+if (
+  savedBathTransition &&
+  typeof savedBathTransition ===
+    "object" &&
+  savedBathTransition.schema ===
+    GARDEN_HOT_SPRING_BATH_TRANSITION_SCHEMA &&
+  savedBathTransition.version ===
+    GARDEN_HOT_SPRING_BATH_TRANSITION_VERSION &&
+  savedBathTransition.characterId ===
+    character &&
+  savedBathTransition.sceneId ===
+    "hotSpring" &&
+  isValidGardenWorldTimestamp(
+    savedBathTransition.startedAt
+  ) &&
+  isValidGardenWorldTimestamp(
+    savedBathTransition.endsAt
+  )
+) {
+  worldState.bathTransition =
+    savedBathTransition;
+
+  /*
+    Bath Transition 正在擁有角色空間位置時，
+    不能同時恢復其他 local spatial state。
+  */
+  worldState.wanderContinuity =
+    null;
+
+  worldState.activitySpotApproach =
+    null;
+
+    worldState.bathPositioning =
+  null;
+
+  worldState.travel =
+    null;
+
+  /*
+    Bath Transition 本身目前還沒有
+    正式 Activity enum。
+
+    這一步先不改 activity，
+    下一階段會把它接入
+    Activity Ownership Contract。
+  */
+
+worldState.activity =
+  GARDEN_CHARACTER_ACTIVITY
+    .BATH_TRANSITION;
+
+
+/*
+  Bath Transition 可能是由
+  Schedule Activity 啟動。
+
+  Reload 後必須把原本的
+  Schedule metadata 一起恢復，
+  否則 Enter 完成切成 BATH 時
+  就無法繼續保留同一個 Entry 身分。
+*/
+worldState.activityData =
+  cloneGardenWorldSerializableValue(
+    snapshot.activityData
+  );
+
+
+worldState.sceneId =
+  "hotSpring";
+
+return true;
+}
+
+worldState.bathTransition =
+  null;
+
+
+
+/*
+  =========================
+  Bath Positioning
+  Cold Start Restore
+  =========================
+
+  Travel
+  > Bath Transition
+  > Bath Positioning
+  > Activity Spot
+
+  Bath Positioning 是完整的
+  Absolute World-Time Spatial Plan，
+
+  所以 Reload 後不復活舊 local path，
+  只恢復 canonical plan，
+  下一次 runtime tick 會依目前世界時間
+  自動重新取樣正確位置。
+*/
+if (
+  snapshot.activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH &&
+  snapshot.sceneId ===
+    "hotSpring" &&
+
+  savedBathPositioning &&
+  typeof savedBathPositioning ===
+    "object" &&
+
+  savedBathPositioning.schema ===
+    GARDEN_HOT_SPRING_BATH_POSITIONING_SCHEMA &&
+
+  savedBathPositioning.version ===
+    GARDEN_HOT_SPRING_BATH_POSITIONING_VERSION &&
+
+  savedBathPositioning.characterId ===
+    character &&
+
+  savedBathPositioning.sceneId ===
+    "hotSpring" &&
+
+  (
+    savedBathPositioning.intent ===
+      "toSpot" ||
+    savedBathPositioning.intent ===
+      "toExit"
+  ) &&
+
+  isValidGardenWorldTimestamp(
+    savedBathPositioning.startedAt
+  ) &&
+
+  isValidGardenWorldTimestamp(
+    savedBathPositioning.endsAt
+  ) &&
+
+  resolveGardenHotSpringBathPositioningPlan(
+    savedBathPositioning,
+    savedBathPositioning.startedAt
+  )
+) {
+  worldState.sceneId =
+    "hotSpring";
+
+  worldState.activity =
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH;
+
+  worldState.activityData =
+    cloneGardenWorldSerializableValue(
+      snapshot.activityData
+    );
+
+  worldState.bathPositioning =
+    savedBathPositioning;
+
+
+  /*
+    Bath Positioning 已取得
+    Spatial Ownership。
+
+    不能同時恢復其他
+    local / canonical spatial owner。
+  */
+  worldState.wanderContinuity =
+    null;
+
+  worldState.activitySpotApproach =
+    null;
+
+  worldState.bathTransition =
+    null;
+
+  worldState.travel =
+    null;
+
+
+  return true;
+}
+
+
+/*
+  Snapshot 沒有有效 Positioning 時，
+  不允許殘留舊 Runtime 狀態。
+*/
+worldState.bathPositioning =
+  null;
+
+
+
+/*
+  =========================
+  Settled BATH
+  Cold Start Restore
+  =========================
+
+  此時角色已經：
+
+  Enter
+  → E
+  → Bath Spot
+
+  全部完成。
+
+  所以沒有任何 Spatial Plan
+  需要繼續跑，只需要恢復：
+
+  - Hot Spring Scene
+  - BATH Activity
+  - 保存的位置
+  - Activity Data
+
+  下一次 Schedule Reconciliation
+  再決定角色是否應繼續泡澡，
+  或正式開始出浴。
+*/
+
+const savedBathPositionInsideBathArea =
+  Number.isFinite(
+    position?.x
+  ) &&
+  Number.isFinite(
+    position?.y
+  ) &&
+  HOT_SPRING_BATH_AREAS
+    .bath
+    .some(
+      area =>
+        pointInPolygon(
+          position.x,
+          position.y,
+          area.points
+        )
+    );
+
+
+if (
+  snapshot.activity ===
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH &&
+
+  snapshot.sceneId ===
+    "hotSpring" &&
+
+  /*
+    如果 Snapshot 原本帶有 Positioning，
+    卻因資料損壞而無法恢復，
+    不可以偷偷把它當成 settled BATH。
+  */
+  !savedBathPositioning &&
+
+  savedBathPositionInsideBathArea
+) {
+  worldState.sceneId =
+    "hotSpring";
+
+  worldState.activity =
+    GARDEN_CHARACTER_ACTIVITY
+      .BATH;
+
+  worldState.activityData =
+    cloneGardenWorldSerializableValue(
+      snapshot.activityData
+    );
+
+
+  /*
+    Settled BATH 沒有任何
+    Spatial Plan Owner。
+
+    角色就固定停在 Snapshot
+    保存的 Bath Spot。
+  */
+  worldState.wanderContinuity =
+    null;
+
+  worldState.activitySpotApproach =
+    null;
+
+  worldState.bathTransition =
+    null;
+
+  worldState.bathPositioning =
+    null;
+
+  worldState.travel =
+    null;
+
+
+  return true;
+}
+
+
+  
 
 /*
   =========================
@@ -61420,7 +68238,24 @@ window.addEventListener(
 );
 
 
+const HOT_SPRING_BATH_SPOTS = [
+  {
+    name:
+      "hot-spring-night-pair",
 
+    chifuyu: {
+      x: 720,
+      y: 1460,
+      direction: -1,
+    },
+
+    chinatsu: {
+      x: 350,
+      y: 1420,
+      direction: 1,
+    },
+  },
+];
 
 
 function getGardenSceneById(
@@ -61433,8 +68268,8 @@ function getGardenSceneById(
     return {
       id: "courtyard",
 
-      nav: {
-  left: null,
+nav: {
+  left: "hotSpring",
   right: "moonBridge",
 },
 
@@ -61461,6 +68296,21 @@ exits: {
     characters:
       COURTYARD_MOON_BRIDGE_EXIT_TARGETS,
   },
+
+
+  hotSpring: {
+    targetSceneId:
+      "hotSpring",
+
+    targetEntranceId:
+      "courtyard-left",
+
+    exitType:
+      "approachOut",
+
+    characters:
+      COURTYARD_HOT_SPRING_EXIT,
+  },
 },
 
 entrances: {
@@ -61473,6 +68323,18 @@ entrances: {
 
     characters:
       COURTYARD_MOON_BRIDGE_ENTRANCE,
+  },
+
+
+  "hot-spring-left": {
+    fromSceneId:
+      "hotSpring",
+
+    direction:
+      1,
+
+    characters:
+      COURTYARD_HOT_SPRING_ENTRANCE,
   },
 },
 
@@ -61513,6 +68375,64 @@ lanternLights:
         越前面的規則越先判斷。
       */
       depthRules: [
+
+
+
+
+
+{
+  /*
+    Hot Spring 前景石板路線。
+
+    角色抵達右側必經點時，
+    就已經視為走到燈籠前方。
+  */
+  name: "hot-spring-route-lantern-front",
+
+  zone: "ground",
+
+  layer: "lanternFront",
+
+  xMin: 300,
+  xMax: 720,
+
+  yMin: 1880,
+},
+        
+/*
+  左下燈籠前方。
+
+  角色只有在：
+  - 位於庭院左側
+  - 腳底 Y 已經走到燈籠前方
+
+  才會進 lanternFront layer。
+
+  不指定 zone，
+  是為了讓角色沿 Hot Spring 出口
+  走出畫面邊界時仍保持正確景深。
+*/
+{
+  name:
+    "lantern-front",
+
+  layer:
+    "lanternFront",
+
+  /*
+    只影響左下燈籠附近。
+    負 X 不限制，讓離場動畫也能沿用。
+  */
+  xMax: 350,
+
+  /*
+    第一版暫定分界。
+    稍後依實際畫面微調。
+  */
+  yMinExclusive: 1600,
+},
+
+
 
         /*
           最下方前景。
@@ -61583,6 +68503,141 @@ lanternLights:
     - spawn
     =========================
   */
+
+
+/*
+  =========================
+  Hot Spring
+  露天風呂
+  =========================
+
+  第一階段：
+
+  - 先正式註冊場景
+  - 先支援玩家鏡頭切換
+  - 暫時不開放角色自由 Wander
+  - 暫時不建立 Travel Route
+  - 入浴 / 浴巾 / Bath Spot 後續再接
+*/
+if (
+  sceneId ===
+    "hotSpring"
+) {
+  return {
+    id:
+      "hotSpring",
+
+    /*
+      空間關係：
+
+      Hot Spring ← Courtyard → Moon Bridge
+    */
+    nav: {
+      left: null,
+      right: "courtyard",
+    },
+
+
+    /*
+      Character World Travel
+      下一步才正式加入。
+
+      現在刻意保持空白，
+      避免角色 Runtime 提前把這裡
+      當成可跨場景目的地。
+    */
+    exits: {
+  courtyard: {
+    targetSceneId:
+      "courtyard",
+
+    targetEntranceId:
+      "hot-spring-left",
+
+    exitType:
+      "approachOut",
+
+    characters:
+      HOT_SPRING_COURTYARD_EXIT,
+  },
+},
+
+
+entrances: {
+  "courtyard-left": {
+    fromSceneId:
+      "courtyard",
+
+    direction:
+      1,
+
+    characters:
+      HOT_SPRING_COURTYARD_ENTRANCE,
+  },
+},
+
+
+    /*
+      第一階段不讓角色在露天風呂
+      自動 Wander。
+
+      等我們把：
+      - 乾地區
+      - 出入口
+      - 入浴 transition spot
+
+      的座標實際校正後再開放。
+    */
+   walkAreas:
+  HOT_SPRING_WALK_AREAS,
+
+pathNodes:
+  HOT_SPRING_PATH_NODES,
+
+autoTargets:
+  HOT_SPRING_AUTO_TARGET_POINTS,
+
+    chatSpots: [],
+
+    activitySpots: [],
+
+    lanternLights: [],
+
+
+    /*
+      使用剛才註冊的
+      Hot Spring 夜間場景素材。
+    */
+    sceneLayers:
+      HOT_SPRING_SCENE_LAYER_ASSETS,
+
+
+    /*
+      最後保險值。
+
+      目前角色還不會正式 spawn 在這裡，
+      所以先不把這視為正式入口座標。
+    */
+    defaultSpawn: {
+      x: 160,
+      y: 590,
+    },
+
+
+    /*
+      泡澡專用 depth / pose layer
+      尚未接入前，不建立特殊規則。
+    */
+    depthRules: [],
+  };
+}
+
+
+
+
+
+
+
 
   /*
     =========================
