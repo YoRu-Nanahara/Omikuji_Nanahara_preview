@@ -18457,6 +18457,370 @@ function bindGardenSpriteLayerImage(
 }
 
 
+/*
+  =========================
+  Hot Spring
+  Transient Bath Texture Release
+  =========================
+
+  bathWalk / bathIdle
+  只在入浴、出浴途中使用。
+
+  正式進入 bathSoakIdle 後，
+  解除隱藏 layer 對大型 spritesheet
+  的 background-image 引用。
+
+  DOM layer 本身保留，
+  未來需要時可以重新 warmup + bind。
+*/
+function releaseGardenCharacterAnimationTexture(
+  characterId,
+  mode
+) {
+  if (
+    !characterId ||
+    !mode
+  ) {
+    return false;
+  }
+
+  const runtime =
+    getGardenCharacterAnimationRuntime(
+      characterId
+    );
+
+  /*
+    絕對不能釋放目前正在顯示的動畫。
+  */
+  if (
+    runtime?.state?.animMode ===
+      mode
+  ) {
+    return false;
+  }
+
+  const key =
+    getGardenAnimationWarmupKey(
+      characterId,
+      mode
+    );
+
+  /*
+    如果這張圖剛好還在 warmup，
+    等 warmup 結束再重新嘗試。
+
+    避免：
+    cleanup
+    ↓
+    尚未完成的 async warmup
+    又把 texture 建回來。
+  */
+  const pending =
+    gardenOnDemandWarmupPromises.get(
+      key
+    );
+
+  if (pending) {
+    pending.finally(() => {
+      setTimeout(() => {
+        releaseGardenCharacterAnimationTexture(
+          characterId,
+          mode
+        );
+      }, 0);
+    });
+
+    return false;
+  }
+
+  let layer =
+    null;
+
+  if (
+    characterId ===
+      "chifuyu"
+  ) {
+    layer =
+      chifuyuSpriteLayers[
+        mode
+      ] ??
+      null;
+  }
+
+  if (
+    characterId ===
+      "chinatsu"
+  ) {
+    layer =
+      chinatsuSpriteLayers[
+        mode
+      ] ??
+      null;
+  }
+
+  /*
+    Warmup holder 如果還殘留，
+    現在已經不需要。
+  */
+  const holder =
+    gardenAnimationWarmupHolders.get(
+      key
+    );
+
+  if (holder) {
+    holder.remove();
+
+    gardenAnimationWarmupHolders.delete(
+      key
+    );
+  }
+
+  /*
+    真正解除大型圖片引用。
+  */
+  if (layer) {
+    layer.style.backgroundImage =
+      "none";
+
+    layer.style.opacity =
+      "0";
+  }
+
+  /*
+    很重要：
+
+    這張 texture 已經被我們主動釋放，
+    所以不能繼續宣稱 warmup 完成。
+
+    之後例如 23:00 出浴，
+    requestGardenAnimationWarmup()
+    才會重新真正準備它。
+  */
+  delete gardenAnimationWarmupState[
+    key
+  ];
+
+  console.log(
+    "[Garden Texture Release]",
+    characterId,
+    mode
+  );
+
+  return true;
+}
+
+
+/*
+  bathSoakIdle 已經正式顯示後，
+  再延後兩個 frame 釋放過渡動畫。
+
+  兩幀保險避免 Safari 在剛切換
+  background texture 的瞬間閃白。
+*/
+function queueGardenSettledBathTextureCleanup(
+  characterId
+) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const worldState =
+        gardenCharacterWorldState[
+          characterId
+        ];
+
+      const runtime =
+        getGardenCharacterAnimationRuntime(
+          characterId
+        );
+
+      /*
+        必須真的已經是：
+
+        Hot Spring
+        +
+        semantic BATH
+        +
+        bathSoakIdle
+
+        Bath Transition 中即使暫時出現
+        bathSoakIdle，也不能提前 cleanup。
+      */
+      if (
+        worldState?.sceneId !==
+          "hotSpring" ||
+        worldState?.activity !==
+          GARDEN_CHARACTER_ACTIVITY
+            .BATH ||
+        runtime?.state?.animMode !==
+          "bathSoakIdle"
+      ) {
+        return;
+      }
+
+      releaseGardenCharacterAnimationTexture(
+        characterId,
+        "bathWalk"
+      );
+
+      releaseGardenCharacterAnimationTexture(
+        characterId,
+        "bathIdle"
+      );
+    });
+  });
+}
+
+/*
+  =========================
+  Hot Spring Exit
+  Bath Texture Cleanup
+  =========================
+
+  角色真正離開 Hot Spring、
+  進入 transit 後：
+
+  bathSoakIdle
+  bathIdle
+  bathWalk
+
+  都已經不再需要。
+
+  但 transit 的第一幀，
+  Animation Runtime 可能還暫時停在 bathWalk。
+
+  所以：
+  - 能釋放的先釋放
+  - 如果還有某張正被使用，
+    等切回普通 idle / walk 後再重試
+*/
+function queueGardenHotSpringExitTextureCleanup(
+  characterId,
+  attempt = 0
+) {
+  const MAX_ATTEMPTS = 120;
+
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+  const travel =
+    worldState?.travel ??
+    null;
+
+  /*
+    只允許：
+    Hot Spring → 其他 Scene
+    且角色已經正式離開 Hot Spring。
+  */
+  if (
+    !travel ||
+    travel.fromSceneId !==
+      "hotSpring" ||
+    travel.phase ===
+      "walkingToExit"
+  ) {
+    return;
+  }
+
+  const modes = [
+    "bathSoakIdle",
+    "bathIdle",
+    "bathWalk",
+  ];
+
+  let allReleased =
+    true;
+
+  for (
+    const mode of modes
+  ) {
+    const key =
+      getGardenAnimationWarmupKey(
+        characterId,
+        mode
+      );
+
+    const layer =
+      characterId ===
+        "chifuyu"
+        ? chifuyuSpriteLayers[
+            mode
+          ] ?? null
+        : characterId ===
+            "chinatsu"
+          ? chinatsuSpriteLayers[
+              mode
+            ] ?? null
+          : null;
+
+    const stillHasTexture =
+      (
+        layer &&
+        layer.style
+          .backgroundImage &&
+        layer.style
+          .backgroundImage !==
+            "none"
+      ) ||
+      !!gardenAnimationWarmupState[
+        key
+      ] ||
+      gardenAnimationWarmupHolders.has(
+        key
+      );
+
+    if (!stillHasTexture) {
+      continue;
+    }
+
+    const released =
+      releaseGardenCharacterAnimationTexture(
+        characterId,
+        mode
+      );
+
+    if (!released) {
+      allReleased =
+        false;
+    }
+  }
+
+  if (allReleased) {
+    console.log(
+      "[Garden Bath Texture Cleanup] exit complete:",
+      characterId
+    );
+
+    return;
+  }
+
+  /*
+    第一幀可能仍是 bathWalk。
+
+    等 Animation Resolver
+    正式切回 idle / walk 後再重試。
+  */
+  if (
+    attempt <
+      MAX_ATTEMPTS
+  ) {
+    requestAnimationFrame(() => {
+      queueGardenHotSpringExitTextureCleanup(
+        characterId,
+        attempt + 1
+      );
+    });
+
+    return;
+  }
+
+  console.warn(
+    "[Garden Bath Texture Cleanup] exit cleanup incomplete:",
+    characterId
+  );
+}
+
+
 async function warmupGardenCriticalAnimationSheets() {
 
   /*
@@ -18845,8 +19209,17 @@ state.animFinished =
 
 
   releaseGardenAnimationWarmup(
-    warmupKey
+  warmupKey
+);
+
+if (
+  safeMode ===
+    "bathSoakIdle"
+) {
+  queueGardenSettledBathTextureCleanup(
+    "chifuyu"
   );
+}
 }
 
 
@@ -20710,9 +21083,25 @@ travel.expectedArrivalAt =
     updateGardenCharacterVisibility();
 
 
-    console.log(
-      `[Garden Travel] ${character} → transit`
-    );
+/*
+  Hot Spring 已經正式離開畫面。
+
+  此刻角色不可見，
+  可以開始清理 Bath 專用 texture。
+*/
+if (
+  travel.fromSceneId ===
+    "hotSpring"
+) {
+  queueGardenHotSpringExitTextureCleanup(
+    character
+  );
+}
+
+
+console.log(
+  `[Garden Travel] ${character} → transit`
+);
 
 
     return;
@@ -22052,9 +22441,18 @@ state.animFinished =
   );
 
 
-  releaseGardenAnimationWarmup(
-    warmupKey
+ releaseGardenAnimationWarmup(
+  warmupKey
+);
+
+if (
+  safeMode ===
+    "bathSoakIdle"
+) {
+  queueGardenSettledBathTextureCleanup(
+    "chinatsu"
   );
+}
 }
 function updateChinatsuAnimationFrame(
   deltaMs
