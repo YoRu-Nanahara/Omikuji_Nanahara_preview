@@ -141,29 +141,24 @@ const loadingText = document.getElementById("loadingText");
 
 // 要預載的所有素材（包含你的 loading 圖自己）
 const assets = [
+  /*
+    Loading 自己
+  */
   "images/loading-bg.jpg",
   "images/loading-sakura.png",
-  "images/bg.jpg",
-  "images/shrine.png",
-  "images/characters.png",
-  "images/draw-btn.png",
-  "images/omikuji1.png",
-  "images/omikuji2.png",
-  "images/omikuji3.png",
-  "images/omikuji4.png",
-  "images/omikuji5.png",
-  "images/omikuji6.png",
-  "images/omikuji7.png",
-  "images/sakura1.png",
-  "images/sakura2.png",
-  "images/sakura3.png",
-    "images/maple1.png",
-  "images/maple2.png",
-  "images/maple3.png",
-  
-  "images/menu-bg-day-autumn.jpg",
-"images/menu-bg-night-autumn.jpg",
 
+  /*
+    Menu 首屏真正會立刻看到的東西
+  */
+  "images/menu-bg-day-autumn.jpg",
+  "images/menu-bg-night-autumn.jpg",
+
+  "images/menu-btn-omikuji.png",
+  "images/menu-btn-omamori.png",
+  "images/menu-btn-garden.png",
+  "images/menu-btn-mission.png",
+
+  "images/nanahara-logo.png",
 ];
 
 let preloadLoadedCount = 0;
