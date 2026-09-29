@@ -44,12 +44,12 @@
       hot-spring-transition-mist-a
     "
   >
-    <img
-      class="hot-spring-transition-mist-image"
-      src="images/garden/hot-spring/hot-spring-mist-01.png"
-      alt=""
-      draggable="false"
-    >
+   <img
+  class="hot-spring-transition-mist-image"
+  data-src="images/garden/hot-spring/hot-spring-mist-01.png"
+  alt=""
+  draggable="false"
+>
   </div>
 
 
@@ -60,12 +60,12 @@
       hot-spring-transition-mist-b
     "
   >
-    <img
-      class="hot-spring-transition-mist-image"
-      src="images/garden/hot-spring/hot-spring-mist-02.png"
-      alt=""
-      draggable="false"
-    >
+   <img
+  class="hot-spring-transition-mist-image"
+  data-src="images/garden/hot-spring/hot-spring-mist-02.png"
+  alt=""
+  draggable="false"
+>
   </div>
 
 
@@ -76,12 +76,12 @@
       hot-spring-transition-mist-c
     "
   >
-    <img
-      class="hot-spring-transition-mist-image"
-      src="images/garden/hot-spring/hot-spring-mist-01.png"
-      alt=""
-      draggable="false"
-    >
+   <img
+  class="hot-spring-transition-mist-image"
+  data-src="images/garden/hot-spring/hot-spring-mist-01.png"
+  alt=""
+  draggable="false"
+>
   </div>
 
 </div>
@@ -156,10 +156,10 @@
     aria-label="Previous Garden Scene"
     disabled
   >
-    <img
-      src="images/garden/ui/garden-scene-arrow-left.png"
-      alt=""
-    >
+   <img
+  data-garden-ui-src="images/garden/ui/garden-scene-arrow-left.png"
+  alt=""
+>
   </button>
 
   <button
@@ -169,10 +169,10 @@
     aria-label="Next Garden Scene"
     disabled
   >
-    <img
-      src="images/garden/ui/garden-scene-arrow-right.png"
-      alt=""
-    >
+   <img
+  data-garden-ui-src="images/garden/ui/garden-scene-arrow-right.png"
+  alt=""
+>
   </button>
 </div>
 
@@ -189,10 +189,10 @@
     type="button"
     aria-label="Back to Menu"
   >
-    <img
-      src="images/ui-btn-menu.png"
-      alt="Back to Menu"
-    >
+   <img
+  data-garden-ui-src="images/ui-btn-menu.png"
+  alt="Back to Menu"
+>
   </button>
 
   <div id="gardenScene">
@@ -480,223 +480,638 @@
 
 
       <!-- Omikuji：也放進同一舞台 -->
-      <div id="omikujiScreen" class="screen hidden">
+<div id="omikujiScreen" class="screen hidden">
 
-        <!-- Omikuji Screen 內，任意位置都可（建議放在最底下結尾處） -->
-<button id="btnOmikujiMenu" class="ui-btn-menu-topright" type="button" aria-label="Back to Menu">
-  <img src="images/ui-btn-menu.png" alt="Back to Menu">
-</button>
+  <button id="btnOmikujiMenu" class="ui-btn-menu-topright" type="button" aria-label="Back to Menu">
+    <img data-src="images/ui-btn-menu.png" alt="Back to Menu">
+  </button>
 
-        
-        <!-- introScreen：如果你要它跟舞台縮放，就留在舞台內 -->
-        <div id="introScreen">
-          <img src="images/guide-bg.jpg" class="intro-bg" alt="">
 
-          <div id="introText">
-            <div>Welcome to Nanahara Shrine!</div>
-            <div>To celebrate Nanahara sisters' birthday, we are gathering blessings from </div>
-            <div>all around the world.</div>
-            <div>Tap the birthday card below to send your wishes...</div>
-            <div>Come and see what luck awaits you today!</div>
-          </div>
+  <div id="introScreen">
+    <img data-src="images/guide-bg.jpg" class="intro-bg" alt="">
 
-          <div id="blessingWrapper">
-            <img id="blessingCard" src="images/Card.png" alt="">
-          </div>
-        </div>
+    <div id="introText">
+      <div>Welcome to Nanahara Shrine!</div>
+      <div>To celebrate Nanahara sisters' birthday, we are gathering blessings from </div>
+      <div>all around the world.</div>
+      <div>Tap the birthday card below to send your wishes...</div>
+      <div>Come and see what luck awaits you today!</div>
+    </div>
 
-        <!-- 抽籤畫面元素（保持你原本定位） -->
-        <img src="images/bg.jpg" class="bg day" crossorigin="anonymous">
-        <img src="images/bg-night.jpg" class="bg night" crossorigin="anonymous">
+    <div id="blessingWrapper">
+      <img id="blessingCard" data-src="images/Card.png" alt="">
+    </div>
+  </div>
 
-        <img src="images/characters.png" class="characters day" crossorigin="anonymous">
-        <img src="images/characters-night.png" class="characters night" crossorigin="anonymous">
 
-        <img id="omikuji" class="omikuji" src="images/omikuji1.png" crossorigin="anonymous">
-        <img src="images/draw-btn.png" id="drawBtn" class="draw-btn" crossorigin="anonymous">
-      </div>
+  <img data-src="images/bg.jpg"
+       class="bg day"
+       crossorigin="anonymous">
+
+  <img data-src="images/bg-night.jpg"
+       class="bg night"
+       crossorigin="anonymous">
+
+
+  <img data-src="images/characters.png"
+       class="characters day"
+       crossorigin="anonymous">
+
+  <img data-src="images/characters-night.png"
+       class="characters night"
+       crossorigin="anonymous">
+
+
+  <img id="omikuji"
+       class="omikuji"
+       data-src="images/omikuji1.png"
+       crossorigin="anonymous">
+
+
+  <img data-src="images/draw-btn.png"
+       id="drawBtn"
+       class="draw-btn"
+       crossorigin="anonymous">
+
+</div>
 
 <div id="omamoriScreen" class="screen hidden">
-  
-  <button id="btnOmamoriMenu" class="ui-btn-menu-topright" type="button" aria-label="Back to Menu">
-  <img src="images/ui-btn-menu.png" alt="Back to Menu">
-</button>
+
+  <button
+    id="btnOmamoriMenu"
+    class="ui-btn-menu-topright"
+    type="button"
+    aria-label="Back to Menu"
+  >
+    <img
+      data-src="images/ui-btn-menu.png"
+      alt="Back to Menu"
+    >
+  </button>
+
 
   <!-- 背景 -->
-  <img src="images/omamori-bg.jpg" class="omamori-bg" alt="">
+  <img
+    data-src="images/omamori-bg.jpg"
+    class="omamori-bg"
+    alt=""
+  >
 
-  <!-- ✅ (1) 只包御守本體：完成後彈跳掛在這層 -->
+
+  <!-- =========================
+       御守本體
+       ========================= -->
+
   <div id="omamoriPreviewWrap">
+
     <div id="omamoriPreview">
-   <!-- ✅ 新增：聚焦發光層（只做疊加，不吃點擊） -->
-    <div id="omamoriGlowLayer" aria-hidden="true"></div>
 
-      <div id="wrapOmamoriTop" class="omamori-part-wrap">
-        <img id="omamoriTop" class="omamori-part top" src="images/omamori-top-01.png" alt="">
+      <!-- 聚焦發光層 -->
+      <div
+        id="omamoriGlowLayer"
+        aria-hidden="true"
+      ></div>
+
+
+      <!-- 上半部 -->
+      <div
+        id="wrapOmamoriTop"
+        class="omamori-part-wrap"
+      >
+        <img
+          id="omamoriTop"
+          class="omamori-part top"
+          alt=""
+        >
       </div>
 
-      <div id="wrapOmamoriBottom" class="omamori-part-wrap">
-        <img id="omamoriBottom" class="omamori-part bottom" src="images/omamori-bottom-01.png" alt="">
+
+      <!-- 下半部 -->
+      <div
+        id="wrapOmamoriBottom"
+        class="omamori-part-wrap"
+      >
+        <img
+          id="omamoriBottom"
+          class="omamori-part bottom"
+          alt=""
+        >
       </div>
 
-      <div id="wrapOmamoriKnot" class="omamori-part-wrap">
-        <img id="omamoriKnot" class="omamori-part knot" src="images/omamori-knot-01.png" alt="">
+
+      <!-- 繩結 -->
+      <div
+        id="wrapOmamoriKnot"
+        class="omamori-part-wrap"
+      >
+        <img
+          id="omamoriKnot"
+          class="omamori-part knot"
+          alt=""
+        >
       </div>
 
     </div>
+
   </div>
 
-  <!-- ✅ (2) Perfect（在 wrapper 外面） -->
-  <img id="omamoriPerfect" src="images/omamori-perfect.png" alt="Perfect!">
 
-  <!-- ✅ (3) 完成聚焦後按鈕列（在 wrapper 外面） -->
-  <div id="omamoriFocusActions" class="hidden">
-    <button id="btnFocusMenu" class="focus-btn" type="button">
-      <img src="images/ui-btn-menu.png" alt="回到Menu">
+  <!-- =========================
+       Perfect
+       ========================= -->
+
+  <img
+    id="omamoriPerfect"
+    data-src="images/omamori-perfect.png"
+    alt="Perfect!"
+  >
+
+
+  <!-- =========================
+       Focus Actions
+       ========================= -->
+
+  <div
+    id="omamoriFocusActions"
+    class="hidden"
+  >
+
+    <button
+      id="btnFocusMenu"
+      class="focus-btn"
+      type="button"
+    >
+      <img
+        data-src="images/ui-btn-menu.png"
+        alt="回到Menu"
+      >
     </button>
 
-    <button id="btnFocusBackToEdit" class="focus-btn" type="button">
-      <img src="images/ui-btn-back.png" alt="返回御守製作">
+
+    <button
+      id="btnFocusBackToEdit"
+      class="focus-btn"
+      type="button"
+    >
+      <img
+        data-src="images/ui-btn-back.png"
+        alt="返回御守製作"
+      >
     </button>
 
-    <button id="btnFocusCapture" class="focus-btn" type="button">
-      <img src="images/ui-btn-capture.png" alt="截圖">
+
+    <button
+      id="btnFocusCapture"
+      class="focus-btn"
+      type="button"
+    >
+      <img
+        data-src="images/ui-btn-capture.png"
+        alt="截圖"
+      >
     </button>
+
   </div>
 
-  <!-- ✅ (4) 角色與對話框（在 wrapper 外面） -->
+
+  <!-- =========================
+       角色與對話框
+       ========================= -->
+
   <div id="omamoriDialogue">
+
+    <!-- 左側角色 -->
     <div class="npc left">
+
       <div class="npc-breathe">
-        <img id="omamoriCharLeft" class="npc-img" src="images/omamori-characters-left-01.png" alt="">
+        <img
+          id="omamoriCharLeft"
+          class="npc-img"
+          data-src="images/omamori-characters-left-01.png"
+          alt=""
+        >
       </div>
+
+
       <div class="bubble">
-        <img class="bubble-img" src="images/omamori-speech-left.png" alt="">
-        <div id="omamoriLineLeft" class="bubble-text"></div>
+
+        <img
+          class="bubble-img"
+          data-src="images/omamori-speech-left.png"
+          alt=""
+        >
+
+        <div
+          id="omamoriLineLeft"
+          class="bubble-text"
+        ></div>
+
       </div>
+
     </div>
 
+
+    <!-- 右側角色 -->
     <div class="npc right">
+
       <div class="npc-breathe">
-        <img id="omamoriCharRight" class="npc-img" src="images/omamori-characters-right-01.png" alt="">
+        <img
+          id="omamoriCharRight"
+          class="npc-img"
+          data-src="images/omamori-characters-right-01.png"
+          alt=""
+        >
       </div>
+
+
       <div class="bubble">
-        <img class="bubble-img" src="images/omamori-speech-right.png" alt="">
-        <div id="omamoriLineRight" class="bubble-text"></div>
+
+        <img
+          class="bubble-img"
+          data-src="images/omamori-speech-right.png"
+          alt=""
+        >
+
+        <div
+          id="omamoriLineRight"
+          class="bubble-text"
+        ></div>
+
       </div>
+
     </div>
+
   </div>
 
-  <!-- ✅ (5) 左右切換按鈕（在 wrapper 外面） -->
-  <button id="btnKnotLeft" class="omamori-arrow left row-knot">
-    <img src="images/omamori-arrow-knot-left.png" alt="">
-  </button>
-  <button id="btnKnotRight" class="omamori-arrow right row-knot">
-    <img src="images/omamori-arrow-knot-right.png" alt="">
-  </button>
 
-  <button id="btnTopLeft" class="omamori-arrow left row-top">
-    <img src="images/omamori-arrow-top-left.png" alt="">
-  </button>
-  <button id="btnTopRight" class="omamori-arrow right row-top">
-    <img src="images/omamori-arrow-top-right.png" alt="">
-  </button>
+  <!-- =========================
+       Knot 左右切換
+       ========================= -->
 
-  <button id="btnBottomLeft" class="omamori-arrow left row-bottom">
-    <img src="images/omamori-arrow-bottom-left.png" alt="">
-  </button>
-  <button id="btnBottomRight" class="omamori-arrow right row-bottom">
-    <img src="images/omamori-arrow-bottom-right.png" alt="">
-  </button>
-
-  <!-- ✅ (6) 完成按鈕（在 wrapper 外面，才能點） -->
-  <button id="btnOmamoriFinish" class="omamori-finish">
-    <img src="images/omamori-btn-finish.png" alt="">
-  </button>
-    </div> <!-- /omamoriScreen -->
-
-  <div id="windGameScreen" class="screen hidden">
-  <img id="windGameBg" class="wind-game-bg" src="" alt="Nanahara Wind Flight Background">
-
-
-  <!-- Wind Game Obstacles -->
-<div id="windObstacleGroup">
-  <img id="windObstacleTop" class="wind-obstacle wind-obstacle-top" src="images/wind-obstacle-top.png" alt="">
-  <img id="windObstacleBottom" class="wind-obstacle wind-obstacle-bottom" src="images/wind-obstacle-bottom.png" alt="">
-</div>
-
-<div id="windSakuraTrail"></div>
-<div id="windGoldRoute"></div>
-<div id="windSakuraBonus"></div>
-<div id="windBonusGold"></div>
-
-<img id="windGhost" class="wind-ghost hidden" src="images/wind-ghost.png" alt="">
-<img id="windGhostRush" class="wind-ghost-rush hidden" src="images/wind-ghost-rush.png" alt="">
-<img id="windGhostPhase" class="wind-ghost-phase hidden" src="images/wind-ghost-phase.png" alt="">
-  <!-- Wind Game Player：紙鶴 + 千夏 + 千冬 -->
-  <div id="windPlayer">
-  
-    <img id="windCrane" class="wind-player-layer" src="images/wind-crane.png" alt="">
-    <img id="windChinatsu" class="wind-player-layer" src="images/wind-chinatsu-down.png" alt="">
-    <img id="windChifuyu" class="wind-player-layer" src="images/wind-chifuyu-idle.png" alt="">
-    <img id="windSlash" class="wind-player-slash hidden" src="images/wind-slash.png" alt="">
-  </div>
-
-  <div id="windCountdown" class="hidden" aria-live="polite"></div>
-<div id="windScore">0</div>
-
-<div id="windPauseOverlay" class="wind-pause-overlay hidden" aria-live="polite">
-  <div class="wind-pause-title">- Pause -</div>
-</div>
-
-<div id="windResultPanel" class="wind-result-panel hidden" aria-live="polite">
-  <div class="wind-result-card wind-result-image-card">
+  <button
+    id="btnKnotLeft"
+    class="omamori-arrow left row-knot"
+  >
     <img
-      id="windResultImage"
-      class="wind-result-image"
-      src="images/wind-result-crash.png"
-      alt="Mission Complete"
+      data-src="images/omamori-arrow-knot-left.png"
+      alt=""
+    >
+  </button>
+
+
+  <button
+    id="btnKnotRight"
+    class="omamori-arrow right row-knot"
+  >
+    <img
+      data-src="images/omamori-arrow-knot-right.png"
+      alt=""
+    >
+  </button>
+
+
+  <!-- =========================
+       Top 左右切換
+       ========================= -->
+
+  <button
+    id="btnTopLeft"
+    class="omamori-arrow left row-top"
+  >
+    <img
+      data-src="images/omamori-arrow-top-left.png"
+      alt=""
+    >
+  </button>
+
+
+  <button
+    id="btnTopRight"
+    class="omamori-arrow right row-top"
+  >
+    <img
+      data-src="images/omamori-arrow-top-right.png"
+      alt=""
+    >
+  </button>
+
+
+  <!-- =========================
+       Bottom 左右切換
+       ========================= -->
+
+  <button
+    id="btnBottomLeft"
+    class="omamori-arrow left row-bottom"
+  >
+    <img
+      data-src="images/omamori-arrow-bottom-left.png"
+      alt=""
+    >
+  </button>
+
+
+  <button
+    id="btnBottomRight"
+    class="omamori-arrow right row-bottom"
+  >
+    <img
+      data-src="images/omamori-arrow-bottom-right.png"
+      alt=""
+    >
+  </button>
+
+
+  <!-- =========================
+       完成按鈕
+       ========================= -->
+
+  <button
+    id="btnOmamoriFinish"
+    class="omamori-finish"
+  >
+    <img
+      data-src="images/omamori-btn-finish.png"
+      alt=""
+    >
+  </button>
+
+</div>
+<!-- /omamoriScreen -->
+
+
+<div id="windGameScreen" class="screen hidden">
+
+  <!-- 背景由 prepareWindGameBackground() 動態指定 -->
+  <img
+    id="windGameBg"
+    class="wind-game-bg"
+    alt="Nanahara Wind Flight Background"
+  >
+
+
+  <!-- =========================
+       Obstacles
+       ========================= -->
+
+  <div id="windObstacleGroup">
+
+    <img
+      id="windObstacleTop"
+      class="wind-obstacle wind-obstacle-top"
+      data-src="images/wind-obstacle-top.png"
+      alt=""
     >
 
-    <div class="wind-result-score-overlay">
-      <div class="wind-result-score-row">
-        <span>Score</span>
-        <strong id="windResultScore">0</strong>
-      </div>
+    <img
+      id="windObstacleBottom"
+      class="wind-obstacle wind-obstacle-bottom"
+      data-src="images/wind-obstacle-bottom.png"
+      alt=""
+    >
 
-      <div class="wind-result-score-row wind-result-best">
-        <span>Best</span>
-        <strong id="windResultBest">0</strong>
-      </div>
-    </div>
+  </div>
 
-    <div class="wind-result-actions wind-result-icon-actions">
-      <button id="btnWindRetry" class="focus-btn wind-result-icon-btn" type="button" aria-label="Retry">
-        <img src="images/ui-btn-back.png" alt="Retry">
-      </button>
 
-      <button id="btnWindResultMenu" class="focus-btn wind-result-icon-btn" type="button" aria-label="Back to Menu">
-        <img src="images/ui-btn-menu.png" alt="Menu">
-      </button>
+  <!-- =========================
+       Collectibles
+       ========================= -->
+
+  <div id="windSakuraTrail"></div>
+  <div id="windGoldRoute"></div>
+  <div id="windSakuraBonus"></div>
+  <div id="windBonusGold"></div>
+
+
+  <!-- =========================
+       Ghosts
+       ========================= -->
+
+  <img
+    id="windGhost"
+    class="wind-ghost hidden"
+    data-src="images/wind-ghost.png"
+    alt=""
+  >
+
+  <img
+  id="windGhostRush"
+  class="wind-ghost-rush hidden"
+  alt=""
+>
+
+<img
+  id="windGhostPhase"
+  class="wind-ghost-phase hidden"
+  alt=""
+>
+
+
+  <!-- =========================
+       Player
+       紙鶴 + 千夏 + 千冬 + Slash
+       ========================= -->
+
+  <div id="windPlayer">
+
+    <img
+      id="windCrane"
+      class="wind-player-layer"
+      data-src="images/wind-crane.png"
+      alt=""
+    >
+
+    <!--
+      千夏與千冬不放 data-src。
+      resetWindGameSession() 進 Mission 時會直接指定
+      正確的初始狀態。
+    -->
+    <img
+      id="windChinatsu"
+      class="wind-player-layer"
+      alt=""
+    >
+
+    <img
+      id="windChifuyu"
+      class="wind-player-layer"
+      alt=""
+    >
+
+    <img
+      id="windSlash"
+      class="wind-player-slash hidden"
+      data-src="images/wind-slash.png"
+      alt=""
+    >
+
+  </div>
+
+
+  <!-- =========================
+       Countdown / Score
+       ========================= -->
+
+  <div
+    id="windCountdown"
+    class="hidden"
+    aria-live="polite"
+  ></div>
+
+  <div id="windScore">0</div>
+
+
+  <!-- =========================
+       Pause Overlay
+       ========================= -->
+
+  <div
+    id="windPauseOverlay"
+    class="wind-pause-overlay hidden"
+    aria-live="polite"
+  >
+    <div class="wind-pause-title">
+      - Pause -
     </div>
   </div>
-</div>
 
-<div id="windHitboxLayer"></div>
 
-<div id="windControls">
-    <button id="btnWindAttack" class="wind-control-btn wind-attack-btn" type="button" aria-label="Attack">
-      <img src="images/wind-btn-attack.png" alt="Attack">
-    </button>
+  <!-- =========================
+       Result
+       ========================= -->
 
-    <button id="btnWindFly" class="wind-control-btn wind-fly-btn" type="button" aria-label="Fly">
-      <img src="images/wind-btn-fly.png" alt="Fly">
-    </button>
-  </div>
-  <button id="btnWindGameMenu" class="ui-btn-menu-topright" type="button" aria-label="Pause">
-  <img src="images/ui-btn-pause.png" alt="Pause">
+  <div
+    id="windResultPanel"
+    class="wind-result-panel hidden"
+    aria-live="polite"
+  >
+
+    <div
+      class="wind-result-card wind-result-image-card"
+    >
+
+      <!--
+        不設定 src。
+        真正 Game Over 時，
+        showWindResultPanel() 才指定結果圖。
+      -->
+      <img
+        id="windResultImage"
+        class="wind-result-image"
+        alt="Mission Complete"
+      >
+
+
+      <div class="wind-result-score-overlay">
+
+        <div class="wind-result-score-row">
+          <span>Score</span>
+          <strong id="windResultScore">0</strong>
+        </div>
+
+        <div
+          class="wind-result-score-row wind-result-best"
+        >
+          <span>Best</span>
+          <strong id="windResultBest">0</strong>
+        </div>
+
+      </div>
+
+
+      <div
+        class="wind-result-actions wind-result-icon-actions"
+      >
+
+       <button
+  id="btnWindRetry"
+  class="focus-btn wind-result-icon-btn"
+  type="button"
+  aria-label="Retry"
+>
+  <img alt="Retry">
 </button>
+
+
+<button
+  id="btnWindResultMenu"
+  class="focus-btn wind-result-icon-btn"
+  type="button"
+  aria-label="Back to Menu"
+>
+  <img alt="Menu">
+</button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- =========================
+       Debug Hitbox Layer
+       ========================= -->
+
+  <div id="windHitboxLayer"></div>
+
+
+  <!-- =========================
+       Controls
+       ========================= -->
+
+  <div id="windControls">
+
+    <button
+      id="btnWindAttack"
+      class="wind-control-btn wind-attack-btn"
+      type="button"
+      aria-label="Attack"
+    >
+      <img
+        data-src="images/wind-btn-attack.png"
+        alt="Attack"
+      >
+    </button>
+
+
+    <button
+      id="btnWindFly"
+      class="wind-control-btn wind-fly-btn"
+      type="button"
+      aria-label="Fly"
+    >
+      <img
+        data-src="images/wind-btn-fly.png"
+        alt="Fly"
+      >
+    </button>
+
+  </div>
+
+
+  <!-- =========================
+       Pause Button
+       ========================= -->
+
+  <button
+    id="btnWindGameMenu"
+    class="ui-btn-menu-topright"
+    type="button"
+    aria-label="Pause"
+  >
+    <!--
+      不設定 src。
+      resetWindGameSession()
+      → setWindGameState("idle")
+      → updateWindPauseButtonIcon()
+      會設定正確圖示。
+    -->
+    <img alt="Pause">
+  </button>
+
 </div>
+<!-- /windGameScreen -->
 
   </div>   <!-- /gameRoot -->
 </div>     <!-- /viewport -->
@@ -723,7 +1138,7 @@
 
 <!-- ✅ Omamori 截圖舞台：只用來生成圖片，不干擾主畫面 -->
 <div id="omamoriCaptureStage" class="capture-hidden" aria-hidden="true">
-  <img id="omamoriCaptureBg" src="images/omamori-final.jpg" alt="">
+  <img id="omamoriCaptureBg" alt="">
   <div id="omamoriCaptureOmamori">
     <img id="capTop" alt="">
     <img id="capBottom" alt="">

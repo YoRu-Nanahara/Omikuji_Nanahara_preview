@@ -415,9 +415,191 @@ const leftDoor = document.querySelector(".door.left");
 const rightDoor = document.querySelector(".door.right");
 
 const omikujiScreen = document.getElementById("omikujiScreen");
+
+
+let omikujiImagesHydrated = false;
+
+function hydrateOmikujiImages() {
+  if (
+    omikujiImagesHydrated ||
+    !omikujiScreen
+  ) {
+    return;
+  }
+
+  const lazyImages =
+    omikujiScreen.querySelectorAll(
+      "img[data-src]"
+    );
+
+  for (const img of lazyImages) {
+    const src =
+      img.getAttribute("data-src");
+
+    if (!src) {
+      continue;
+    }
+
+    img.src = src;
+
+    img.removeAttribute(
+      "data-src"
+    );
+  }
+
+  omikujiImagesHydrated = true;
+
+  console.log(
+    "[Omikuji] lazy images hydrated"
+  );
+}
+
+
 const gardenScreen = document.getElementById("gardenScreen");
+
+
+
+
+
+/*
+  =========================
+  Hot Spring Mist
+  Lazy Hydration
+  =========================
+*/
+
+let gardenUiImagesHydrated = false;
+
+
+function hydrateGardenUiImages() {
+  if (
+    gardenUiImagesHydrated ||
+    !gardenScreen
+  ) {
+    return;
+  }
+
+
+  const images =
+    gardenScreen.querySelectorAll(
+      "img[data-garden-ui-src]"
+    );
+
+
+  for (const img of images) {
+    const src =
+      img.getAttribute(
+        "data-garden-ui-src"
+      );
+
+
+    if (!src) {
+      continue;
+    }
+
+
+    img.src = src;
+
+    img.removeAttribute(
+      "data-garden-ui-src"
+    );
+  }
+
+
+  gardenUiImagesHydrated = true;
+
+
+  console.log(
+    "[Garden] UI images hydrated"
+  );
+}
+
+
+let hotSpringMistImagesHydrated = false;
+
+
+function hydrateHotSpringMistImages() {
+  if (hotSpringMistImagesHydrated) {
+    return;
+  }
+
+  const transition =
+    document.getElementById(
+      "hotSpringMistTransition"
+    );
+
+  if (!transition) {
+    return;
+  }
+
+  const images =
+    transition.querySelectorAll(
+      "img[data-src]"
+    );
+
+  for (const img of images) {
+    const src =
+      img.getAttribute("data-src");
+
+    if (!src) continue;
+
+    img.src = src;
+    img.removeAttribute("data-src");
+  }
+
+  hotSpringMistImagesHydrated = true;
+
+  console.log(
+    "[HotSpring] mist transition images hydrated"
+  );
+}
+
+
 const windGameScreen = document.getElementById("windGameScreen");
 const windGameBg = document.getElementById("windGameBg");
+
+let windGameStaticImagesHydrated = false;
+
+
+function hydrateWindGameStaticImages() {
+  if (
+    windGameStaticImagesHydrated ||
+    !windGameScreen
+  ) {
+    return;
+  }
+
+
+  const lazyImages =
+    windGameScreen.querySelectorAll(
+      "img[data-src]"
+    );
+
+
+  for (const img of lazyImages) {
+    const src =
+      img.getAttribute("data-src");
+
+
+    if (!src) {
+      continue;
+    }
+
+
+    img.src = src;
+
+    img.removeAttribute("data-src");
+  }
+
+
+  windGameStaticImagesHydrated = true;
+
+
+  console.log(
+    "[WindGame] static images hydrated"
+  );
+}
+
 const btnWindGameMenu = document.getElementById("btnWindGameMenu");
 const windPauseOverlay = document.getElementById("windPauseOverlay");
 
@@ -3348,8 +3530,11 @@ let windGameAssetsPromise = null;
 let windGameDomWarmedUp = false;
 
 const WIND_GAME_IMAGE_ASSETS = [
-  "images/wind-bg-day.jpg",
-  "images/wind-bg-night.jpg",
+  /*
+    背景不放在共用 preload。
+    prepareWindGameBackground()
+    會依當下時間只載真正需要的 Day / Night。
+  */
 
   "images/wind-crane.png",
   "images/wind-chinatsu-up.png",
@@ -3362,12 +3547,10 @@ const WIND_GAME_IMAGE_ASSETS = [
   "images/wind-sakura-gold.png",
 
   "images/wind-obstacle-top.png",
-  "images/wind-obstacle-bottom.png",
-  "images/wind-ghost.png",
-  "images/wind-ghost-rush.png",
-  "images/wind-ghost-phase.png",
+"images/wind-obstacle-bottom.png",
+"images/wind-ghost.png",
 
-  "images/wind-btn-attack.png",
+"images/wind-btn-attack.png",
   "images/wind-btn-fly.png",
 ];
 
@@ -3393,6 +3576,85 @@ function preloadWindImage(src) {
 
     img.src = src;
   });
+}
+
+let windRushGhostPreloadTimer = null;
+let windPhaseGhostPreloadTimer = null;
+
+
+function clearWindSpecialGhostPreloadTimers() {
+  if (windRushGhostPreloadTimer) {
+    clearTimeout(windRushGhostPreloadTimer);
+    windRushGhostPreloadTimer = null;
+  }
+
+  if (windPhaseGhostPreloadTimer) {
+    clearTimeout(windPhaseGhostPreloadTimer);
+    windPhaseGhostPreloadTimer = null;
+  }
+}
+
+
+function startWindSpecialGhostPreload() {
+  clearWindSpecialGhostPreloadTimers();
+
+
+  /*
+    Rush Ghost：
+    正式 60 秒後才可能出現，
+    20 秒時先準備。
+  */
+  if (
+    windGhostRush &&
+    !windGhostRush.getAttribute("src")
+  ) {
+    windRushGhostPreloadTimer =
+      setTimeout(async () => {
+
+        windRushGhostPreloadTimer = null;
+
+        const src =
+          "images/wind-ghost-rush.png";
+
+        await preloadWindImage(src);
+
+        windGhostRush.src = src;
+
+        console.log(
+          "[WindGame] rush ghost image warmed up"
+        );
+
+      }, 20000);
+  }
+
+
+  /*
+    Phase Ghost：
+    正式 100 秒後才可能出現，
+    50 秒時先準備。
+  */
+  if (
+    windGhostPhase &&
+    !windGhostPhase.getAttribute("src")
+  ) {
+    windPhaseGhostPreloadTimer =
+      setTimeout(async () => {
+
+        windPhaseGhostPreloadTimer = null;
+
+        const src =
+          "images/wind-ghost-phase.png";
+
+        await preloadWindImage(src);
+
+        windGhostPhase.src = src;
+
+        console.log(
+          "[WindGame] phase ghost image warmed up"
+        );
+
+      }, 50000);
+  }
 }
 
 function preloadWindAudio(audio) {
@@ -4453,7 +4715,6 @@ function startWindCountdown() {
 
   nextStep();
 }
-
 function startWindPlaying() {
   setWindGameState("playing");
 
@@ -4463,12 +4724,20 @@ function startWindPlaying() {
 
   stopWindPlayerCountdownFloat(true);
 
-windPlayerY = 0;
-windPlayerVY = 0;
-windLastTime = performance.now();
-windPlayerFloatY = 0;
-windElapsedTime = 0;
-applyWindPlayerPosition();
+  windPlayerY = 0;
+  windPlayerVY = 0;
+  windLastTime = performance.now();
+  windPlayerFloatY = 0;
+  windElapsedTime = 0;
+
+  applyWindPlayerPosition();
+
+
+  /*
+    特殊鬼不用跟開場資源搶下載。
+  */
+  startWindSpecialGhostPreload();
+
 
   startWindGameLoop();
 }
@@ -6656,6 +6925,42 @@ const btnWindRetry = document.getElementById("btnWindRetry");
 const btnWindResultMenu = document.getElementById("btnWindResultMenu");
 
 
+let windResultActionImagesHydrated = false;
+
+
+function hydrateWindResultActionImages() {
+  if (windResultActionImagesHydrated) {
+    return;
+  }
+
+
+  const retryImg =
+    btnWindRetry?.querySelector("img");
+
+  const menuImg =
+    btnWindResultMenu?.querySelector("img");
+
+
+  if (retryImg) {
+    retryImg.src =
+      "images/ui-btn-back.png";
+  }
+
+
+  if (menuImg) {
+    menuImg.src =
+      "images/ui-btn-menu.png";
+  }
+
+
+  windResultActionImagesHydrated = true;
+
+
+  console.log(
+    "[WindGame] result action images hydrated"
+  );
+}
+
 
 if (btnWindRetry) {
   btnWindRetry.addEventListener("click", (e) => {
@@ -6695,6 +7000,14 @@ function updateWindScoreDisplay() {
 
 function showWindResultPanel() {
   if (!windResultPanel) return;
+
+
+  /*
+    Result UI 直到真正 Game Over
+    才需要。
+  */
+  hydrateWindResultActionImages();
+
 
   if (windResultImage) {
     windResultImage.src =
@@ -6748,6 +7061,8 @@ function resetWindGameSession() {
 
   clearWindRetryStartTimer();
   clearWindCountdown();
+
+  clearWindSpecialGhostPreloadTimers();
   cancelAllWindGhostDefeatEffects();
   stopWindPlayerCountdownFloat(true);
 
@@ -6844,9 +7159,30 @@ windSlash.classList.add("hidden");
 
 
 
-btnOmikuji.addEventListener("click", () => {
-  goToScreen(menuScreen, omikujiScreen, 600);
-});
+btnOmikuji.addEventListener(
+  "click",
+  () => {
+    /*
+      玩家真正選擇進入 Omikuji
+      才開始建立圖片 src。
+    */
+    hydrateOmikujiImages();
+
+    /*
+      到這時才檢查：
+      - 今天是否已抽過
+      - 是否恢復結果
+      - 或啟動 shuffle
+    */
+    checkIfDrawnToday();
+
+    goToScreen(
+      menuScreen,
+      omikujiScreen,
+      600
+    );
+  }
+);
 
 if (btnGarden) {
   btnGarden.addEventListener("click", (e) => {
@@ -6855,11 +7191,19 @@ if (btnGarden) {
 
     if (shrineScreenTransitionBusy) return;
 
-/*
-  正式進 Garden，
-  停止 Menu 的低優先背景預載排程。
-*/
-pauseGardenBackgroundPreload();
+
+    /*
+      Garden 固定 UI
+      只在玩家真的進 Garden 時載入。
+    */
+    hydrateGardenUiImages();
+
+
+    /*
+      正式進 Garden，
+      停止 Menu 的低優先背景預載排程。
+    */
+    pauseGardenBackgroundPreload();
 
 /*
   在 planGardenInitialMode()
@@ -7117,13 +7461,19 @@ if (btnMission) {
         // 這樣主畫面的夜晚版不會在玩家眼前突然變白天
         enterWindGamePerformanceMode();
 
-        await preloadWindGameAssets();
+       await preloadWindGameAssets();
 
-        warmupWindGameDom();
+/*
+  主要素材已經 preload + decode 完成後，
+  才真正掛到 Wind Game DOM。
+*/
+hydrateWindGameStaticImages();
 
-        setTimeout(() => {
-          startWindCountdown();
-        }, 850);
+warmupWindGameDom();
+
+setTimeout(() => {
+  startWindCountdown();
+}, 850);
       });
     } else {
       console.warn("[Mission] goToScreen/menuScreen/windGameScreen not ready");
@@ -7718,6 +8068,13 @@ document.addEventListener(
 function backToMenuFrom(screenEl) {
   if (!screenEl || !menuScreen) return;
 
+  if (
+    screenEl === omikujiScreen
+  ) {
+    stopShuffle();
+  }
+
+
   if (screenEl === omamoriScreen && typeof exitOmamoriFocusMode === "function") {
     exitOmamoriFocusMode();
   }
@@ -7847,6 +8204,57 @@ const omamoriScreen = document.getElementById("omamoriScreen");
 const omamoriKnotImg = document.getElementById("omamoriKnot");
 const omamoriTopImg = document.getElementById("omamoriTop");
 const omamoriBottomImg = document.getElementById("omamoriBottom");
+
+let omamoriStaticImagesHydrated =
+  false;
+
+
+function hydrateOmamoriStaticImages() {
+  if (
+    omamoriStaticImagesHydrated ||
+    !omamoriScreen
+  ) {
+    return;
+  }
+
+
+  const lazyImages =
+    omamoriScreen.querySelectorAll(
+      "img[data-src]"
+    );
+
+
+  for (const img of lazyImages) {
+    const src =
+      img.getAttribute(
+        "data-src"
+      );
+
+
+    if (!src) {
+      continue;
+    }
+
+
+    img.src = src;
+
+    img.removeAttribute(
+      "data-src"
+    );
+  }
+
+
+  omamoriStaticImagesHydrated =
+    true;
+
+
+  console.log(
+    "[Omamori] static images hydrated"
+  );
+}
+
+
+
 
 const btnKnotLeft = document.getElementById("btnKnotLeft");
 const btnKnotRight = document.getElementById("btnKnotRight");
@@ -8107,6 +8515,29 @@ function exitOmamoriFocusMode() {
 function enterOmamoriFocusMode() {
   if (!omamoriScreen) return;
 
+
+  /*
+    Glow 圖片只在第一次真正進入 Focus Mode 時載入。
+  */
+  const glowLayer =
+    document.getElementById("omamoriGlowLayer");
+
+
+  if (
+    glowLayer &&
+    glowLayer.dataset.glowLoaded !== "true"
+  ) {
+    glowLayer.style.backgroundImage =
+      'url("images/omamori-glow.png")';
+
+    glowLayer.dataset.glowLoaded = "true";
+
+    console.log(
+      "[Omamori] glow image lazy loaded"
+    );
+  }
+
+
   omamoriScreen.classList.add("focus");
   showOmamoriFocusActions();
 
@@ -8158,6 +8589,9 @@ if (btnBottomRight) btnBottomRight.addEventListener("click", async () => { await
   if (btnOmamori) {
     btnOmamori.addEventListener("click", () => {
       console.log("[Menu] btnOmamori clicked");
+
+hydrateOmamoriStaticImages();
+
 
       applyOmamoriImages();
       exitOmamoriFocusMode();
@@ -8221,8 +8655,16 @@ if (btnFocusCapture) {
 
 // ===== 7) 初始化 =====
 window.addEventListener("load", () => {
+  /*
+    Cold Start 只讀取御守的儲存狀態，
+    不建立圖片 src。
+  */
   loadOmamoriState();
-  applyOmamoriImages();
+
+  /*
+    按鈕事件可以先綁，
+    不會造成圖片下載。
+  */
   bindOmamoriControls();
 });
 
@@ -9031,7 +9473,6 @@ window.addEventListener("load", () => {
     `[Boot] scaleGameRoot after window.load ${Math.round(performance.now())}ms`
   );
 
-  checkIfDrawnToday();
 
   /*
     列出這次頁面真正下載過的所有資源，
@@ -31424,6 +31865,10 @@ function resolveGardenCharacterAnimationMode(
           characterId
         )
       : null;
+
+
+
+
 
 
 
@@ -70356,6 +70801,19 @@ async function switchGardenScene(
 
     return false;
   }
+
+
+/*
+  Hot Spring 專用 Mist Transition
+  只在玩家真的要進 Hot Spring 時建立圖片 src。
+
+  這裡不 await：
+  讓 Mist 圖片和場景素材平行下載，
+  不因為過場霧而延長場景黑幕。
+*/
+if (sceneId === "hotSpring") {
+  hydrateHotSpringMistImages();
+}
 
 
   /*

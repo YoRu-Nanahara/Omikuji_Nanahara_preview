@@ -790,7 +790,9 @@ body.garden-ui-hidden
 }
 
 #omamoriGlowLayer{
-  background: url("images/omamori-glow.png") center/contain no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
 }
 
 
@@ -1294,8 +1296,7 @@ body.garden-ui-hidden
     width: 680px;
     height: 300px;
 
-    background: url("images/draw-btn.png") no-repeat center/contain;
-    background-color: transparent;
+ background: transparent;
 
     border: none;
     padding: 0;
