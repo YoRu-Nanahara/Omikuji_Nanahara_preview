@@ -8865,6 +8865,54 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener("resize", requestScale);
 }
 
+
+/*
+  =========================
+  Early Stage Scale
+  =========================
+
+  不再等待 window.load。
+
+  大型更新 / Cold Cache 時，
+  圖片可能要重新下載很多張，
+  window.load 可能因此延遲數秒甚至更久。
+
+  UI 尺寸只需要 DOM 存在，
+  不應該被圖片下載阻塞。
+*/
+function applyInitialGameRootScale() {
+  scaleGameRoot();
+
+  /*
+    再等兩個 browser frame 重算一次。
+
+    手機瀏覽器剛建立 visualViewport 時，
+    第一個 viewport size 偶爾還沒完全穩定。
+  */
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      scaleGameRoot();
+    });
+  });
+}
+
+
+if (
+  document.readyState ===
+    "loading"
+) {
+  document.addEventListener(
+    "DOMContentLoaded",
+    applyInitialGameRootScale,
+    {
+      once: true,
+    }
+  );
+} else {
+  applyInitialGameRootScale();
+}
+
+
 window.addEventListener("load", () => {
   const loadNow =
     performance.now();
