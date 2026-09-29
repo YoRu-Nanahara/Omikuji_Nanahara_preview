@@ -17980,6 +17980,282 @@ if (!asset) {
 }
 
 
+/*
+  =========================
+  Hot Spring
+  Entrance Visual Prepare
+  =========================
+
+  角色從 Courtyard 前往 Hot Spring 時，
+  必須先確保 bathWalk spritesheet：
+
+  - 已下載
+  - 已 decode
+  - 已建立 CSS background texture
+
+  完成後才允許角色從 Hot Spring
+  Entrance 真正出現。
+
+  避免：
+  普通服裝先出現
+  → 1～2 秒後才切成 bath outfit
+*/
+function prepareGardenHotSpringEntranceVisual(
+  characterId
+) {
+  let anim =
+    null;
+
+
+  if (
+    characterId ===
+      "chifuyu"
+  ) {
+    anim =
+      CHIFUYU_ANIMS
+        ?.bathWalk ??
+      null;
+  }
+
+
+  if (
+    characterId ===
+      "chinatsu"
+  ) {
+    anim =
+      CHINATSU_ANIMS
+        ?.bathWalk ??
+      null;
+  }
+
+
+  if (!anim) {
+    console.warn(
+      "[Hot Spring Entrance] bathWalk animation unavailable:",
+      characterId
+    );
+
+    return Promise.resolve(
+      false
+    );
+  }
+
+
+  return (
+    requestGardenAnimationWarmup(
+      characterId,
+      "bathWalk",
+      anim
+    )
+      .then((ready) => {
+        if (!ready) {
+          console.warn(
+            "[Hot Spring Entrance] bathWalk warmup failed:",
+            characterId
+          );
+
+          return false;
+        }
+
+
+        /*
+          再保險一次：
+          讓真正角色 layer 已經綁好
+          正確 background-image。
+
+          此時角色仍在 transit，
+          所以玩家看不到這次切換。
+        */
+        bindGardenSpriteLayerImage(
+          characterId,
+          "bathWalk"
+        );
+
+
+        console.log(
+          "[Hot Spring Entrance] visual ready:",
+          characterId
+        );
+
+
+        return true;
+      })
+      .catch((error) => {
+        console.warn(
+          "[Hot Spring Entrance] visual prepare error:",
+          characterId,
+          error
+        );
+
+        return false;
+      })
+  );
+}
+
+
+/*
+  =========================
+  Hot Spring Entrance
+  Visual Ready Gate
+  =========================
+
+  startGardenCharacterTravelEntrance()
+  是同步 Runtime API，
+
+  所以這裡不 await。
+  第一次呼叫：
+  → 啟動 async prepare
+  → 回傳 false
+
+  後續 frame：
+  → 尚未完成仍 false
+
+  完成後：
+  → true
+  → 才准角色正式進入 Hot Spring。
+*/
+const gardenHotSpringEntranceVisualReady =
+  new Set();
+
+
+const gardenHotSpringEntranceVisualPromises =
+  new Map();
+
+
+function requestGardenHotSpringEntranceVisualGate(
+  characterId
+) {
+  /*
+    已經準備完成。
+  */
+  if (
+    gardenHotSpringEntranceVisualReady.has(
+      characterId
+    )
+  ) {
+    return true;
+  }
+
+
+  /*
+    已經正在準備。
+    現在仍不准進場。
+  */
+  if (
+    gardenHotSpringEntranceVisualPromises.has(
+      characterId
+    )
+  ) {
+    return false;
+  }
+
+
+  console.log(
+    "[Hot Spring Entrance Gate] preparing:",
+    characterId
+  );
+
+
+  const promise =
+    prepareGardenHotSpringEntranceVisual(
+      characterId
+    )
+      .then(async (ready) => {
+        if (!ready) {
+          console.warn(
+            "[Hot Spring Entrance Gate] prepare failed:",
+            characterId
+          );
+
+          return false;
+        }
+
+
+        /*
+          不只圖片 ready。
+
+          在角色仍不可見的 transit 階段，
+          直接先把真正 Animation Mode
+          切成 bathWalk。
+        */
+        const switched =
+          setGardenCharacterAnimationMode(
+            characterId,
+            "bathWalk",
+            true
+          );
+
+
+        if (switched === false) {
+          console.warn(
+            "[Hot Spring Entrance Gate] bathWalk switch failed:",
+            characterId
+          );
+
+          return false;
+        }
+
+
+        /*
+          給 Safari / WebKit 兩個真正 frame，
+          讓 layer opacity / background paint
+          確實套用。
+
+          角色此時仍在 transit，
+          玩家看不到這個準備過程。
+        */
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(
+              resolve
+            );
+          });
+        });
+
+
+        gardenHotSpringEntranceVisualReady.add(
+          characterId
+        );
+
+
+        console.log(
+          "[Hot Spring Entrance Gate] ready:",
+          characterId
+        );
+
+
+        return true;
+      })
+      .catch((error) => {
+        console.warn(
+          "[Hot Spring Entrance Gate] error:",
+          characterId,
+          error
+        );
+
+        return false;
+      })
+      .finally(() => {
+        gardenHotSpringEntranceVisualPromises.delete(
+          characterId
+        );
+      });
+
+
+  gardenHotSpringEntranceVisualPromises.set(
+    characterId,
+    promise
+  );
+
+
+  /*
+    這一 frame 還不能進場。
+  */
+  return false;
+}
+
+
+
 function bindGardenSpriteLayerImage(
   character,
   mode
@@ -19341,14 +19617,42 @@ function startGardenCharacterTravelEntrance(
 
 
   const travel =
-    worldState.travel;
+  worldState.travel;
 
 
-  const route =
-    getGardenCharacterTravelRoute(
-      travel.fromSceneId,
-      travel.toSceneId
-    );
+/*
+  =========================
+  Hot Spring Visual Gate
+  =========================
+
+  Courtyard → Hot Spring：
+
+  transit 雖然已經結束，
+  但 bathWalk 視覺若還沒真正 ready，
+  就繼續停留在 transit。
+
+  注意：
+  此時 sceneId 仍然不是 hotSpring，
+  所以角色仍不可見。
+
+  等下一個 Runtime Tick 再重試。
+*/
+if (
+  travel.toSceneId ===
+    "hotSpring" &&
+  !requestGardenHotSpringEntranceVisualGate(
+    character
+  )
+) {
+  return false;
+}
+
+
+const route =
+  getGardenCharacterTravelRoute(
+    travel.fromSceneId,
+    travel.toSceneId
+  );
 
 
   if (!route) {
@@ -68125,18 +68429,441 @@ gardenLastTravelHydratePreparation =
 }
 
 
+/*
+  =========================
+  Fresh World Bootstrap
+  Active Bath Resolver
+  =========================
+
+  只用「現在的正式 Schedule」判斷：
+
+  Fresh Cold Start 時，
+  角色此刻是否本來就應該
+  已經處於 Hot Spring Bath。
+
+  不依賴：
+  - Snapshot
+  - Runtime 當前位置
+  - Player View
+*/
+function resolveGardenFreshStartBathState(
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  const schedules =
+    provideGardenOfficialWorldSchedules(
+      timestamp
+    );
+
+
+  if (
+    !Array.isArray(
+      schedules
+    ) ||
+    schedules.length === 0
+  ) {
+    return null;
+  }
+
+
+  const result = {};
+
+
+  for (
+    const characterId of [
+      "chifuyu",
+      "chinatsu",
+    ]
+  ) {
+    const resolution =
+      resolveGardenCharacterScheduleAtTimestamp(
+        schedules,
+        characterId,
+        timestamp
+      );
+
+
+    const entry =
+      resolution?.activeEntry ??
+      null;
+
+
+    const isBath =
+      !!entry &&
+      entry.intentId ===
+        "hotSpringBath" &&
+      entry.target?.sceneId ===
+        "hotSpring" &&
+      entry.activity
+        ?.selectedActivityId ===
+        GARDEN_CHARACTER_ACTIVITY
+          .BATH;
+
+
+    result[
+      characterId
+    ] = Object.freeze({
+      characterId,
+
+      isBath,
+
+      resolution,
+
+      entry,
+    });
+  }
+
+
+  return Object.freeze({
+    timestamp,
+
+    chifuyu:
+      result.chifuyu,
+
+    chinatsu:
+      result.chinatsu,
+
+    bothBathing:
+      result.chifuyu
+        ?.isBath === true &&
+      result.chinatsu
+        ?.isBath === true,
+  });
+}
+
+
+
+function bootstrapGardenFreshStartBathState(
+  timestamp =
+    getGardenWorldNow()
+) {
+  const freshState =
+    resolveGardenFreshStartBathState(
+      timestamp
+    );
+
+
+  /*
+    目前第一版只處理：
+    兩人都命中正式 Hot Spring Bath。
+
+    其他時間完全不介入，
+    繼續走原本 Fresh Garden 初始化。
+  */
+  if (
+    !freshState?.bothBathing
+  ) {
+    return null;
+  }
+
+
+  const schedules =
+    provideGardenOfficialWorldSchedules(
+      timestamp
+    );
+
+
+  const bathSpot =
+    HOT_SPRING_BATH_SPOTS.find(
+      spot =>
+        spot.name ===
+          "hot-spring-night-pair"
+    ) ??
+    HOT_SPRING_BATH_SPOTS[0] ??
+    null;
+
+
+  if (!bathSpot) {
+    console.warn(
+      "[Garden Fresh Start] Bath Spot unavailable"
+    );
+
+    return null;
+  }
+
+
+  const results = {};
+
+
+  for (
+    const characterId of [
+      "chifuyu",
+      "chinatsu",
+    ]
+  ) {
+    const worldState =
+      gardenCharacterWorldState[
+        characterId
+      ];
+
+    const runtime =
+      getGardenCharacterRuntime(
+        characterId
+      );
+
+    const spot =
+      bathSpot[
+        characterId
+      ];
+
+
+    if (
+      !worldState ||
+      !runtime?.moveState ||
+      !spot
+    ) {
+      console.warn(
+        "[Garden Fresh Start] Bath bootstrap unavailable:",
+        characterId
+      );
+
+      return null;
+    }
+
+
+    /*
+      用正式 Schedule Bridge Decision
+      取得完整 activityData。
+
+      注意：
+      這裡只借它產生 metadata，
+      不 execute decision，
+      所以不會觸發 Travel / Enter。
+    */
+    const decision =
+      createGardenScheduleBridgeDecisionAtTimestamp(
+        schedules,
+        characterId,
+        timestamp
+      );
+
+
+    const activityData =
+      createGardenScheduleActivityData(
+        decision
+      );
+
+
+    if (
+      !decision ||
+      decision.activeEntry
+        ?.intentId !==
+        "hotSpringBath" ||
+      !activityData
+    ) {
+      console.warn(
+        "[Garden Fresh Start] Bath Schedule metadata unavailable:",
+        characterId,
+        decision
+      );
+
+      return null;
+    }
+
+
+    /*
+      =========================
+      Semantic World State
+      =========================
+    */
+
+    worldState.sceneId =
+      "hotSpring";
+
+    worldState.travel =
+      null;
+
+    worldState.bathTransition =
+      null;
+
+    worldState.bathPositioning =
+      null;
+
+    worldState.wanderContinuity =
+      null;
+
+    worldState.activitySpotApproach =
+      null;
+
+
+    setGardenCharacterActivity(
+      characterId,
+      GARDEN_CHARACTER_ACTIVITY
+        .BATH,
+      activityData
+    );
+
+
+    /*
+      =========================
+      Exact Settled Bath Spot
+      =========================
+    */
+
+    runtime.setPath?.([]);
+
+    runtime.moveState.path =
+      [];
+
+    runtime.moveState.isMoving =
+      false;
+
+    runtime.moveState.x =
+      spot.x;
+
+    runtime.moveState.y =
+      spot.y;
+
+    runtime.moveState.direction =
+      spot.direction === -1
+        ? -1
+        : 1;
+
+
+    if (
+      runtime.autoState
+    ) {
+      runtime.autoState.wasMoving =
+        false;
+    }
+
+
+    results[
+      characterId
+    ] = {
+      sceneId:
+        worldState.sceneId,
+
+      activity:
+        worldState.activity,
+
+      activityData:
+        worldState.activityData,
+
+      x:
+        runtime.moveState.x,
+
+      y:
+        runtime.moveState.y,
+
+      direction:
+        runtime.moveState.direction,
+    };
+  }
+
+
+  /*
+    非常重要：
+
+    告訴 initGardenScreen：
+    這個世界已經依現在時間
+    正式 Bootstrap 完成。
+
+    不准再：
+    - setupGardenInitialMode
+    - randomize
+    - 把 sceneId 覆蓋成 Player View
+  */
+  gardenWorldInitialized =
+    true;
+
+  gardenPendingInitialMode =
+    null;
+
+
+  /*
+    立即留下一份正式 Snapshot。
+
+    這樣同一個無痕 Session
+    如果重新整理，也會走一般
+    Cold Start Restore，
+    不會再次 Fresh Bootstrap。
+  */
+  saveGardenWorldState(
+    "freshStartBathBootstrap"
+  );
+
+
+  const result =
+    Object.freeze({
+      timestamp,
+
+      bootstrapped:
+        true,
+
+      mode:
+        "settledBath",
+
+      spotName:
+        bathSpot.name,
+
+      chifuyu:
+        results.chifuyu,
+
+      chinatsu:
+        results.chinatsu,
+    });
+
+
+  console.log(
+    "[Garden Fresh Start] settled Bath bootstrapped:",
+    result
+  );
+
+
+  return result;
+}
+
+
+
 function restoreGardenWorldFromStorage() {
   const snapshot =
     loadGardenWorldState();
 
 
   if (!snapshot) {
-    gardenWorldLastColdStartRestore =
-      null;
+  gardenWorldLastColdStartRestore =
+    null;
 
 
-    return null;
+  /*
+    Fresh World：
+
+    完全沒有 Snapshot 時，
+    不代表角色應該從預設 Courtyard
+    從頭追趕今天已經發生的 Schedule。
+
+    先嘗試依「現在」建立
+    可直接重建的 canonical 狀態。
+
+    第一版先支援 settled Bath。
+  */
+  const freshBootstrap =
+    bootstrapGardenFreshStartBathState(
+      getGardenWorldNow()
+    );
+
+
+  if (freshBootstrap) {
+    return freshBootstrap;
   }
+
+
+  /*
+    現在不是已支援的 Fresh Bootstrap
+    狀態時，保留原本行為。
+  */
+  return null;
+}
 
 
   const restored =
