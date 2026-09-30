@@ -890,42 +890,270 @@ function hydrateGardenUiImages() {
 }
 
 
-let hotSpringMistImagesHydrated = false;
+let hotSpringMistImagesHydrated =
+  false;
+
+let hotSpringMistImagesHydrationPromise =
+  null;
 
 
+/*
+  =========================
+  Hot Spring Mist
+  Strict Lazy Hydration
+  =========================
+
+  不能只把 data-src 塞進 src
+  就宣稱 ready。
+
+  特別是 Safari / iPadOS：
+  圖片元素可能已經出現在 DOM，
+  但真正 PNG 尚未 load / decode。
+
+  必須確認：
+  - resource load 成功
+  - DOM image 已能取得 naturalWidth
+  才允許 Mist Presentation 顯示。
+*/
 function hydrateHotSpringMistImages() {
-  if (hotSpringMistImagesHydrated) {
-    return;
+  if (
+    hotSpringMistImagesHydrated
+  ) {
+    return Promise.resolve(
+      true
+    );
   }
+
+
+  /*
+    同一輪準備中，
+    直接共用 Promise。
+  */
+  if (
+    hotSpringMistImagesHydrationPromise
+  ) {
+    return (
+      hotSpringMistImagesHydrationPromise
+    );
+  }
+
 
   const transition =
     document.getElementById(
       "hotSpringMistTransition"
     );
 
+
   if (!transition) {
-    return;
-  }
-
-  const images =
-    transition.querySelectorAll(
-      "img[data-src]"
+    return Promise.resolve(
+      false
     );
-
-  for (const img of images) {
-    const src =
-      img.getAttribute("data-src");
-
-    if (!src) continue;
-
-    img.src = src;
-    img.removeAttribute("data-src");
   }
 
-  hotSpringMistImagesHydrated = true;
 
-  console.log(
-    "[HotSpring] mist transition images hydrated"
+  const images = [
+    ...transition.querySelectorAll(
+      ".hot-spring-transition-mist-image"
+    ),
+  ];
+
+
+  if (images.length === 0) {
+    return Promise.resolve(
+      false
+    );
+  }
+
+
+  /*
+    data-src 可能已在先前嘗試中
+    被轉成正式 src。
+
+    所以兩者都接受。
+  */
+  const records =
+    images.map((img) => ({
+      img,
+
+      src:
+        img.getAttribute(
+          "data-src"
+        ) ??
+        img.getAttribute(
+          "src"
+        ) ??
+        "",
+    }));
+
+
+  hotSpringMistImagesHydrationPromise =
+    (async () => {
+      /*
+        Mist 目前實際只有
+        01 / 02 兩種 PNG。
+
+        先去重，
+        避免 01 因 A / C
+        被重複 strict preload。
+      */
+      const uniqueSources = [
+        ...new Set(
+          records
+            .map(
+              record =>
+                record.src
+            )
+            .filter(Boolean)
+        ),
+      ];
+
+
+      if (
+        uniqueSources.length === 0
+      ) {
+        return false;
+      }
+
+
+      const sourceReady =
+        new Map();
+
+
+      /*
+        這些 Mist PNG 很小，
+        但仍採逐張準備，
+
+        避免 iPad 在 Bath spritesheet
+        已經有壓力時又同時 decode。
+      */
+      for (
+        const src of
+        uniqueSources
+      ) {
+        const ready =
+          await preloadGardenAnimationImageStrict(
+            src
+          );
+
+        sourceReady.set(
+          src,
+          ready === true
+        );
+      }
+
+
+      /*
+        Preload 成功後，
+        才把真正 src 掛到
+        畫面內的 Mist <img>。
+      */
+      for (
+        const record of
+        records
+      ) {
+        const {
+          img,
+          src,
+        } = record;
+
+
+        if (
+          !src ||
+          sourceReady.get(src) !==
+            true
+        ) {
+          continue;
+        }
+
+
+        img.src = src;
+
+        img.removeAttribute(
+          "data-src"
+        );
+
+
+        /*
+          再等待這個真正 DOM image
+          進入 decode-ready 狀態。
+
+          decode timeout 只是不再等待，
+          不代表直接判圖片成功。
+          最後仍會檢查 naturalWidth。
+        */
+        if (
+          typeof img.decode ===
+          "function"
+        ) {
+          try {
+            await Promise.race([
+              img.decode()
+                .catch(() => {}),
+
+              new Promise(
+                resolve => {
+                  setTimeout(
+                    resolve,
+
+                    GARDEN_IPAD_SAFE_MODE
+                      ? 2500
+                      : 1500
+                  );
+                }
+              ),
+            ]);
+          } catch {}
+        }
+      }
+
+
+      const ready =
+        records.every(
+          ({
+            img,
+            src,
+          }) =>
+            !!src &&
+            sourceReady.get(src) ===
+              true &&
+            img.complete === true &&
+            img.naturalWidth > 0
+        );
+
+
+      hotSpringMistImagesHydrated =
+        ready;
+
+
+      if (ready) {
+        console.log(
+          "[HotSpring] mist transition images ready"
+        );
+      } else {
+        console.warn(
+          "[HotSpring] mist transition images not ready"
+        );
+      }
+
+
+      return ready;
+    })()
+      .catch((error) => {
+        console.warn(
+          "[HotSpring] mist hydration error:",
+          error
+        );
+
+        return false;
+      })
+      .finally(() => {
+        hotSpringMistImagesHydrationPromise =
+          null;
+      });
+
+
+  return (
+    hotSpringMistImagesHydrationPromise
   );
 }
 
@@ -20480,21 +20708,53 @@ function getGardenCharacterRuntime(
 
 
 /*
-  暫時只有兩張正式場景，
-  所以先明確定義兩個方向。
+  =========================
+  Garden Character Travel
+  Route Builder
+  =========================
 
-  之後場景增加時，
-  再把這層搬進 scene.exits /
-  scene.entrances。
+  已知一條具體 Exit 後，
+  統一負責：
+
+  Exit
+  → Target Scene
+  → Target Entrance
+  → Travel Route
+
+  Automatic Resolver
+  與 Explicit Exit Resolver
+  都共用這裡。
 */
-function getGardenCharacterTravelRoute(
+function buildGardenCharacterTravelRouteFromExit(
   fromSceneId,
-  toSceneId
+  exitId,
+  exit
 ) {
-  const fromScene =
-    getGardenSceneById(
-      fromSceneId
+  if (
+    !fromSceneId ||
+    !exitId ||
+    !exit
+  ) {
+    return null;
+  }
+
+
+  /*
+    目的 Scene 必須由 Exit 自己決定。
+  */
+  const toSceneId =
+    exit.targetSceneId;
+
+
+  if (!toSceneId) {
+    console.warn(
+      "[Garden Travel] exit has no targetSceneId:",
+      fromSceneId,
+      exitId
     );
+
+    return null;
+  }
 
 
   const toScene =
@@ -20503,33 +20763,20 @@ function getGardenCharacterTravelRoute(
     );
 
 
-  if (
-    !fromScene ||
-    !toScene
-  ) {
-    return null;
-  }
-
-
-  /*
-    從「角色目前所在場景」
-    找通往目的地的出口。
-  */
-  const exit =
-    fromScene.exits?.[
+  if (!toScene) {
+    console.warn(
+      "[Garden Travel] exit target scene not found:",
+      fromSceneId,
+      exitId,
       toSceneId
-    ];
+    );
 
-
-  if (!exit) {
     return null;
   }
 
 
   /*
-    Exit 明確指定：
-
-    抵達目的地後
+    Exit 明確指定抵達後
     要使用哪一個 Entrance。
   */
   const entranceId =
@@ -20540,8 +20787,7 @@ function getGardenCharacterTravelRoute(
     console.warn(
       "[Garden Travel] exit has no targetEntranceId:",
       fromSceneId,
-      "→",
-      toSceneId
+      exitId
     );
 
     return null;
@@ -20569,6 +20815,8 @@ function getGardenCharacterTravelRoute(
     fromSceneId,
     toSceneId,
 
+    exitId,
+
     exitType:
       exit.exitType,
 
@@ -20581,13 +20829,170 @@ function getGardenCharacterTravelRoute(
     entranceDirection:
       entrance.direction ?? 1,
 
-    /*
-      先保留下來。
-      之後 Travel State Debug
-      也會很好用。
-    */
     entranceId,
   };
+}
+
+
+
+/*
+  暫時只有兩張正式場景，
+  所以先明確定義兩個方向。
+
+  之後場景增加時，
+  再把這層搬進 scene.exits /
+  scene.entrances。
+*/
+function getGardenCharacterTravelRoute(
+  fromSceneId,
+  toSceneId
+) {
+  const fromScene =
+    getGardenSceneById(
+      fromSceneId
+    );
+
+
+  /*
+    保持原本行為：
+
+    起點或目的 Scene 不存在時，
+    直接視為無有效 Route。
+  */
+  const toScene =
+    getGardenSceneById(
+      toSceneId
+    );
+
+
+  if (
+    !fromScene ||
+    !toScene
+  ) {
+    return null;
+  }
+
+
+  /*
+    Automatic Resolver：
+
+    呼叫端只說「我要去哪張 Scene」，
+    這裡自行尋找一條符合
+    targetSceneId 的 Exit。
+
+    若未來同一目的地有多條 Exit，
+    目前仍採第一條符合者。
+
+    更進階的自動選路策略
+    之後再獨立加入。
+  */
+  const exitEntry =
+    Object.entries(
+      fromScene.exits ?? {}
+    ).find(
+      ([
+        exitId,
+        candidateExit,
+      ]) =>
+        candidateExit
+          ?.targetSceneId ===
+        toSceneId
+    );
+
+
+  if (!exitEntry) {
+    return null;
+  }
+
+
+  const [
+    exitId,
+    exit,
+  ] = exitEntry;
+
+
+  return (
+    buildGardenCharacterTravelRouteFromExit(
+      fromSceneId,
+      exitId,
+      exit
+    )
+  );
+}
+
+
+/*
+  =========================
+  Garden Character Travel
+  Explicit Exit Resolver
+  =========================
+
+  與 getGardenCharacterTravelRoute(
+    fromSceneId,
+    toSceneId
+  ) 不同：
+
+  這個 Resolver 不依目的 Scene
+  自動尋找 Exit。
+
+  呼叫端必須明確指定：
+  「我要走哪一個 exitId」。
+
+  因此未來即使：
+
+  Exit A → hub
+  Exit B → hub
+
+  兩個不同出口前往同一個 Scene，
+  仍然可以精確指定其中一條。
+*/
+function getGardenCharacterTravelRouteByExitId(
+  fromSceneId,
+  exitId
+) {
+  if (
+    !fromSceneId ||
+    !exitId
+  ) {
+    return null;
+  }
+
+
+  const fromScene =
+    getGardenSceneById(
+      fromSceneId
+    );
+
+
+  if (!fromScene) {
+    return null;
+  }
+
+
+  /*
+    Explicit Resolver：
+
+    呼叫端已經明確指定
+    要使用哪一條 Exit。
+  */
+  const exit =
+    fromScene.exits?.[
+      exitId
+    ];
+
+
+  if (!exit) {
+    return null;
+  }
+
+
+  return (
+    buildGardenCharacterTravelRouteFromExit(
+      fromSceneId,
+      exitId,
+      exit
+    )
+  );
 }
 
 
@@ -20680,11 +21085,26 @@ function getGardenCharacterTravelNextHop(
     }
 
 
-    const nextSceneIds =
-      Object.keys(
-        currentScene.exits ??
-          {}
-      );
+   /*
+  Scene Graph 的鄰接關係
+  必須來自 Exit 的 targetSceneId，
+
+  不能再把 Exit ID
+  當成 Scene ID。
+*/
+const nextSceneIds = [
+  ...new Set(
+    Object.values(
+      currentScene.exits ??
+        {}
+    )
+      .map(
+        exit =>
+          exit?.targetSceneId
+      )
+      .filter(Boolean)
+  ),
+];
 
 
     for (
@@ -20768,6 +21188,254 @@ function getGardenCharacterTravelNextHop(
   */
   return null;
 }
+/*
+  =========================
+  Garden Character Travel
+  Next Hop Plan
+  =========================
+
+  與舊的
+  getGardenCharacterTravelNextHop()
+  不同：
+
+  舊版只回答：
+  「下一張 Scene 是哪裡？」
+
+  這裡會同時保留：
+  - nextSceneId
+  - exitId
+
+  讓未來多出口 Scene
+  可以把真正選中的 Exit
+  一路帶進 Travel Runtime。
+*/
+function getGardenCharacterTravelNextHopPlan(
+  characterId,
+  fromSceneId,
+  finalSceneId
+) {
+  if (
+    !characterId ||
+    !fromSceneId ||
+    !finalSceneId
+  ) {
+    return null;
+  }
+
+
+  /*
+    已經在目的地。
+
+    為了和現有 NextHop API
+    的語意保持一致，
+    nextSceneId 仍回目前 Scene。
+
+    但因為不需要真的走任何出口，
+    exitId = null。
+  */
+  if (
+    fromSceneId ===
+    finalSceneId
+  ) {
+    return {
+      nextSceneId:
+        finalSceneId,
+
+      exitId:
+        null,
+    };
+  }
+
+
+  /*
+    BFS：
+
+    現在搜尋的已經不只是
+    Scene → Scene，
+
+    而是：
+
+    Scene
+    → 某一條 Exit
+    → 下一張 Scene
+  */
+  const visited =
+    new Set([
+      fromSceneId,
+    ]);
+
+
+  const queue = [
+    {
+      sceneId:
+        fromSceneId,
+
+      /*
+        從起點真正踏出的
+        第一個 hop。
+
+        一旦建立，
+        後續 BFS 深入多少層
+        都保留同一份。
+      */
+      firstHopPlan:
+        null,
+    },
+  ];
+
+
+  while (
+    queue.length > 0
+  ) {
+    const current =
+      queue.shift();
+
+
+    const currentScene =
+      getGardenSceneById(
+        current.sceneId
+      );
+
+
+    if (!currentScene) {
+      continue;
+    }
+
+
+    /*
+      這裡直接逐條檢查 Exit。
+
+      不再先把 Exit 壓縮成
+      targetSceneId 清單。
+
+      原因是現在需要保留
+      真正的 exitId。
+    */
+    const exitEntries =
+      Object.entries(
+        currentScene.exits ??
+          {}
+      );
+
+
+    for (
+      const [
+        exitId,
+        exit,
+      ] of exitEntries
+    ) {
+      const nextSceneId =
+        exit?.targetSceneId;
+
+
+      if (!nextSceneId) {
+        continue;
+      }
+
+
+      if (
+        visited.has(
+          nextSceneId
+        )
+      ) {
+        continue;
+      }
+
+
+      /*
+        這裡刻意使用
+        Explicit Exit Resolver。
+
+        因為 BFS 現在正在評估的
+        是「這一條具體 Exit」，
+
+        不能再交給 Automatic Resolver
+        重新挑另一條同目的地 Exit。
+      */
+      const route =
+        getGardenCharacterTravelRouteByExitId(
+          current.sceneId,
+          exitId
+        );
+
+
+      /*
+        不只是 Scene Graph 可達。
+
+        這個角色本身也必須真的有：
+        - Exit path
+        - Entrance path
+      */
+      if (
+        !route ||
+        !route.exitByCharacter?.[
+          characterId
+        ] ||
+        !route.entranceByCharacter?.[
+          characterId
+        ]
+      ) {
+        continue;
+      }
+
+
+      /*
+        如果現在還在起始 Scene，
+        這條就是第一個 hop。
+
+        如果已經是 BFS 深處，
+        就沿用最初記下來的 hop。
+      */
+      const firstHopPlan =
+        current.firstHopPlan ??
+        {
+          nextSceneId,
+          exitId,
+        };
+
+
+      /*
+        抵達最終目的地。
+
+        回傳的仍然不是
+        最後一段 Route，
+
+        而是從「目前所在 Scene」
+        真正應該先走的：
+
+        nextSceneId + exitId
+      */
+      if (
+        nextSceneId ===
+        finalSceneId
+      ) {
+        return firstHopPlan;
+      }
+
+
+      visited.add(
+        nextSceneId
+      );
+
+
+      queue.push({
+        sceneId:
+          nextSceneId,
+
+        firstHopPlan,
+      });
+    }
+  }
+
+
+  /*
+    找不到這個角色
+    可實際使用的 Scene Route。
+  */
+  return null;
+}
+
+
 
 function isGardenCharacterTraveling(
   character
@@ -37891,6 +38559,24 @@ function setGardenHotSpringBathMistActive(
   }
 
 
+/*
+  圖片沒有真正 ready 前，
+  絕對不能把 500 × 500 的
+  空 <img> wrapper 顯示出來。
+
+  Runtime 會持續更新 Presentation，
+  所以 ready 後下一次 tick
+  會自然重新要求顯示 Mist。
+*/
+if (
+  active === true &&
+  !hotSpringMistImagesHydrated
+) {
+  hydrateHotSpringMistImages();
+
+  return false;
+}
+
   const isHotSpring =
     gardenViewSceneId ===
       "hotSpring";
@@ -54791,15 +55477,42 @@ if (
   }
 
 
-  const bathStartedAt =
-    isValidGardenWorldTimestamp(
-      options.worldTimestamp
-    )
+ /*
+  BATH 的 canonical 起點
+  必須是這個 Schedule Entry
+  真正開始的世界時間。
+
+  例如：
+  22:00 開始泡澡
+  22:12 才 Cold Start / Reload
+
+  仍然要把 22:00 當 Enter Plan 起點，
+  讓 Canonical Runtime 直接 fast-forward
+  到 22:12 應該存在的狀態。
+
+  不可以從 22:12 重新跑 A → E。
+*/
+const scheduleBathStartedAt =
+  getGardenScheduleEntryStartTimestamp(
+    decision.activeEntry
+  );
+
+
+const bathStartedAt =
+  isValidGardenWorldTimestamp(
+    scheduleBathStartedAt
+  )
+    ? scheduleBathStartedAt
+
+    : isValidGardenWorldTimestamp(
+        options.worldTimestamp
+      )
       ? options.worldTimestamp
+
       : getGardenWorldNow();
 
 
-  const bathPlan =
+const bathPlan =
   startGardenHotSpringBathEnterTransition(
     characterId,
     bathStartedAt,
@@ -70478,411 +71191,186 @@ const HOT_SPRING_BATH_SPOTS = [
 ];
 
 
-function getGardenSceneById(
-  sceneId
-) {
-  if (
-    sceneId ===
-    "courtyard"
-  ) {
-    return {
-      id: "courtyard",
+/*
+  =========================
+  Garden Scene Registry
+  =========================
 
-nav: {
-  left: "hotSpring",
-  right: "moonBridge",
-},
+  所有正式 Garden Scene
+  最終都會集中註冊在這裡。
+
+  現階段先只建立 Registry 骨架，
+  Scene definition 仍暫時由
+  getGardenSceneById() 建立。
+
+  下一步再逐一搬入，
+  避免一次改動過大。
+*/
+const GARDEN_SCENE_REGISTRY =
+  Object.create(null);
+
+
 
 /*
-  Character World Travel
+  第一個正式搬入 Registry 的 Scene。
 
-  nav
-  → 玩家鏡頭切換
-
-  exits / entrances
-  → 角色自己的跨場景移動
+  先從 testScene 開始，
+  避免這一步直接影響
+  Courtyard / Moon Bridge / Hot Spring。
 */
-exits: {
-  moonBridge: {
-    targetSceneId:
-      "moonBridge",
+GARDEN_SCENE_REGISTRY.testScene = {
+  id: "testScene",
 
-    targetEntranceId:
-      "courtyard-right",
+  /*
+    只允許角色在畫面中下方
+    一個小矩形內活動。
+  */
+  walkAreas: {
+    ground: [
+      {
+        name: "test-ground",
 
-    exitType:
-      "direct",
+        points: [
+          { x: 180, y: 1180 },
+          { x: 700, y: 1180 },
+          { x: 700, y: 1380 },
+          { x: 180, y: 1380 },
+        ],
+      },
+    ],
 
-    characters:
-      COURTYARD_MOON_BRIDGE_EXIT_TARGETS,
+    far: [],
   },
 
 
-  hotSpring: {
-    targetSceneId:
-      "hotSpring",
+  /*
+    測試用導航骨架。
+  */
+  pathNodes: [
+    {
+      name: "test-left",
+      x: 260,
+      y: 1280,
+    },
 
-    targetEntranceId:
-      "courtyard-left",
+    {
+      name: "test-center",
+      x: 440,
+      y: 1280,
+    },
 
-    exitType:
-      "approachOut",
-
-    characters:
-      COURTYARD_HOT_SPRING_EXIT,
-  },
-},
-
-entrances: {
-  "moon-bridge-left": {
-    fromSceneId:
-      "moonBridge",
-
-    direction:
-      -1,
-
-    characters:
-      COURTYARD_MOON_BRIDGE_ENTRANCE,
-  },
+    {
+      name: "test-right",
+      x: 620,
+      y: 1280,
+    },
+  ],
 
 
-  "hot-spring-left": {
-    fromSceneId:
-      "hotSpring",
+  /*
+    角色只會從這些點中
+    挑散步目的地。
+  */
+  autoTargets: [
+    {
+      name: "test-a",
+      x: 240,
+      y: 1230,
+      zone: "ground",
+    },
 
-    direction:
-      1,
+    {
+      name: "test-b",
+      x: 440,
+      y: 1230,
+      zone: "ground",
+    },
 
-    characters:
-      COURTYARD_HOT_SPRING_ENTRANCE,
-  },
-},
+    {
+      name: "test-c",
+      x: 640,
+      y: 1230,
+      zone: "ground",
+    },
+
+    {
+      name: "test-d",
+      x: 240,
+      y: 1330,
+      zone: "ground",
+    },
+
+    {
+      name: "test-e",
+      x: 440,
+      y: 1330,
+      zone: "ground",
+    },
+
+    {
+      name: "test-f",
+      x: 640,
+      y: 1330,
+      zone: "ground",
+    },
+  ],
 
 
-
-      walkAreas:
-        GARDEN_WALK_AREAS,
-
-      pathNodes:
-        GARDEN_PATH_NODES,
-
-      autoTargets:
-  GARDEN_AUTO_TARGET_POINTS,
-
-chatSpots:
-  GARDEN_CHAT_SPOTS,
-
-activitySpots:
-  COURTYARD_ACTIVITY_SPOTS,
-
-lanternLights:
-  GARDEN_LANTERN_LIGHTS,
+  /*
+    這次先不測指定聊天點。
+  */
+  chatSpots: [],
 
 
-        sceneLayers:
-  GARDEN_SCENE_LAYER_ASSETS,
+  /*
+    先沿用庭院燈光，
+    避免這輪混入夜間視覺差異。
+  */
+  lanternLights:
+    GARDEN_LANTERN_LIGHTS,
 
+
+  /*
+    暫時共用同一套庭院圖片。
+    所以切換時背景看起來不會變。
+  */
+  sceneLayers:
+    GARDEN_SCENE_LAYER_ASSETS,
+
+
+  /*
+    沒有有效 auto target 時的
+    最後保險出生點。
+  */
   defaultSpawn: {
-  x: 600,
-  y: 1725,
-},
+    x: 440,
+    y: 1280,
+  },
 
-
-      /*
-        景深 / 遮擋規則。
-
-        順序就是優先順序：
-        越前面的規則越先判斷。
-      */
-      depthRules: [
-
-
-
-
-
-{
-  /*
-    Hot Spring 前景石板路線。
-
-    角色抵達右側必經點時，
-    就已經視為走到燈籠前方。
-  */
-  name: "hot-spring-route-lantern-front",
-
-  zone: "ground",
-
-  layer: "lanternFront",
-
-  xMin: 300,
-  xMax: 720,
-
-  yMin: 1880,
-},
-        
-/*
-  左下燈籠前方。
-
-  角色只有在：
-  - 位於庭院左側
-  - 腳底 Y 已經走到燈籠前方
-
-  才會進 lanternFront layer。
-
-  不指定 zone，
-  是為了讓角色沿 Hot Spring 出口
-  走出畫面邊界時仍保持正確景深。
-*/
-{
-  name:
-    "lantern-front",
-
-  layer:
-    "lanternFront",
 
   /*
-    只影響左下燈籠附近。
-    負 X 不限制，讓離場動畫也能沿用。
+    測試區不需要特殊遮擋。
   */
-  xMax: 350,
-
-  /*
-    第一版暫定分界。
-    稍後依實際畫面微調。
-  */
-  yMinExclusive: 1600,
-},
-
-
-
-        /*
-          最下方前景。
-          y > 1400 時進 front layer。
-        */
-        {
-          name: "front-bottom",
-
-          zone: "ground",
-
-          layer: "front",
-
-          yMinExclusive: 1400,
-        },
-
-
-        /*
-          枯山水後方。
-
-          必須比 building-corner
-          更早判斷，
-          才不會被送進 cornerFront。
-        */
-        {
-          name: "karesansui-back",
-
-          zone: "ground",
-
-          layer: "normal",
-
-          xMin: 450,
-          xMax: 860,
-
-          yMin: 930,
-          yMax: 1150,
-        },
-
-
-        /*
-          右上建築轉角前方。
-        */
-        {
-          name: "building-corner",
-
-          zone: "ground",
-
-          layer: "cornerFront",
-
-          xMin: 560,
-
-          yMinExclusive: 780,
-          yMax: 1400,
-        },
-      ],
-    };
-  }
-
-  /*
-    =========================
-    多場景系統測試用場景
-
-
-    暫時共用 courtyard 圖片，
-    但使用完全不同的：
-    - 可走區
-    - path nodes
-    - auto targets
-    - spawn
-    =========================
-  */
+  depthRules: [],
+};
 
 
 /*
   =========================
-  Hot Spring
-  露天風呂
+  Moon Bridge
+  賞月橋
   =========================
-
-  第一階段：
-
-  - 先正式註冊場景
-  - 先支援玩家鏡頭切換
-  - 暫時不開放角色自由 Wander
-  - 暫時不建立 Travel Route
-  - 入浴 / 浴巾 / Bath Spot 後續再接
 */
-if (
-  sceneId ===
-    "hotSpring"
-) {
-  return {
-    id:
-      "hotSpring",
+GARDEN_SCENE_REGISTRY.moonBridge = {
+  id: "moonBridge",
 
-    /*
-      空間關係：
-
-      Hot Spring ← Courtyard → Moon Bridge
-    */
-    nav: {
-      left: null,
-      right: "courtyard",
-    },
-
-
-    /*
-      Character World Travel
-      下一步才正式加入。
-
-      現在刻意保持空白，
-      避免角色 Runtime 提前把這裡
-      當成可跨場景目的地。
-    */
-    exits: {
-  courtyard: {
-    targetSceneId:
-      "courtyard",
-
-    targetEntranceId:
-      "hot-spring-left",
-
-    exitType:
-      "approachOut",
-
-    characters:
-      HOT_SPRING_COURTYARD_EXIT,
+  nav: {
+    left: "courtyard",
+    right: null,
   },
-},
 
-
-entrances: {
-  "courtyard-left": {
-    fromSceneId:
-      "courtyard",
-
-    direction:
-      1,
-
-    characters:
-      HOT_SPRING_COURTYARD_ENTRANCE,
-  },
-},
-
-
-    /*
-      第一階段不讓角色在露天風呂
-      自動 Wander。
-
-      等我們把：
-      - 乾地區
-      - 出入口
-      - 入浴 transition spot
-
-      的座標實際校正後再開放。
-    */
-   walkAreas:
-  HOT_SPRING_WALK_AREAS,
-
-pathNodes:
-  HOT_SPRING_PATH_NODES,
-
-autoTargets:
-  HOT_SPRING_AUTO_TARGET_POINTS,
-
-    chatSpots: [],
-
-    activitySpots: [],
-
-    lanternLights: [],
-
-
-    /*
-      使用剛才註冊的
-      Hot Spring 夜間場景素材。
-    */
-    sceneLayers:
-      HOT_SPRING_SCENE_LAYER_ASSETS,
-
-
-    /*
-      最後保險值。
-
-      目前角色還不會正式 spawn 在這裡，
-      所以先不把這視為正式入口座標。
-    */
-    defaultSpawn: {
-      x: 160,
-      y: 590,
-    },
-
-
-    /*
-      泡澡專用 depth / pose layer
-      尚未接入前，不建立特殊規則。
-    */
-    depthRules: [],
-  };
-}
-
-
-
-
-
-
-
-
-  /*
-    =========================
-    Moon Bridge
-    賞月橋
-    =========================
-
-
-
-
-  */
-  if (
-    sceneId ===
-    "moonBridge"
-  ) {
-    return {
-      id: "moonBridge",
-
-nav: {
-  left: "courtyard",
-  right: null,
-},
-
-exits: {
-  courtyard: {
+  exits: {
+  "moon-bridge-to-courtyard": {
     targetSceneId:
       "courtyard",
 
@@ -70897,210 +71385,668 @@ exits: {
   },
 },
 
-entrances: {
-  "courtyard-right": {
-    fromSceneId:
+  entrances: {
+    "courtyard-right": {
+      fromSceneId:
+        "courtyard",
+
+      direction:
+        1,
+
+      characters:
+        MOON_BRIDGE_LEFT_ENTRANCE,
+    },
+  },
+
+  walkAreas:
+    MOON_BRIDGE_WALK_AREAS,
+
+  pathNodes:
+    MOON_BRIDGE_PATH_NODES,
+
+  autoTargets:
+    MOON_BRIDGE_AUTO_TARGET_POINTS,
+
+  chatSpots:
+    MOON_BRIDGE_CHAT_SPOTS,
+
+  activitySpots:
+    MOON_BRIDGE_ACTIVITY_SPOTS,
+
+  lanternLights: [],
+
+  sceneLayers:
+    MOON_BRIDGE_SCENE_LAYER_ASSETS,
+
+  /*
+    場景切換後兩人的安全出生基準。
+  */
+  defaultSpawn: {
+    x: 540,
+    y: 1300,
+  },
+
+  /*
+    橋欄杆本身已經固定在
+    z-index: 650。
+
+    角色目前保持 normal layer 500
+    就會自然被前方欄杆遮擋，
+    所以暫時不需要額外 depth rule。
+  */
+  depthRules: [],
+};
+
+
+/*
+  =========================
+  Hot Spring
+  露天風呂
+  =========================
+*/
+GARDEN_SCENE_REGISTRY.hotSpring = {
+  id: "hotSpring",
+
+  /*
+    空間關係：
+
+    Hot Spring ← Courtyard → Moon Bridge
+  */
+  nav: {
+    left: null,
+    right: "courtyard",
+  },
+exits: {
+  "hot-spring-to-courtyard": {
+    targetSceneId:
       "courtyard",
 
-    direction:
-      1,
+    targetEntranceId:
+      "hot-spring-left",
+
+    exitType:
+      "approachOut",
 
     characters:
-      MOON_BRIDGE_LEFT_ENTRANCE,
+      HOT_SPRING_COURTYARD_EXIT,
   },
 },
 
+  entrances: {
+    "courtyard-left": {
+      fromSceneId:
+        "courtyard",
 
-      walkAreas:
-        MOON_BRIDGE_WALK_AREAS,
+      direction:
+        1,
+
+      characters:
+        HOT_SPRING_COURTYARD_ENTRANCE,
+    },
+  },
+
+  walkAreas:
+    HOT_SPRING_WALK_AREAS,
+
+  pathNodes:
+    HOT_SPRING_PATH_NODES,
+
+  autoTargets:
+    HOT_SPRING_AUTO_TARGET_POINTS,
+
+  chatSpots: [],
+
+  activitySpots: [],
+
+  lanternLights: [],
+
+  sceneLayers:
+    HOT_SPRING_SCENE_LAYER_ASSETS,
+
+  defaultSpawn: {
+    x: 160,
+    y: 590,
+  },
+
+  depthRules: [],
+};
 
 
-      pathNodes:
-        MOON_BRIDGE_PATH_NODES,
 
+/*
+  =========================
+  Courtyard
+  庭院
+  =========================
+*/
+GARDEN_SCENE_REGISTRY.courtyard = {
+  id: "courtyard",
 
-      autoTargets:
-  MOON_BRIDGE_AUTO_TARGET_POINTS,
+  nav: {
+    left: "hotSpring",
+    right: "moonBridge",
+  },
 
-chatSpots:
-  MOON_BRIDGE_CHAT_SPOTS,
+  /*
+    Character World Travel
 
-activitySpots:
-  MOON_BRIDGE_ACTIVITY_SPOTS,
+    nav
+    → 玩家鏡頭切換
 
-lanternLights: [],
+    exits / entrances
+    → 角色自己的跨場景移動
+  */
+ exits: {
+  "courtyard-to-moon-bridge": {
+    targetSceneId:
+      "moonBridge",
 
+    targetEntranceId:
+      "courtyard-right",
 
-      sceneLayers:
-        MOON_BRIDGE_SCENE_LAYER_ASSETS,
+    exitType:
+      "direct",
 
+    characters:
+      COURTYARD_MOON_BRIDGE_EXIT_TARGETS,
+  },
+
+  "courtyard-to-hot-spring": {
+    targetSceneId:
+      "hotSpring",
+
+    targetEntranceId:
+      "courtyard-left",
+
+    exitType:
+      "approachOut",
+
+    characters:
+      COURTYARD_HOT_SPRING_EXIT,
+  },
+},
+
+  entrances: {
+    "moon-bridge-left": {
+      fromSceneId:
+        "moonBridge",
+
+      direction:
+        -1,
+
+      characters:
+        COURTYARD_MOON_BRIDGE_ENTRANCE,
+    },
+
+    "hot-spring-left": {
+      fromSceneId:
+        "hotSpring",
+
+      direction:
+        1,
+
+      characters:
+        COURTYARD_HOT_SPRING_ENTRANCE,
+    },
+  },
+
+  walkAreas:
+    GARDEN_WALK_AREAS,
+
+  pathNodes:
+    GARDEN_PATH_NODES,
+
+  autoTargets:
+    GARDEN_AUTO_TARGET_POINTS,
+
+  chatSpots:
+    GARDEN_CHAT_SPOTS,
+
+  activitySpots:
+    COURTYARD_ACTIVITY_SPOTS,
+
+  lanternLights:
+    GARDEN_LANTERN_LIGHTS,
+
+  sceneLayers:
+    GARDEN_SCENE_LAYER_ASSETS,
+
+  defaultSpawn: {
+    x: 600,
+    y: 1725,
+  },
+
+  /*
+    景深 / 遮擋規則。
+
+    順序就是優先順序：
+    越前面的規則越先判斷。
+  */
+  depthRules: [
+    {
+      /*
+        Hot Spring 前景石板路線。
+
+        角色抵達右側必經點時，
+        就已經視為走到燈籠前方。
+      */
+      name:
+        "hot-spring-route-lantern-front",
+
+      zone:
+        "ground",
+
+      layer:
+        "lanternFront",
+
+      xMin: 300,
+      xMax: 720,
+
+      yMin: 1880,
+    },
+
+    /*
+      左下燈籠前方。
+
+      角色只有在：
+      - 位於庭院左側
+      - 腳底 Y 已經走到燈籠前方
+
+      才會進 lanternFront layer。
+
+      不指定 zone，
+      是為了讓角色沿 Hot Spring 出口
+      走出畫面邊界時仍保持正確景深。
+    */
+    {
+      name:
+        "lantern-front",
+
+      layer:
+        "lanternFront",
 
       /*
-        場景切換後兩人的安全出生基準。
+        只影響左下燈籠附近。
+        負 X 不限制，讓離場動畫也能沿用。
       */
-      defaultSpawn: {
-        x: 540,
-        y: 1300,
-      },
-
+      xMax: 350,
 
       /*
-        橋欄杆本身已經固定在
-        z-index: 650。
-
-        角色目前保持 normal layer 500
-        就會自然被前方欄杆遮擋，
-        所以暫時不需要額外 depth rule。
+        第一版暫定分界。
+        稍後依實際畫面微調。
       */
-      depthRules: [],
-    };
-  }
+      yMinExclusive: 1600,
+    },
+
+    /*
+      最下方前景。
+      y > 1400 時進 front layer。
+    */
+    {
+      name:
+        "front-bottom",
+
+      zone:
+        "ground",
+
+      layer:
+        "front",
+
+      yMinExclusive: 1400,
+    },
+
+    /*
+      枯山水後方。
+
+      必須比 building-corner
+      更早判斷，
+      才不會被送進 cornerFront。
+    */
+    {
+      name:
+        "karesansui-back",
+
+      zone:
+        "ground",
+
+      layer:
+        "normal",
+
+      xMin: 450,
+      xMax: 860,
+
+      yMin: 930,
+      yMax: 1150,
+    },
+
+    /*
+      右上建築轉角前方。
+    */
+    {
+      name:
+        "building-corner",
+
+      zone:
+        "ground",
+
+      layer:
+        "cornerFront",
+
+      xMin: 560,
+
+      yMinExclusive: 780,
+      yMax: 1400,
+    },
+  ],
+};
 
 
-  if (
-    sceneId ===
-    "testScene"
+
+/*
+  =========================
+  Garden Scene Registry
+  Validation
+  =========================
+
+  只進行資料檢查，
+  不修改 Scene / Travel Runtime。
+
+  目前檢查：
+
+  1. Registry key 與 scene.id 是否一致
+  2. nav 是否指向存在的 Scene
+  3. exit.targetSceneId 是否存在
+  4. exit.targetEntranceId 是否存在
+  5. target entrance 的 fromSceneId 是否正確
+  6. entrance.fromSceneId 是否存在
+*/
+function validateGardenSceneRegistry() {
+  const errors = [];
+
+  const sceneEntries =
+    Object.entries(
+      GARDEN_SCENE_REGISTRY
+    );
+
+
+  for (
+    const [
+      sceneKey,
+      scene,
+    ] of sceneEntries
   ) {
-    return {
-      id: "testScene",
+    /*
+      =========================
+      Scene 本體
+      =========================
+    */
+    if (
+      !scene ||
+      typeof scene !== "object"
+    ) {
+      errors.push(
+        `[${sceneKey}] Scene definition is invalid.`
+      );
+
+      continue;
+    }
+
+
+    if (!scene.id) {
+      errors.push(
+        `[${sceneKey}] Missing scene.id.`
+      );
+    } else if (
+      scene.id !== sceneKey
+    ) {
+      errors.push(
+        `[${sceneKey}] scene.id mismatch: "${scene.id}".`
+      );
+    }
+
+
+    /*
+      =========================
+      Player Navigation
+      =========================
+    */
+    const navEntries =
+      Object.entries(
+        scene.nav ?? {}
+      );
+
+
+    for (
+      const [
+        direction,
+        targetSceneId,
+      ] of navEntries
+    ) {
+      /*
+        null 代表這個方向沒有 Scene，
+        屬於合法設定。
+      */
+      if (
+        targetSceneId == null
+      ) {
+        continue;
+      }
+
+
+      if (
+        !GARDEN_SCENE_REGISTRY[
+          targetSceneId
+        ]
+      ) {
+        errors.push(
+          `[${sceneKey}] nav.${direction} points to missing scene "${targetSceneId}".`
+        );
+      }
+    }
+
+
+    /*
+      =========================
+      Character Travel Exits
+      =========================
+    */
+    const exitEntries =
+      Object.entries(
+        scene.exits ?? {}
+      );
+
+
+    for (
+      const [
+        exitId,
+        exit,
+      ] of exitEntries
+    ) {
+      if (
+        !exit ||
+        typeof exit !== "object"
+      ) {
+        errors.push(
+          `[${sceneKey}] exit "${exitId}" is invalid.`
+        );
+
+        continue;
+      }
+
+
+      const targetSceneId =
+        exit.targetSceneId;
+
+
+      if (!targetSceneId) {
+        errors.push(
+          `[${sceneKey}] exit "${exitId}" is missing targetSceneId.`
+        );
+
+        continue;
+      }
+
+
+      const targetScene =
+        GARDEN_SCENE_REGISTRY[
+          targetSceneId
+        ];
+
+
+      if (!targetScene) {
+        errors.push(
+          `[${sceneKey}] exit "${exitId}" points to missing scene "${targetSceneId}".`
+        );
+
+        continue;
+      }
+
+
+      const targetEntranceId =
+        exit.targetEntranceId;
+
+
+      if (!targetEntranceId) {
+        errors.push(
+          `[${sceneKey}] exit "${exitId}" is missing targetEntranceId.`
+        );
+
+        continue;
+      }
+
+
+      const targetEntrance =
+        targetScene
+          .entrances?.[
+            targetEntranceId
+          ];
+
+
+      if (!targetEntrance) {
+        errors.push(
+          `[${sceneKey}] exit "${exitId}" points to missing entrance "${targetEntranceId}" in "${targetSceneId}".`
+        );
+
+        continue;
+      }
 
 
       /*
-        只允許角色在畫面中下方
-        一個小矩形內活動。
+        例如：
+
+        Courtyard
+        → Moon Bridge
+
+        Moon Bridge 的該入口
+        fromSceneId 就應該是 courtyard。
       */
-      walkAreas: {
-        ground: [
-          {
-            name: "test-ground",
-
-            points: [
-              { x: 180, y: 1180 },
-              { x: 700, y: 1180 },
-              { x: 700, y: 1380 },
-              { x: 180, y: 1380 },
-            ],
-          },
-        ],
-
-        far: [],
-      },
+      if (
+        targetEntrance.fromSceneId !==
+        sceneKey
+      ) {
+        errors.push(
+          `[${sceneKey}] exit "${exitId}" → "${targetSceneId}.${targetEntranceId}" has mismatched fromSceneId "${targetEntrance.fromSceneId}".`
+        );
+      }
+    }
 
 
-      /*
-        測試用導航骨架。
-      */
-      pathNodes: [
-        {
-          name: "test-left",
-          x: 260,
-          y: 1280,
-        },
-
-        {
-          name: "test-center",
-          x: 440,
-          y: 1280,
-        },
-
-        {
-          name: "test-right",
-          x: 620,
-          y: 1280,
-        },
-      ],
+    /*
+      =========================
+      Character Travel Entrances
+      =========================
+    */
+    const entranceEntries =
+      Object.entries(
+        scene.entrances ?? {}
+      );
 
 
-      /*
-        角色只會從這些點中
-        挑散步目的地。
-      */
-      autoTargets: [
-        {
-          name: "test-a",
-          x: 240,
-          y: 1230,
-          zone: "ground",
-        },
+    for (
+      const [
+        entranceId,
+        entrance,
+      ] of entranceEntries
+    ) {
+      if (
+        !entrance ||
+        typeof entrance !== "object"
+      ) {
+        errors.push(
+          `[${sceneKey}] entrance "${entranceId}" is invalid.`
+        );
 
-        {
-          name: "test-b",
-          x: 440,
-          y: 1230,
-          zone: "ground",
-        },
-
-        {
-          name: "test-c",
-          x: 640,
-          y: 1230,
-          zone: "ground",
-        },
-
-        {
-          name: "test-d",
-          x: 240,
-          y: 1330,
-          zone: "ground",
-        },
-
-        {
-          name: "test-e",
-          x: 440,
-          y: 1330,
-          zone: "ground",
-        },
-
-        {
-          name: "test-f",
-          x: 640,
-          y: 1330,
-          zone: "ground",
-        },
-      ],
+        continue;
+      }
 
 
-      /*
-        這次先不測指定聊天點。
-      */
-      chatSpots: [],
+      const fromSceneId =
+        entrance.fromSceneId;
 
 
-      /*
-        先沿用庭院燈光，
-        避免這輪混入夜間視覺差異。
-      */
-      lanternLights:
-        GARDEN_LANTERN_LIGHTS,
+      if (!fromSceneId) {
+        errors.push(
+          `[${sceneKey}] entrance "${entranceId}" is missing fromSceneId.`
+        );
+
+        continue;
+      }
 
 
-      /*
-        暫時共用同一套庭院圖片。
-        所以切換時背景看起來不會變。
-      */
-      sceneLayers:
-        GARDEN_SCENE_LAYER_ASSETS,
-
-
-      /*
-        沒有有效 auto target 時的
-        最後保險出生點。
-      */
-      defaultSpawn: {
-        x: 440,
-        y: 1280,
-      },
-
-
-      /*
-        測試區不需要特殊遮擋。
-      */
-      depthRules: [],
-    };
+      if (
+        !GARDEN_SCENE_REGISTRY[
+          fromSceneId
+        ]
+      ) {
+        errors.push(
+          `[${sceneKey}] entrance "${entranceId}" references missing scene "${fromSceneId}".`
+        );
+      }
+    }
   }
 
 
-  return null;
+  /*
+    =========================
+    Result
+    =========================
+  */
+  if (errors.length > 0) {
+    console.group(
+      `[Garden Scene Registry] ${errors.length} validation error(s)`
+    );
+
+    for (
+      const error of errors
+    ) {
+      console.error(
+        error
+      );
+    }
+
+    console.groupEnd();
+
+    return false;
+  }
+
+
+  console.log(
+    `[Garden Scene Registry] OK (${sceneEntries.length} scenes)`
+  );
+
+  return true;
+}
+
+
+
+function getGardenSceneById(
+  sceneId
+) {
+  return (
+    GARDEN_SCENE_REGISTRY[
+      sceneId
+    ] ?? null
+  );
 }
 
 
