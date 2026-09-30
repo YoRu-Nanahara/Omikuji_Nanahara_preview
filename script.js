@@ -2,6 +2,233 @@
    Screenshot Support Guard + English Alert
 ========================= */
 
+
+const HTML2CANVAS_SRC =
+  "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+
+
+let html2CanvasLoadPromise = null;
+
+
+function ensureHtml2CanvasLoaded() {
+  if (
+    typeof html2canvas === "function"
+  ) {
+    return Promise.resolve(true);
+  }
+
+
+  if (html2CanvasLoadPromise) {
+    return html2CanvasLoadPromise;
+  }
+
+
+  html2CanvasLoadPromise =
+    new Promise((resolve) => {
+      const script =
+        document.createElement("script");
+
+
+      script.src =
+        HTML2CANVAS_SRC;
+
+      script.async = true;
+
+
+      script.onload = () => {
+        const ready =
+          typeof html2canvas ===
+            "function";
+
+
+        console.log(
+          "[Screenshot] html2canvas loaded"
+        );
+
+
+        resolve(ready);
+      };
+
+
+      script.onerror = () => {
+        console.warn(
+          "[Screenshot] html2canvas load failed"
+        );
+
+
+        html2CanvasLoadPromise =
+          null;
+
+
+        resolve(false);
+      };
+
+
+      document.head.appendChild(
+        script
+      );
+    });
+
+
+  return html2CanvasLoadPromise;
+}
+
+const FIREBASE_APP_SRC =
+  "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js";
+
+const FIREBASE_DATABASE_SRC =
+  "https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js";
+
+
+const firebaseConfig = {
+  apiKey:
+    "AIzaSyA9yd6DiP3z3p1JyPX9IXfE778zOxzFDeU",
+
+  authDomain:
+    "nanaharashrine.firebaseapp.com",
+
+  databaseURL:
+    "https://nanaharashrine-default-rtdb.asia-southeast1.firebasedatabase.app",
+
+  projectId:
+    "nanaharashrine",
+
+  storageBucket:
+    "nanaharashrine.firebasestorage.app",
+
+  messagingSenderId:
+    "387014086769",
+
+  appId:
+    "1:387014086769:web:7e205b9eed95dee5d38bd0"
+};
+
+
+let firebaseDatabaseLoadPromise =
+  null;
+
+
+function loadFirebaseScript(src) {
+  return new Promise(
+    (resolve, reject) => {
+      const script =
+        document.createElement(
+          "script"
+        );
+
+      script.src = src;
+      script.async = true;
+
+      script.onload = () => {
+        resolve();
+      };
+
+      script.onerror = () => {
+        reject(
+          new Error(
+            `Failed to load ${src}`
+          )
+        );
+      };
+
+      document.head.appendChild(
+        script
+      );
+    }
+  );
+}
+
+
+function ensureFirebaseDatabaseLoaded() {
+  /*
+    已經完整初始化過。
+  */
+  if (
+    typeof firebase !== "undefined" &&
+    typeof firebase.database ===
+      "function" &&
+    firebase.apps?.length
+  ) {
+    return Promise.resolve(
+      firebase.database()
+    );
+  }
+
+
+  /*
+    已經有人正在下載，
+    共用同一個 Promise。
+  */
+  if (firebaseDatabaseLoadPromise) {
+    return firebaseDatabaseLoadPromise;
+  }
+
+
+  firebaseDatabaseLoadPromise =
+    (async () => {
+      /*
+        先載 Firebase App。
+      */
+      if (
+        typeof firebase ===
+        "undefined"
+      ) {
+        await loadFirebaseScript(
+          FIREBASE_APP_SRC
+        );
+      }
+
+
+      /*
+        再載 Realtime Database。
+      */
+      if (
+        typeof firebase.database !==
+        "function"
+      ) {
+        await loadFirebaseScript(
+          FIREBASE_DATABASE_SRC
+        );
+      }
+
+
+      /*
+        第一次才初始化 App。
+      */
+      if (
+        !firebase.apps ||
+        firebase.apps.length === 0
+      ) {
+        firebase.initializeApp(
+          firebaseConfig
+        );
+      }
+
+
+      console.log(
+        "[Firebase] database lazy loaded"
+      );
+
+
+      return firebase.database();
+    })()
+      .catch((err) => {
+        console.warn(
+          "[Firebase] lazy load failed:",
+          err
+        );
+
+        firebaseDatabaseLoadPromise =
+          null;
+
+        return null;
+      });
+
+
+  return firebaseDatabaseLoadPromise;
+}
+
+
 // 你想要的英文提示文字（可自行改）
 const SCREENSHOT_UNSUPPORTED_MSG =
   "Sorry — your browser/device can’t generate screenshots here.\n\n" +
@@ -102,12 +329,36 @@ function canAttemptScreenshot() {
 }
 
 // 包一層：統一處理「不支援/失敗」提示
-async function safeScreenshot(run, contextLabel = "Screenshot") {
-  if (!canAttemptScreenshot()) {
-    console.warn(`[${contextLabel}] capability check failed`);
+async function safeScreenshot(
+  run,
+  contextLabel = "Screenshot"
+) {
+  /*
+    html2canvas 改成 lazy-load。
+
+    如果進 Omikuji 時已經 warmup 完成，
+    這裡會立即通過。
+
+    如果還在下載，
+    就等原本同一個 Promise。
+  */
+  const html2CanvasReady =
+    await ensureHtml2CanvasLoaded();
+
+
+  if (
+    !html2CanvasReady ||
+    !canAttemptScreenshot()
+  ) {
+    console.warn(
+      `[${contextLabel}] capability check failed`
+    );
+
     showScreenshotAlert();
+
     return null;
   }
+
 
   try {
     return await run();
@@ -132,8 +383,6 @@ async function safeScreenshot(run, contextLabel = "Screenshot") {
   }
 }
 
-
-const blessingsRef = database.ref("nanaharaBlessings");
 
 /* ===== Loading 預載系統 ===== */
 const loadingScreen = document.getElementById("loadingScreen");
@@ -348,25 +597,65 @@ function showBlessingCard() {
 blessingCard.addEventListener("click", () => {
   blessingCard.style.pointerEvents = "none";
 
-  // 取得 Firebase reference
-  const blessingRef = firebase.database().ref("nanaharaBlessings");
-  const countRef = firebase.database().ref("nanaharaBlessingsCount");
+ /*
+  Firebase 已改成 lazy-load。
 
-    // 每次點擊都 push 一筆祝福
-  blessingsRef.push({
-    timestamp: Date.now(),
-    device: navigator.userAgent
-  });
-
-  // 同步更新總數
-  countRef.transaction(current => (current || 0) + 1, (error, committed, snapshot) => {
-    if (error) {
-      console.error("更新總數失敗：", error);
-    } else if (!committed) {
-      console.log("Transaction 未提交");
-    } else {
-      console.log("祝福總數：", snapshot.val());
+  祝福卡目前封存，
+  未來重新啟用時，
+  只有真的點下卡片才會下載 SDK。
+*/
+ensureFirebaseDatabaseLoaded()
+  .then((database) => {
+    if (!database) {
+      return;
     }
+
+
+    const blessingRef =
+      database.ref(
+        "nanaharaBlessings"
+      );
+
+    const countRef =
+      database.ref(
+        "nanaharaBlessingsCount"
+      );
+
+
+    blessingRef.push({
+      timestamp: Date.now(),
+      device: navigator.userAgent
+    });
+
+
+    countRef.transaction(
+      current =>
+        (current || 0) + 1,
+
+      (
+        error,
+        committed,
+        snapshot
+      ) => {
+        if (error) {
+          console.error(
+            "更新總數失敗：",
+            error
+          );
+
+        } else if (!committed) {
+          console.log(
+            "Transaction 未提交"
+          );
+
+        } else {
+          console.log(
+            "祝福總數：",
+            snapshot.val()
+          );
+        }
+      }
+    );
   });
 
   // 卡片動畫
@@ -419,39 +708,125 @@ const omikujiScreen = document.getElementById("omikujiScreen");
 
 let omikujiImagesHydrated = false;
 
-function hydrateOmikujiImages() {
+const omikujiLoadedModes =
+  new Set();
+
+
+function getCurrentOmikujiMode() {
+  return document.body.classList.contains(
+    "night-mode"
+  )
+    ? "night"
+    : "day";
+}
+
+
+function hydrateOmikujiModeImages(
+  mode = getCurrentOmikujiMode()
+) {
   if (
-    omikujiImagesHydrated ||
-    !omikujiScreen
+    !omikujiScreen ||
+    omikujiLoadedModes.has(mode)
   ) {
     return;
   }
 
-  const lazyImages =
+
+  const images =
     omikujiScreen.querySelectorAll(
-      "img[data-src]"
+      `img[data-omikuji-mode="${mode}"][data-omikuji-mode-src]`
     );
 
-  for (const img of lazyImages) {
+
+  for (const img of images) {
     const src =
-      img.getAttribute("data-src");
+      img.getAttribute(
+        "data-omikuji-mode-src"
+      );
+
 
     if (!src) {
       continue;
     }
 
+
     img.src = src;
 
     img.removeAttribute(
-      "data-src"
+      "data-omikuji-mode-src"
     );
   }
 
-  omikujiImagesHydrated = true;
+
+  omikujiLoadedModes.add(mode);
+
 
   console.log(
-    "[Omikuji] lazy images hydrated"
+    `[Omikuji] ${mode} images hydrated`
   );
+}
+
+
+function hydrateOmikujiImages() {
+  if (!omikujiScreen) {
+    return;
+  }
+
+
+  /*
+    共用 UI 只 hydrate 一次。
+
+    現在這裡包含：
+    - Menu
+    - omikuji
+    - Draw button
+
+    不包含：
+    - Intro
+    - Day / Night 專用圖
+  */
+  if (!omikujiImagesHydrated) {
+    const lazyImages =
+      omikujiScreen.querySelectorAll(
+        "img[data-src]"
+      );
+
+
+    for (const img of lazyImages) {
+      const src =
+        img.getAttribute("data-src");
+
+
+      if (!src) {
+        continue;
+      }
+
+
+      img.src = src;
+
+      img.removeAttribute(
+        "data-src"
+      );
+    }
+
+
+    omikujiImagesHydrated = true;
+
+
+    console.log(
+      "[Omikuji] shared images hydrated"
+    );
+  }
+
+
+  /*
+    每次進 Omikuji 都確認：
+    現在真正需要 Day 還是 Night。
+
+    所以即使之前白天開過，
+    晚上重新進來仍會補載 Night。
+  */
+  hydrateOmikujiModeImages();
 }
 
 
@@ -7168,6 +7543,16 @@ btnOmikuji.addEventListener(
     */
     hydrateOmikujiImages();
 
+
+/*
+  玩家已經選擇進 Omikuji，
+  趁拉門與抽籤操作期間背景載入 html2canvas。
+
+  不 await：
+  不讓 Omikuji 進場等待 CDN。
+*/
+ensureHtml2CanvasLoaded();
+
     /*
       到這時才檢查：
       - 今天是否已抽過
@@ -10187,6 +10572,59 @@ const shareBtn = document.getElementById("shareBtn");
 const saveBtn = document.getElementById("saveBtn");
 const closeModal = document.getElementById("closeModal");
 
+
+
+let resultModalActionImagesHydrated =
+  false;
+
+
+function hydrateResultModalActionImages() {
+  if (resultModalActionImagesHydrated) {
+    return;
+  }
+
+
+  const images = [
+    shareBtn,
+    saveBtn,
+    closeModal,
+  ];
+
+
+  for (const img of images) {
+    if (!img) {
+      continue;
+    }
+
+
+    const src =
+      img.getAttribute(
+        "data-result-modal-src"
+      );
+
+
+    if (!src) {
+      continue;
+    }
+
+
+    img.src = src;
+
+    img.removeAttribute(
+      "data-result-modal-src"
+    );
+  }
+
+
+  resultModalActionImagesHydrated =
+    true;
+
+
+  console.log(
+    "[ResultModal] action images hydrated"
+  );
+}
+
 /* 📸 截圖目前舞台 */
 async function captureResult() {
   const root = document.getElementById("gameRoot");
@@ -10228,11 +10666,23 @@ async function captureResult() {
       }
     });
 
-    resultImage.src = canvas.toDataURL("image/png");
-    if (modal) modal.style.display = "flex";
-    else resultModal.style.display = "flex";
+   resultImage.src = canvas.toDataURL("image/png");
 
-    return true;
+
+/*
+  Result Modal 真正要顯示時，
+  才載入 Share / Save / Close。
+*/
+hydrateResultModalActionImages();
+
+
+if (modal) {
+  modal.style.display = "flex";
+} else {
+  resultModal.style.display = "flex";
+}
+
+return true;
   }, "Omikuji Screenshot");
 }
 
@@ -10300,6 +10750,26 @@ function updateDayNightMode() {
   }
 
   updateShrineSeasonMode();
+
+
+/*
+  玩家此刻真的停在 Omikuji 時，
+  才補載新時段需要的 Day / Night 圖。
+
+  Omikuji 關閉時完全不載另一套。
+*/
+if (
+  omikujiScreen &&
+  !omikujiScreen.classList.contains(
+    "hidden"
+  ) &&
+  omikujiImagesHydrated
+) {
+  hydrateOmikujiModeImages(
+    getCurrentOmikujiMode()
+  );
+}
+
 
   /*
     如果玩家此刻就在 Garden，
@@ -10665,12 +11135,34 @@ function getGardenMoveZoneAt(
 // =========================
 
 const GARDEN_BGM_SRC =
-  "audio/Chasing%20Tommorrow%20Music%20Box.wav";
+  "audio/garden-bgm.mp3";
 
-const gardenBgm = new Audio(GARDEN_BGM_SRC);
-gardenBgm.loop = true;
-gardenBgm.preload = "auto";
-gardenBgm.volume = 0;
+
+let gardenBgm = null;
+
+
+function ensureGardenBgmCreated() {
+  if (gardenBgm) {
+    return gardenBgm;
+  }
+
+
+  gardenBgm =
+    new Audio(GARDEN_BGM_SRC);
+
+  gardenBgm.loop = true;
+  gardenBgm.preload = "auto";
+  gardenBgm.volume = 0;
+
+
+  console.log(
+    "[Garden BGM] audio created"
+  );
+
+
+  return gardenBgm;
+}
+
 
 const GARDEN_BGM_VOLUME = 0.55;
 const GARDEN_BGM_FADE_MS = 900;
@@ -10733,7 +11225,16 @@ function fadeGardenBgmTo(targetVolume, duration = GARDEN_BGM_FADE_MS, onDone = n
 function enterGardenAudioMode() {
   gardenAudioMode = true;
 
-  const mainBgm = getShrineBgmAudio();
+
+  /*
+    Garden BGM 到玩家真正進 Garden
+    才建立 Audio / 開始載入。
+  */
+  ensureGardenBgmCreated();
+
+
+  const mainBgm =
+    getShrineBgmAudio();
 
   // 停掉主介面 BGM
   if (typeof stopAudio === "function") {
