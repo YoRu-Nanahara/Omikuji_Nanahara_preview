@@ -3922,12 +3922,25 @@ if (
   GARDEN_IPAD_SAFE_MODE &&
   initialMode !== "chat"
 ) {
-  await queueGardenResourceJob({
+  /*
+    三個工作一次交給 Resource Queue。
+
+    不在這裡逐個 await。
+
+    Garden Entry Gate 會透過：
+    waitForGardenBlockingResources()
+
+    自己等待所有 blocking job 完成。
+  */
+  void queueGardenResourceJob({
     key:
       "character-mode-cache:walk",
 
     priority:
       GARDEN_RESOURCE_PRIORITY.CRITICAL,
+
+    blocking:
+      true,
 
     run: () =>
       precacheGardenCharacterModeCompressed(
@@ -3936,12 +3949,15 @@ if (
   });
 
 
-  await queueGardenResourceJob({
+  void queueGardenResourceJob({
     key:
       "animation-warmup:chifuyu:walk",
 
     priority:
       GARDEN_RESOURCE_PRIORITY.CRITICAL,
+
+    blocking:
+      true,
 
     run: () =>
       requestGardenAnimationWarmup(
@@ -3952,12 +3968,15 @@ if (
   });
 
 
-  await queueGardenResourceJob({
+  void queueGardenResourceJob({
     key:
       "animation-warmup:chinatsu:walk",
 
     priority:
       GARDEN_RESOURCE_PRIORITY.CRITICAL,
+
+    blocking:
+      true,
 
     run: () =>
       requestGardenAnimationWarmup(
@@ -8069,21 +8088,39 @@ let actualInitialMode =
   let timeoutId = null;
 
   try {
-    await Promise.race([
-      preloadGardenAssets(
-  gardenInitialMode
-),
+   await Promise.race([
+  /*
+    Garden Entry Gate
 
-      new Promise((resolve) => {
-        timeoutId = setTimeout(() => {
-          console.warn(
-            "[Garden] preload safety timeout — opening Garden anyway."
-          );
+    1. 先建立並準備這次進場需要的資源
+    2. 再確認所有 blocking resource job
+       都已經清空
+    3. 才允許拉門進入下一階段
+  */
+  (async () => {
+    await preloadGardenAssets(
+      gardenInitialMode
+    );
 
-          resolve();
-        }, 15000);
-      }),
-    ]);
+    await waitForGardenBlockingResources();
+  })(),
+
+  /*
+    Safety timeout：
+
+    即使某個 Safari / WebKit 資源工作
+    發生異常，也不能永久把玩家鎖在拉門後。
+  */
+  new Promise((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.warn(
+        "[Garden] preload / blocking resource safety timeout — opening Garden anyway."
+      );
+
+      resolve();
+    }, 15000);
+  }),
+]);
   } catch (err) {
     /*
       即使 Safari 某個 preload / warmup 發生例外，
@@ -19422,6 +19459,9 @@ function queueGardenResourceJob({
   key,
   priority =
     GARDEN_RESOURCE_PRIORITY.NEAR,
+
+  blocking = false,
+
   run,
 }) {
   if (
@@ -19463,6 +19503,9 @@ function queueGardenResourceJob({
         ? priority
         : GARDEN_RESOURCE_PRIORITY.NEAR,
 
+        blocking:
+  blocking === true,
+
     sequence:
       gardenResourceJobSequence++,
 
@@ -19488,12 +19531,15 @@ gardenDebugLogEvent(
   "resource-queued",
   job.key,
   {
-    priority:
-      job.priority,
+  priority:
+    job.priority,
 
-    queuedCount:
-      gardenResourceQueue.length,
-  }
+  blocking:
+    job.blocking,
+
+  queuedCount:
+    gardenResourceQueue.length,
+}
 );
 
 
@@ -19549,6 +19595,9 @@ gardenDebugLogEvent(
     priority:
       job.priority,
 
+      blocking:
+  job.blocking,
+
     remaining:
       gardenResourceQueue.length,
   }
@@ -19586,6 +19635,10 @@ gardenDebugLogEvent(
     priority:
       job.priority,
 
+blocking:
+  job.blocking,
+
+
     result,
   }
 );
@@ -19607,20 +19660,98 @@ gardenDebugLogEvent(
       }
 
 
-      job.resolve(result);
+     job.resolve(result);
 
-      gardenResourceCurrentJob =
+gardenResourceCurrentJob =
   null;
+
+
+resolveGardenBlockingResourceWaitersIfReady();
     }
 
-  } finally {
+
+} finally {
   gardenResourceCurrentJob =
     null;
 
   gardenResourceQueueRunning =
     false;
+
+
+  resolveGardenBlockingResourceWaitersIfReady();
 }
 }
+
+
+function hasGardenBlockingResourceJobs() {
+  if (
+    gardenResourceCurrentJob?.blocking ===
+    true
+  ) {
+    return true;
+  }
+
+  return gardenResourceQueue.some(
+    job =>
+      job.blocking === true
+  );
+}
+
+
+const gardenBlockingResourceWaiters =
+  new Set();
+
+
+function resolveGardenBlockingResourceWaitersIfReady() {
+  /*
+    只要還有任何 blocking 工作，
+    現在就不能放行。
+  */
+  if (
+    hasGardenBlockingResourceJobs()
+  ) {
+    return;
+  }
+
+
+  /*
+    沒有 blocking job：
+    所有正在等待 Reveal 的 Promise
+    一次全部放行。
+  */
+  for (
+    const resolve of
+    gardenBlockingResourceWaiters
+  ) {
+    resolve(true);
+  }
+
+
+  gardenBlockingResourceWaiters.clear();
+}
+
+
+function waitForGardenBlockingResources() {
+  /*
+    呼叫當下就已經沒有 blocking 工作，
+    直接完成，不製造多餘 Promise 等待。
+  */
+  if (
+    !hasGardenBlockingResourceJobs()
+  ) {
+    return Promise.resolve(true);
+  }
+
+
+  return new Promise(
+    (resolve) => {
+      gardenBlockingResourceWaiters.add(
+        resolve
+      );
+    }
+  );
+}
+
 
 
 function getGardenResourceQueueDebugState() {
@@ -19628,27 +19759,39 @@ function getGardenResourceQueueDebugState() {
     running:
       gardenResourceQueueRunning,
 
-    current:
-      gardenResourceCurrentJob
-        ? {
-            key:
-              gardenResourceCurrentJob.key,
+      blockingPending:
+  hasGardenBlockingResourceJobs(),
 
-            priority:
-              gardenResourceCurrentJob.priority,
-          }
-        : null,
+blockingWaiters:
+  gardenBlockingResourceWaiters.size,
+
+    current:
+  gardenResourceCurrentJob
+    ? {
+        key:
+          gardenResourceCurrentJob.key,
+
+        priority:
+          gardenResourceCurrentJob.priority,
+
+        blocking:
+          gardenResourceCurrentJob.blocking,
+      }
+    : null,
 
     queued:
-      gardenResourceQueue.map(
-        job => ({
-          key:
-            job.key,
+  gardenResourceQueue.map(
+    job => ({
+      key:
+        job.key,
 
-          priority:
-            job.priority,
-        })
-      ),
+      priority:
+        job.priority,
+
+      blocking:
+        job.blocking,
+    })
+  ),
 
     queuedCount:
       gardenResourceQueue.length,
@@ -74142,6 +74285,10 @@ return [
 "",
 "--- RESOURCE QUEUE ---",
 `running: ${resourceQueue?.running ?? false}`,
+
+`blockingPending: ${resourceQueue?.blockingPending ?? false}`,
+
+`blockingWaiters: ${resourceQueue?.blockingWaiters ?? 0}`,
 `current: ${resourceCurrentText}`,
 `queued: ${resourceQueuedText}`,
 `queuedCount: ${resourceQueue?.queuedCount ?? 0}`,
