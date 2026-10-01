@@ -843,6 +843,25 @@ const GARDEN_DEBUG_ENABLED =
     window.location.search
   ).get("gardenDebug") === "1";
 
+  /*
+  =========================
+  Garden Bath Test Mode
+  =========================
+
+  URL:
+  ?gardenBathTest=1
+
+  測試期間：
+  - 暫停正式 Schedule Provider
+  - 不讀正式 Snapshot
+  - 不寫入測試 Snapshot
+  - 兩位角色直接放到 Hot Spring
+  - 直接進入 settled BATH
+*/
+const GARDEN_BATH_TEST_ENABLED =
+  new URLSearchParams(
+    window.location.search
+  ).get("gardenBathTest") === "1";
 
 
 const GARDEN_DEBUG_EVENT_STORAGE_KEY =
@@ -70324,6 +70343,19 @@ const GARDEN_WORLD_STORAGE_KEY =
 function saveGardenWorldState(
   reason = "manual"
 ) {
+  /*
+    Bath Test 不可以污染正式 Snapshot。
+
+    測試網址關掉後，
+    原本正式世界存檔仍然保持原樣。
+  */
+  if (
+    GARDEN_BATH_TEST_ENABLED
+  ) {
+    return null;
+  }
+
+
   try {
     const snapshot =
       createGardenWorldStateSnapshot(
@@ -72238,6 +72270,22 @@ function getGardenWorldColdStartRestoreInfo() {
 window.addEventListener(
   "load",
   () => {
+    /*
+      Bath Test：
+      完全跳過正式 Snapshot Restore。
+
+      直接建立一個乾淨的
+      settled Bath 世界。
+    */
+    if (
+      GARDEN_BATH_TEST_ENABLED
+    ) {
+      forceGardenBathPerformanceTestState();
+
+      return;
+    }
+
+
     const result =
       restoreGardenWorldFromStorage();
 
@@ -72270,6 +72318,224 @@ const HOT_SPRING_BATH_SPOTS = [
     },
   },
 ];
+
+
+/*
+  =========================
+  Garden Bath Performance Test
+  =========================
+
+  不經過：
+  - Schedule
+  - Travel
+  - Bath Enter Transition
+
+  直接建立「已經泡在池裡」的
+  settled Bath world state。
+
+  這樣專門用來測：
+  bathSoakIdle / Hot Spring Rendering。
+*/
+function forceGardenBathPerformanceTestState() {
+  if (
+    !GARDEN_BATH_TEST_ENABLED
+  ) {
+    return false;
+  }
+
+
+  /*
+    正式 Schedule 完全暫停。
+
+    Live Tick / Boundary Tick
+    不會再把角色抓回
+    Moon Bridge Night Walk。
+  */
+  clearGardenWorldScheduleProvider();
+
+
+  /*
+    清除現在可能存在的 Chat Runtime。
+  */
+  if (
+    typeof clearGardenChatState ===
+      "function"
+  ) {
+    clearGardenChatState();
+  }
+
+
+  const bathSpot =
+    HOT_SPRING_BATH_SPOTS.find(
+      spot =>
+        spot.name ===
+        "hot-spring-night-pair"
+    ) ??
+    HOT_SPRING_BATH_SPOTS[0] ??
+    null;
+
+
+  if (!bathSpot) {
+    console.warn(
+      "[Garden Bath Test] bath spot unavailable"
+    );
+
+    return false;
+  }
+
+
+  for (
+    const characterId of [
+      "chifuyu",
+      "chinatsu",
+    ]
+  ) {
+    const worldState =
+      gardenCharacterWorldState[
+        characterId
+      ];
+
+    const runtime =
+      getGardenCharacterRuntime(
+        characterId
+      );
+
+    const point =
+      bathSpot[
+        characterId
+      ];
+
+
+    if (
+      !worldState ||
+      !runtime?.moveState ||
+      !point
+    ) {
+      console.warn(
+        "[Garden Bath Test] runtime unavailable:",
+        characterId
+      );
+
+      continue;
+    }
+
+
+    /*
+      清除所有其他 Spatial Ownership。
+    */
+    worldState.travel =
+      null;
+
+    worldState.bathTransition =
+      null;
+
+    worldState.bathPositioning =
+      null;
+
+    worldState.wanderContinuity =
+      null;
+
+    worldState.activitySpotApproach =
+      null;
+
+
+    /*
+      角色世界位置直接搬到 Hot Spring。
+    */
+    worldState.sceneId =
+      "hotSpring";
+
+
+    /*
+      正式 Semantic Activity：
+      settled BATH。
+    */
+    setGardenCharacterActivity(
+      characterId,
+      GARDEN_CHARACTER_ACTIVITY
+        .BATH,
+      {
+        source:
+          "debugBathTest",
+
+        semanticActivityId:
+          GARDEN_CHARACTER_ACTIVITY
+            .BATH,
+
+        spotName:
+          bathSpot.name,
+      }
+    );
+
+
+    /*
+      清掉舊 movement。
+    */
+    runtime.setPath?.([]);
+
+    runtime.moveState.path =
+      [];
+
+    runtime.moveState.isMoving =
+      false;
+
+
+    /*
+      精確 Bath Spot。
+    */
+    runtime.moveState.x =
+      point.x;
+
+    runtime.moveState.y =
+      point.y;
+
+    runtime.moveState.direction =
+      point.direction === -1
+        ? -1
+        : 1;
+
+
+    if (
+      runtime.autoState
+    ) {
+      runtime.autoState.wasMoving =
+        false;
+    }
+  }
+
+
+  /*
+    Player View 也直接指向 Hot Spring。
+
+    這很重要：
+    Garden Entry Preloader
+    就會把 Hot Spring +
+    bathSoakIdle 當成真正的
+    Initial Critical Presentation。
+  */
+  gardenViewSceneId =
+    "hotSpring";
+
+
+  /*
+    告訴 initGardenScreen：
+    世界已經建立完畢，
+    不准重新 randomize / reset。
+  */
+  gardenWorldInitialized =
+    true;
+
+  gardenPendingInitialMode =
+    null;
+
+
+  console.log(
+    "[Garden Bath Test] settled Bath forced."
+  );
+
+
+  return true;
+}
 
 
 /*
