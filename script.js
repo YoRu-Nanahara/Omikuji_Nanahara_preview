@@ -3948,6 +3948,27 @@ if (
       ),
   });
 
+  if (GARDEN_DEBUG_ENABLED) {
+  void queueGardenResourceJob({
+    key:
+      "debug-priority-test:speculative",
+
+    priority:
+      GARDEN_RESOURCE_PRIORITY.SPECULATIVE,
+
+    blocking:
+      false,
+
+    run: async () => {
+      await new Promise(
+        resolve =>
+          setTimeout(resolve, 1000)
+      );
+
+      return true;
+    },
+  });
+}
 
   void queueGardenResourceJob({
     key:
