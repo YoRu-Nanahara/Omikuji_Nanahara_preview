@@ -3929,8 +3929,6 @@ will-change: transform, opacity;
 
 #gardenScene .hot-spring-ambient-mist {
 
-
-  display: none !important;
   position: absolute;
 
   width: 500px;
