@@ -838,6 +838,13 @@ const gardenScreen = document.getElementById("gardenScreen");
    Garden Debug Core
 ========================= */
 
+const GARDEN_DEBUG_DISABLE_DYNAMIC_Z =
+  GARDEN_DEBUG_ENABLED &&
+  new URLSearchParams(
+    window.location.search
+  ).get("gardenStaticZTest") === "1";
+
+
 const GARDEN_DEBUG_ENABLED =
   new URLSearchParams(
     window.location.search
@@ -32310,11 +32317,15 @@ moveChinatsuToDepthLayer(
     `scaleX(${facingScale}) ` +
     `scale(${depthScale})`;
 
- chinatsuWalkTestWrap.style.zIndex =
-  getGardenCharacterVisualZIndex(
-    "chinatsu",
-    chinatsuWalkTestState.y
-  );
+if (
+  !GARDEN_DEBUG_DISABLE_DYNAMIC_Z
+) {
+  chinatsuWalkTestWrap.style.zIndex =
+    getGardenCharacterVisualZIndex(
+      "chinatsu",
+      chinatsuWalkTestState.y
+    );
+}
 
 updateGardenCharacterGroundShadow(
   "chinatsu",
@@ -33041,11 +33052,15 @@ moveChifuyuToDepthLayer(
     chifuyuWalkTest.style.transformOrigin = "";
   }
 
- chifuyuWalkTestWrap.style.zIndex =
-  getGardenCharacterVisualZIndex(
-    "chifuyu",
-    chifuyuWalkTestState.y
-  );
+if (
+  !GARDEN_DEBUG_DISABLE_DYNAMIC_Z
+) {
+  chifuyuWalkTestWrap.style.zIndex =
+    getGardenCharacterVisualZIndex(
+      "chifuyu",
+      chifuyuWalkTestState.y
+    );
+}
 
     updateGardenCharacterGroundShadow(
   "chifuyu",
