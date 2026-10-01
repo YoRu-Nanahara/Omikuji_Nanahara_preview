@@ -3738,16 +3738,36 @@ for (
   const visual of
   criticalVisuals
 ) {
-  await requestGardenAnimationWarmup(
-    visual.characterId,
-    visual.mode,
-    visual.anim
-  );
+  void queueGardenResourceJob({
+    key:
+      `animation-warmup:${visual.characterId}:${visual.mode}`,
 
-  bindGardenSpriteLayerImage(
-    visual.characterId,
-    visual.mode
-  );
+    priority:
+      GARDEN_RESOURCE_PRIORITY.CRITICAL,
+
+    blocking:
+      true,
+
+    run: async () => {
+      const ready =
+        await requestGardenAnimationWarmup(
+          visual.characterId,
+          visual.mode,
+          visual.anim
+        );
+
+      if (!ready) {
+        return false;
+      }
+
+      bindGardenSpriteLayerImage(
+        visual.characterId,
+        visual.mode
+      );
+
+      return true;
+    },
+  });
 }
 
 
@@ -8087,7 +8107,9 @@ setTimeout(() => {
           "hidden"
         )
       ) {
-        return true;
+       return (
+  GARDEN_RESOURCE_JOB_RESULT.SKIPPED
+);
       }
 
       await precacheGardenCharacterModeCompressed(
@@ -8141,14 +8163,16 @@ setTimeout(() => {
       false,
 
     run: async () => {
-      if (
-        !gardenScreen ||
-        gardenScreen.classList.contains(
-          "hidden"
-        )
-      ) {
-        return true;
-      }
+     if (
+  !gardenScreen ||
+  gardenScreen.classList.contains(
+    "hidden"
+  )
+) {
+  return (
+    GARDEN_RESOURCE_JOB_RESULT.SKIPPED
+  );
+}
 
       await precacheGardenCharacterModeCompressed(
         "walk"
@@ -8170,14 +8194,16 @@ setTimeout(() => {
       false,
 
     run: async () => {
-      if (
-        !gardenScreen ||
-        gardenScreen.classList.contains(
-          "hidden"
-        )
-      ) {
-        return true;
-      }
+    if (
+  !gardenScreen ||
+  gardenScreen.classList.contains(
+    "hidden"
+  )
+) {
+  return (
+    GARDEN_RESOURCE_JOB_RESULT.SKIPPED
+  );
+}
 
       await requestGardenAnimationWarmup(
         "chifuyu",
@@ -8201,14 +8227,16 @@ setTimeout(() => {
       false,
 
     run: async () => {
-      if (
-        !gardenScreen ||
-        gardenScreen.classList.contains(
-          "hidden"
-        )
-      ) {
-        return true;
-      }
+     if (
+  !gardenScreen ||
+  gardenScreen.classList.contains(
+    "hidden"
+  )
+) {
+  return (
+    GARDEN_RESOURCE_JOB_RESULT.SKIPPED
+  );
+}
 
       await requestGardenAnimationWarmup(
         "chinatsu",
@@ -12324,78 +12352,61 @@ const GARDEN_CANONICAL_TRAVEL_RUNTIME_ENABLED =
   true;
 
 
-const GARDEN_TRAVEL_FALLBACK_SPEED =
-  140;
+const GARDEN_CHARACTER_WALK_FALLBACK_SPEED =
+  64;
+const GARDEN_CHARACTER_WALK_SPEED =
+  Object.freeze({
+    chifuyu: 65,
+    chinatsu: 63,
+  });
+
+
+function getGardenCharacterWalkSpeed(
+  characterId
+) {
+  const speed =
+    GARDEN_CHARACTER_WALK_SPEED[
+      characterId
+    ];
+
+  if (
+    Number.isFinite(speed) &&
+    speed > 0
+  ) {
+    return speed;
+  }
+
+ return (
+  GARDEN_CHARACTER_WALK_FALLBACK_SPEED
+);
+}
+
 
 
 /*
-  取得 Travel Timeline 使用的
+  取得 Canonical Travel 使用的
   deterministic walking speed。
 
-  千冬：
-  與目前 Runtime moveSpeed 相同，
-  150 px/s。
+  Wander / Travel / local path
+  共用同一份角色固定步速來源：
 
-  千夏：
-  沿用目前依 Y 改變速度的規則。
+  GARDEN_CHARACTER_WALK_SPEED
 
-  注意：
-  這裡只讀 world geometry，
-  不使用 deltaMs / performance.now()。
+  不再依：
+  - Y 座標
+  - 路徑長短
+  - 剩餘時間
+
+  動態改變角色步速。
 */
 function getGardenCanonicalTravelSpeedAtPoint(
   characterId,
   point
 ) {
-  const y =
-    Number.isFinite(
-      point?.y
-    )
-      ? point.y
-      : 0;
-
-
-  if (
-    characterId ===
-      "chinatsu" &&
-    typeof getChinatsuMoveSpeedByY ===
-      "function"
-  ) {
-    const speed =
-      getChinatsuMoveSpeedByY(
-        y
-      );
-
-
-    if (
-      Number.isFinite(
-        speed
-      ) &&
-      speed > 0
-    ) {
-      return speed;
-    }
-  }
-
-
-  if (
-    characterId ===
-      "chifuyu"
-  ) {
-    return 150;
-  }
-
-
-  if (
-    characterId ===
-      "chinatsu"
-  ) {
-    return 145;
-  }
-
-
   return (
-    GARDEN_TRAVEL_FALLBACK_SPEED
+    getGardenCharacterWalkSpeed(
+      characterId
+    )
   );
 }
 
@@ -12559,15 +12570,24 @@ function createGardenCanonicalTravelPathRecord(
 
 
     /*
-      取 segment 兩端速度平均。
+  取 segment 兩端速度平均。
 
-      千冬是固定 150，
-      所以結果完全等同
-      distance / 150。
+  目前角色採固定步速，
+  所以同一角色的：
 
-      千夏則保留
-      遠景慢、近景快的感覺。
-    */
+  fromSpeed === toSpeed
+
+  最終結果等同：
+
+  distance /
+  getGardenCharacterWalkSpeed(
+    characterId
+  )
+
+  保留平均寫法，
+  是為了維持既有 Travel
+  segment timing 結構。
+*/
     const fromSpeed =
       getGardenCanonicalTravelSpeedAtPoint(
         characterId,
@@ -19415,6 +19435,85 @@ const GARDEN_RESOURCE_PRIORITY =
   });
 
 
+const GARDEN_RESOURCE_STATE =
+  Object.freeze({
+    QUEUED: "queued",
+    LOADING: "loading",
+    READY: "ready",
+    FAILED: "failed",
+    SKIPPED: "skipped",
+  });
+
+  const GARDEN_RESOURCE_JOB_RESULT =
+  Object.freeze({
+    SKIPPED: "skipped",
+  });
+
+
+const gardenResourceState =
+  new Map();
+
+
+function setGardenResourceState(
+  key,
+  state
+) {
+  if (
+    !key ||
+    !Object.values(
+      GARDEN_RESOURCE_STATE
+    ).includes(state)
+  ) {
+    return false;
+  }
+
+  gardenResourceState.set(
+    key,
+    state
+  );
+
+  return true;
+}
+
+
+
+
+function getGardenResourceState(
+  key
+) {
+  if (!key) {
+    return null;
+  }
+
+  return (
+    gardenResourceState.get(key) ??
+    null
+  );
+}
+
+function clearGardenResourceState(
+  key
+) {
+  if (!key) {
+    return false;
+  }
+
+  return gardenResourceState.delete(
+    key
+  );
+}
+
+function isGardenResourceReady(
+  key
+) {
+  return (
+    getGardenResourceState(key) ===
+    GARDEN_RESOURCE_STATE.READY
+  );
+}
+
+
+
 const gardenResourceQueue = [];
 
 const gardenResourceJobs =
@@ -19573,6 +19672,22 @@ if (existing) {
 }
 
 
+
+/*
+  Resource 已經真正 READY 時，
+  不再建立第二份 Queue Job。
+
+  如果資源曾被主動 release，
+  release 流程會先 clear Resource State，
+  因此之後仍然可以正常重新排入。
+*/
+if (
+  isGardenResourceReady(key)
+) {
+  return Promise.resolve(true);
+}
+
+
   let resolveJob;
 
   const promise =
@@ -19607,6 +19722,13 @@ if (existing) {
     key,
     job
   );
+
+setGardenResourceState(
+  key,
+  GARDEN_RESOURCE_STATE.QUEUED
+);
+
+
 
   gardenResourceQueue.push(
     job
@@ -19673,6 +19795,15 @@ if (!job) {
 gardenResourceCurrentJob =
   job;
 
+setGardenResourceState(
+  job.key,
+  GARDEN_RESOURCE_STATE.LOADING
+);
+
+
+
+
+
 
 gardenDebugLogEvent(
   "resource-started",
@@ -19710,10 +19841,26 @@ let result = false;
         result = false;
       }
 
+
+
+setGardenResourceState(
+  job.key,
+  result ===
+    GARDEN_RESOURCE_JOB_RESULT.SKIPPED
+    ? GARDEN_RESOURCE_STATE.SKIPPED
+    : result === false
+      ? GARDEN_RESOURCE_STATE.FAILED
+      : GARDEN_RESOURCE_STATE.READY
+);
+
+
 gardenDebugLogEvent(
-  result === false
-    ? "resource-failed"
-    : "resource-completed",
+  result ===
+    GARDEN_RESOURCE_JOB_RESULT.SKIPPED
+    ? "resource-skipped"
+    : result === false
+      ? "resource-failed"
+      : "resource-completed",
 
   job.key,
 
@@ -19879,11 +20026,16 @@ blockingWaiters:
     })
   ),
 
-    queuedCount:
-      gardenResourceQueue.length,
+  queuedCount:
+  gardenResourceQueue.length,
 
-    trackedCount:
-      gardenResourceJobs.size,
+trackedCount:
+  gardenResourceJobs.size,
+
+resourceState:
+  Object.fromEntries(
+    gardenResourceState.entries()
+  ),
   };
 }
 
@@ -20056,54 +20208,63 @@ function prepareGardenHotSpringEntranceVisual(
 
 
   return (
-    requestGardenAnimationWarmup(
-      characterId,
-      "bathWalk",
-      anim
-    )
-      .then((ready) => {
-        if (!ready) {
-          console.warn(
-            "[Hot Spring Entrance] bathWalk warmup failed:",
-            characterId
-          );
+  queueGardenResourceJob({
+    key:
+      `animation-warmup:${characterId}:bathWalk`,
 
-          return false;
-        }
+    priority:
+      GARDEN_RESOURCE_PRIORITY.CRITICAL,
 
+    blocking:
+      false,
 
-        /*
-          再保險一次：
-          讓真正角色 layer 已經綁好
-          正確 background-image。
-
-          此時角色仍在 transit，
-          所以玩家看不到這次切換。
-        */
-        bindGardenSpriteLayerImage(
-          characterId,
-          "bathWalk"
-        );
-
-
-        console.log(
-          "[Hot Spring Entrance] visual ready:",
+    run: () =>
+      requestGardenAnimationWarmup(
+        characterId,
+        "bathWalk",
+        anim
+      ),
+  })
+    .then((ready) => {
+      if (!ready) {
+        console.warn(
+          "[Hot Spring Entrance] bathWalk warmup failed:",
           characterId
         );
 
-
-        return true;
-      })
-      .catch((error) => {
-        console.warn(
-          "[Hot Spring Entrance] visual prepare error:",
-          characterId,
-          error
-        );
-
         return false;
-      })
-  );
+      }
+
+      /*
+        再保險一次：
+        讓真正角色 layer 已經綁好
+        正確 background-image。
+
+        此時角色仍在 transit，
+        所以玩家看不到這次切換。
+      */
+      bindGardenSpriteLayerImage(
+        characterId,
+        "bathWalk"
+      );
+
+      console.log(
+        "[Hot Spring Entrance] visual ready:",
+        characterId
+      );
+
+      return true;
+    })
+    .catch((error) => {
+      console.warn(
+        "[Hot Spring Entrance] visual prepare error:",
+        characterId,
+        error
+      );
+
+      return false;
+    })
+);
 }
 
 
@@ -20465,6 +20626,12 @@ function releaseGardenCharacterAnimationTexture(
     key
   ];
 
+clearGardenResourceState(
+  `animation-warmup:${characterId}:${mode}`
+);
+
+
+
   console.log(
     "[Garden Texture Release]",
     characterId,
@@ -20722,17 +20889,41 @@ async function warmupGardenCriticalAnimationSheets() {
       /*
         Talk
       */
-      await warmupGardenAnimationSheet(
-        "chifuyuTalk",
-        CHIFUYU_TALK_SHEET_CLASS,
-        CHIFUYU_TALK_SHEET_SRC
-      );
+     await queueGardenResourceJob({
+  key:
+    "animation-warmup:chifuyu:walk",
 
-      await warmupGardenAnimationSheet(
-        "chinatsuTalk",
-        CHINATSU_TALK_SHEET_CLASS,
-        CHINATSU_TALK_SHEET_SRC
-      );
+  priority:
+    GARDEN_RESOURCE_PRIORITY.NEAR,
+
+  blocking:
+    false,
+
+  run: () =>
+    requestGardenAnimationWarmup(
+      "chifuyu",
+      "walk",
+      CHIFUYU_ANIMS.walk
+    ),
+});
+
+     await queueGardenResourceJob({
+  key:
+    "animation-warmup:chinatsu:walk",
+
+  priority:
+    GARDEN_RESOURCE_PRIORITY.NEAR,
+
+  blocking:
+    false,
+
+  run: () =>
+    requestGardenAnimationWarmup(
+      "chinatsu",
+      "walk",
+      CHINATSU_ANIMS.walk
+    ),
+});
 
       /*
         Idle
@@ -20906,8 +21097,6 @@ const chifuyuWalkTestState = {
 
   animFinished: false,
 
-  moveSpeed: 150,
-
   path: [],
   isMoving: false,
 
@@ -20988,18 +21177,30 @@ function setChifuyuAnimationMode(
     warmup 完成後才正式切換。
   */
   if (
-    !gardenAnimationWarmupState[
-      warmupKey
-    ]
-  ) {
-    requestGardenAnimationWarmup(
-      "chifuyu",
-      safeMode,
-      anim
-    );
+  !gardenAnimationWarmupState[
+    warmupKey
+  ]
+) {
+  void queueGardenResourceJob({
+    key:
+      `animation-warmup:chifuyu:${safeMode}`,
 
-    return;
-  }
+    priority:
+      GARDEN_RESOURCE_PRIORITY.CRITICAL,
+
+    blocking:
+      false,
+
+    run: () =>
+      requestGardenAnimationWarmup(
+        "chifuyu",
+        safeMode,
+        anim
+      ),
+  });
+
+  return;
+}
 
 
   if (
@@ -24608,8 +24809,6 @@ const chinatsuWalkTestState = {
   animLoopCount: 0,
   animFinished: false,
 
-  moveSpeed: 145,
-
   path: [],
   isMoving: false,
 
@@ -24710,18 +24909,30 @@ function setChinatsuAnimationMode(
 
 
   if (
-    !gardenAnimationWarmupState[
-      warmupKey
-    ]
-  ) {
-    requestGardenAnimationWarmup(
-      "chinatsu",
-      safeMode,
-      anim
-    );
+  !gardenAnimationWarmupState[
+    warmupKey
+  ]
+) {
+  void queueGardenResourceJob({
+    key:
+      `animation-warmup:chinatsu:${safeMode}`,
 
-    return;
-  }
+    priority:
+      GARDEN_RESOURCE_PRIORITY.CRITICAL,
+
+    blocking:
+      false,
+
+    run: () =>
+      requestGardenAnimationWarmup(
+        "chinatsu",
+        safeMode,
+        anim
+      ),
+  });
+
+  return;
+}
 
 
   if (
@@ -29242,22 +29453,6 @@ registerGardenCharacterAnimation(
 
 
 
-
-
-
-
-function getChinatsuMoveSpeedByY(y) {
-  const farY = 470;
-  const nearY = 1810;
-
-  const farSpeed = 95;
-  const nearSpeed = 150;
-
-  const t = Math.max(0, Math.min(1, (y - farY) / (nearY - farY)));
-
-  return farSpeed + t * (nearSpeed - farSpeed);
-}
-
 function updateChinatsuWalkPosition(deltaMs) {
   const state =
     chinatsuWalkTestState;
@@ -29297,8 +29492,14 @@ function updateChinatsuWalkPosition(deltaMs) {
   const dy = target.y - state.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
 
-  const currentSpeed = getChinatsuMoveSpeedByY(state.y);
-  const step = currentSpeed * (deltaMs / 1000);
+  const currentSpeed =
+  getGardenCharacterWalkSpeed(
+    "chinatsu"
+  );
+
+const step =
+  currentSpeed *
+  (deltaMs / 1000);
 
   if (dist <= step) {
     state.x = target.x;
@@ -32121,17 +32322,41 @@ gardenChatState.targetLoops =
   updateGardenChatSystem()
   再讓兩人同一幀開始 Talk。
 */
-requestGardenAnimationWarmup(
-  "chifuyu",
-  "talk",
-  CHIFUYU_ANIMS.talk
-);
+void queueGardenResourceJob({
+  key:
+    "animation-warmup:chifuyu:talk",
 
-requestGardenAnimationWarmup(
-  "chinatsu",
-  "talk",
-  CHINATSU_ANIMS.talk
-);
+  priority:
+    GARDEN_RESOURCE_PRIORITY.CRITICAL,
+
+  blocking:
+    false,
+
+  run: () =>
+    requestGardenAnimationWarmup(
+      "chifuyu",
+      "talk",
+      CHIFUYU_ANIMS.talk
+    ),
+});
+
+void queueGardenResourceJob({
+  key:
+    "animation-warmup:chinatsu:talk",
+
+  priority:
+    GARDEN_RESOURCE_PRIORITY.CRITICAL,
+
+  blocking:
+    false,
+
+  run: () =>
+    requestGardenAnimationWarmup(
+      "chinatsu",
+      "talk",
+      CHINATSU_ANIMS.talk
+    ),
+});
 
 renderChifuyuWalkTest();
 renderChinatsuWalkTest();
@@ -33526,7 +33751,10 @@ function updateChifuyuWalkPosition(deltaMs) {
   const dist = Math.sqrt(dx * dx + dy * dy);
 
   const step =
-    state.moveSpeed * (deltaMs / 1000);
+  getGardenCharacterWalkSpeed(
+    "chifuyu"
+  ) *
+  (deltaMs / 1000);
 
   // 朝向永遠依照實際移動方向
   if (Math.abs(dx) > 2) {
@@ -65207,81 +65435,86 @@ function createGardenDeterministicWanderSlot(
 
 
   /*
-    用直線距離估算合理移動秒數。
+  Canonical Wander 固定步速。
 
-    真正 Path Distance
-    會在 12H-2 才計算。
+  Timeline 與 Spatial Runtime
+  使用同一條真正的 scene-aware path。
 
-    這裡只是 World Timeline
-    的 timing model。
-  */
-  const dx =
-    toAnchor.x -
-    fromAnchor.x;
+  不再用：
+  - Anchor 直線距離估算
+  - 每日隨機 walking speed
+  - 固定 8～45 秒完成
 
-
-  const dy =
-    (
-      toAnchor.y -
-      fromAnchor.y
-    ) *
-    1.15;
-
-
-  const estimatedDistance =
-    Math.sqrt(
-      dx * dx +
-      dy * dy
-    );
+  因此：
+  路越遠 → 花越久
+  路越近 → 花越短
+  角色本身步速保持一致。
+*/
+const pathRecord =
+  getGardenDeterministicWanderPath(
+    fromAnchor,
+    toAnchor
+  );
 
 
-  /*
-    每日 deterministic walking speed。
-
-    只是 Timeline speed，
-    不是直接修改現有動畫速度。
-  */
-  const estimatedSpeed =
-    getGardenWorldDailyDecisionInt({
-      dateKey:
-        address.dateKey,
-
-      characterId,
-
-      domainId:
-        "wander",
-
-      subjectId:
-        `${sceneId}:slotTiming`,
-
-      instanceId:
-        `slot-${address.slotIndex}`,
-
-      decisionId:
-        "estimatedSpeed",
-
-      min:
-        55,
-
-      max:
-        75,
-    }) ??
-    65;
+if (!pathRecord) {
+  return null;
+}
 
 
-  const moveDurationSeconds =
-    Math.max(
-      8,
+/*
+  固定角色步速。
 
-      Math.min(
-        45,
+  先使用接近舊 Timeline
+  55～75 px/s 中間值的速度，
+  避免一次把整體 Wander 節奏
+  改得太快。
 
-        Math.round(
-          estimatedDistance /
-          estimatedSpeed
-        )
-      )
-    );
+  千冬稍快，
+  千夏稍慢。
+*/
+const estimatedSpeed =
+  getGardenCharacterWalkSpeed(
+    characterId
+  );
+
+
+/*
+  現在 estimatedDistance
+  實際上已經是真正 Path Distance。
+
+  暫時保留舊欄位名稱，
+  避免影響現有 debug / self-test。
+*/
+const estimatedDistance =
+  pathRecord.totalDistance;
+
+
+/*
+  一個 Wander Slot 是 120 秒。
+
+  前後各保留至少 20 秒 Idle，
+  因此單次 Move 最多使用 80 秒。
+
+  正常 Garden 路線預期不會碰到
+  這個上限；它只是防止極端資料
+  讓 MOVE 超出 Slot。
+*/
+const maxMoveDurationSeconds =
+  Math.max(
+    1,
+    GARDEN_WANDER_SLOT_SECONDS -
+      40
+  );
+
+
+const moveDurationSeconds =
+  Math.min(
+    maxMoveDurationSeconds,
+
+    estimatedDistance /
+      estimatedSpeed
+  );
 
 
   /*
