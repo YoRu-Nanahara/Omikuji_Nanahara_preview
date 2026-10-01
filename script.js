@@ -72709,6 +72709,57 @@ gardenDebugLogEvent(
    Performance Sampler
 ========================= */
 
+/* =========================
+   Garden Debug Frame Spikes
+========================= */
+
+const GARDEN_DEBUG_MAX_FRAME_SPIKES =
+  30;
+
+let gardenDebugFrameSpikes = [];
+
+
+function recordGardenDebugFrameSpike(
+  deltaMs
+) {
+  if (
+    !GARDEN_DEBUG_ENABLED ||
+    !Number.isFinite(deltaMs) ||
+    deltaMs < 33
+  ) {
+    return;
+  }
+
+
+  const timestamp =
+    typeof getGardenWorldNow ===
+      "function"
+      ? getGardenWorldNow()
+      : Date.now();
+
+
+  gardenDebugFrameSpikes.push({
+    timestamp,
+
+    durationMs:
+      Number(
+        deltaMs.toFixed(1)
+      ),
+  });
+
+
+  if (
+    gardenDebugFrameSpikes.length >
+    GARDEN_DEBUG_MAX_FRAME_SPIKES
+  ) {
+    gardenDebugFrameSpikes =
+      gardenDebugFrameSpikes.slice(
+        -GARDEN_DEBUG_MAX_FRAME_SPIKES
+      );
+  }
+}
+
+
 const gardenDebugPerformanceState = {
   running: false,
 
@@ -72874,6 +72925,11 @@ function updateGardenDebugPerformance(
     deltaMs > 0 &&
     deltaMs < 1000
   ) {
+
+recordGardenDebugFrameSpike(
+  deltaMs
+);
+
     state.frameCount += 1;
 
     state.totalFrameMs +=
@@ -73721,6 +73777,47 @@ return [
 }
 
 
+function formatGardenDebugFrameSpikes() {
+  if (
+    gardenDebugFrameSpikes.length ===
+    0
+  ) {
+    return "(none)";
+  }
+
+
+  return gardenDebugFrameSpikes
+    .map(
+      spike => {
+        const baseTime =
+          formatGardenDebugWorldTime(
+            spike.timestamp
+          );
+
+        const milliseconds =
+          String(
+            Math.floor(
+              spike.timestamp %
+              1000
+            )
+          ).padStart(
+            3,
+            "0"
+          );
+
+
+        return (
+          `${baseTime}.${milliseconds}` +
+          ` [frame-spike] ` +
+          `${spike.durationMs.toFixed(1)}ms`
+        );
+      }
+    )
+    .join("\n");
+}
+
+
+
 function formatGardenDebugEvents() {
   return gardenDebugEvents
     .slice(-50)
@@ -73798,16 +73895,21 @@ async function copyGardenDebugSnapshot() {
     createGardenDebugSnapshot();
 
 
-  const text = [
-    formatGardenDebugSnapshot(
-      snapshot
-    ),
+ const text = [
+  formatGardenDebugSnapshot(
+    snapshot
+  ),
 
-    "",
-    "",
-    "=== LAST EVENTS ===",
-    formatGardenDebugEvents(),
-  ].join("\n");
+  "",
+  "",
+  "=== FRAME SPIKES >=33ms ===",
+  formatGardenDebugFrameSpikes(),
+
+  "",
+  "",
+  "=== LAST EVENTS ===",
+  formatGardenDebugEvents(),
+].join("\n");
 
 
   try {
