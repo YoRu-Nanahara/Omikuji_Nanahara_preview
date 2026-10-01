@@ -72751,6 +72751,43 @@ const gardenDebugPerformanceState = {
 
     over100Ms: 0,
   },
+
+    longWindowElapsedMs:
+    0,
+
+  longFrameCount:
+    0,
+
+  longTotalFrameMs:
+    0,
+
+  longMaxFrameMs:
+    0,
+
+  longOver33Ms:
+    0,
+
+  longOver50Ms:
+    0,
+
+  longOver100Ms:
+    0,
+
+  latest30s: {
+    ready: false,
+
+    fps: null,
+
+    avgFrameMs: null,
+
+    maxFrameMs: null,
+
+    over33Ms: 0,
+
+    over50Ms: 0,
+
+    over100Ms: 0,
+  },
 };
 
 
@@ -72862,6 +72899,110 @@ function updateGardenDebugPerformance(
     if (deltaMs >= 100) {
       state.over100Ms += 1;
     }
+
+    /*
+      =========================
+      30 Second Window
+      =========================
+    */
+
+    state.longWindowElapsedMs +=
+      deltaMs;
+
+    state.longFrameCount += 1;
+
+    state.longTotalFrameMs +=
+      deltaMs;
+
+    state.longMaxFrameMs =
+      Math.max(
+        state.longMaxFrameMs,
+        deltaMs
+      );
+
+
+    if (deltaMs >= 33) {
+      state.longOver33Ms += 1;
+    }
+
+
+    if (deltaMs >= 50) {
+      state.longOver50Ms += 1;
+    }
+
+
+    if (deltaMs >= 100) {
+      state.longOver100Ms += 1;
+    }
+
+
+    /*
+      累積滿約 30 秒才產生結果。
+    */
+    if (
+      state.longWindowElapsedMs >=
+      30000
+    ) {
+      const longFrameCount =
+        state.longFrameCount;
+
+
+      state.latest30s = {
+        ready: true,
+
+        fps:
+          longFrameCount > 0
+            ? (
+                longFrameCount *
+                1000 /
+                state.longWindowElapsedMs
+              )
+            : 0,
+
+        avgFrameMs:
+          longFrameCount > 0
+            ? (
+                state.longTotalFrameMs /
+                longFrameCount
+              )
+            : null,
+
+        maxFrameMs:
+          state.longMaxFrameMs,
+
+        over33Ms:
+          state.longOver33Ms,
+
+        over50Ms:
+          state.longOver50Ms,
+
+        over100Ms:
+          state.longOver100Ms,
+      };
+
+
+      state.longWindowElapsedMs =
+        0;
+
+      state.longFrameCount =
+        0;
+
+      state.longTotalFrameMs =
+        0;
+
+      state.longMaxFrameMs =
+        0;
+
+      state.longOver33Ms =
+        0;
+
+      state.longOver50Ms =
+        0;
+
+      state.longOver100Ms =
+        0;
+    }
+
   }
 
 
@@ -73287,7 +73428,7 @@ function createGardenDebugSnapshot() {
       now,
 
 
-      performance: {
+performance: {
   fps:
     gardenDebugPerformanceState
       .latest
@@ -73317,57 +73458,94 @@ function createGardenDebugSnapshot() {
     gardenDebugPerformanceState
       .latest
       .over100Ms,
+
+  long30s: {
+    ready:
+      gardenDebugPerformanceState
+        .latest30s
+        .ready,
+
+    fps:
+      gardenDebugPerformanceState
+        .latest30s
+        .fps,
+
+    avgFrameMs:
+      gardenDebugPerformanceState
+        .latest30s
+        .avgFrameMs,
+
+    maxFrameMs:
+      gardenDebugPerformanceState
+        .latest30s
+        .maxFrameMs,
+
+    over33Ms:
+      gardenDebugPerformanceState
+        .latest30s
+        .over33Ms,
+
+    over50Ms:
+      gardenDebugPerformanceState
+        .latest30s
+        .over50Ms,
+
+    over100Ms:
+      gardenDebugPerformanceState
+        .latest30s
+        .over100Ms,
+  },
 },
 
-    worldTimeText:
-      formatGardenDebugWorldTime(
-        now
-      ),
+worldTimeText:
+  formatGardenDebugWorldTime(
+    now
+  ),
 
-    device:
-      getGardenDebugDeviceLabel(),
+device:
+  getGardenDebugDeviceLabel(),
 
-    safeMode:
-      typeof GARDEN_IPAD_SAFE_MODE !==
-        "undefined"
-        ? GARDEN_IPAD_SAFE_MODE
-        : null,
+safeMode:
+  typeof GARDEN_IPAD_SAFE_MODE !==
+    "undefined"
+    ? GARDEN_IPAD_SAFE_MODE
+    : null,
 
-    viewport:
-      {
-        width:
-          window.innerWidth,
+viewport: {
+  width:
+    window.innerWidth,
 
-        height:
-          window.innerHeight,
+  height:
+    window.innerHeight,
 
-        dpr:
-          window.devicePixelRatio,
-      },
+  dpr:
+    window.devicePixelRatio,
+},
 
-    gardenVisible:
-      !!gardenScreen &&
-      !gardenScreen.classList.contains(
-        "hidden"
-      ),
+gardenVisible:
+  !!gardenScreen &&
+  !gardenScreen.classList.contains(
+    "hidden"
+  ),
 
-    viewScene:
-      gardenViewSceneId ??
-      null,
+viewScene:
+  gardenViewSceneId ??
+  null,
 
-    mist:
-      getGardenDebugMistState(),
+mist:
+  getGardenDebugMistState(),
 
-    chifuyu:
-      getGardenDebugCharacterState(
-        "chifuyu"
-      ),
+chifuyu:
+  getGardenDebugCharacterState(
+    "chifuyu"
+  ),
 
-    chinatsu:
-      getGardenDebugCharacterState(
-        "chinatsu"
-      ),
-  };
+chinatsu:
+  getGardenDebugCharacterState(
+    "chinatsu"
+  ),
+
+};
 }
 
 
@@ -73437,6 +73615,35 @@ function formatGardenDebugSnapshot(
   const performance =
   snapshot.performance;
 
+  const long30s =
+  performance?.long30s;
+
+
+const longFpsText =
+  Number.isFinite(
+    long30s?.fps
+  )
+    ? long30s.fps.toFixed(1)
+    : "-";
+
+
+const longAvgText =
+  Number.isFinite(
+    long30s?.avgFrameMs
+  )
+    ? long30s.avgFrameMs
+        .toFixed(1)
+    : "-";
+
+
+const longMaxText =
+  Number.isFinite(
+    long30s?.maxFrameMs
+  )
+    ? long30s.maxFrameMs
+        .toFixed(1)
+    : "-";
+
 
 const fpsText =
   Number.isFinite(
@@ -73474,7 +73681,7 @@ return [
   `viewScene: ${snapshot.viewScene}`,
 
   "",
-  "--- PERFORMANCE ---",
+  "--- PERFORMANCE / 2s ---",
   `fps: ${fpsText}`,
   `avg frame: ${avgFrameText} ms`,
   `max frame: ${maxFrameText} ms`,
@@ -73483,14 +73690,17 @@ return [
   `>=100ms: ${performance?.over100Ms ?? 0}`,
 
   "",
-  "--- MIST ---",
-    `safeMode: ${snapshot.safeMode}`,
-    `viewport: ${snapshot.viewport.width}x${snapshot.viewport.height} @${snapshot.viewport.dpr}`,
-    `gardenVisible: ${snapshot.gardenVisible}`,
-    `viewScene: ${snapshot.viewScene}`,
+  "--- PERFORMANCE / 30s ---",
+  `ready: ${long30s?.ready ?? false}`,
+  `fps: ${longFpsText}`,
+  `avg frame: ${longAvgText} ms`,
+  `max frame: ${longMaxText} ms`,
+  `>=33ms: ${long30s?.over33Ms ?? 0}`,
+  `>=50ms: ${long30s?.over50Ms ?? 0}`,
+  `>=100ms: ${long30s?.over100Ms ?? 0}`,
 
-    "",
-    "--- MIST ---",
+  "",
+  "--- MIST ---",
     `hydrated: ${snapshot.mist.hydrated}`,
     `active: ${snapshot.mist.active}`,
     `leaving: ${snapshot.mist.leaving}`,
