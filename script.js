@@ -15625,9 +15625,9 @@ function applyGardenCanonicalTravelRuntimeForCharacter(
 */
 const scheduleContinuation =
   completion.ok
-    ? continueGardenCharacterScheduleAfterTravel(
+    ? continueGardenCharacterScheduleAfterSpatialHandoff(
         characterId,
-        timestamp
+        completion.completedAt
       )
     : null;
 
@@ -23315,7 +23315,7 @@ function runGardenTravelSpatialPlanPersistenceSelfTest() {
 
 
 
-function continueGardenCharacterScheduleAfterTravel(
+function continueGardenCharacterScheduleAfterSpatialHandoff(
   characterId,
   timestamp =
     getGardenWorldNow()
@@ -23377,12 +23377,39 @@ function continueGardenCharacterScheduleAfterTravel(
       characterId,
       worldPoint,
       {
-        worldTimestamp:
-          timestamp,
-      }
+  worldTimestamp:
+    timestamp,
+
+  /*
+    這不是單純「現在幾點」，
+    而是上一個 Canonical Spatial Stage
+    真正完成、把控制權交給 Schedule
+    的時間。
+  */
+  handoffStartedAt:
+    timestamp,
+}
     )
   );
 }
+
+/*
+  舊名稱暫時保留，
+  避免其他既有呼叫需要一次全部改名。
+*/
+function continueGardenCharacterScheduleAfterTravel(
+  characterId,
+  timestamp =
+    getGardenWorldNow()
+) {
+  return (
+    continueGardenCharacterScheduleAfterSpatialHandoff(
+      characterId,
+      timestamp
+    )
+  );
+}
+
 
 
 
@@ -23805,6 +23832,30 @@ const requestedStartedAt =
     : null;
 
 
+
+/*
+  Canonical Handoff Travel：
+
+  某些 Travel 有明確的 historical
+  startedAt，但起點不能重新從
+  Standard Wander 推算。
+
+  例如：
+  - Bath Exit → Night Walk
+  - Multi-hop Travel continuation
+
+  這些情況必須：
+  時間沿用 canonical handoff timestamp，
+  位置沿用角色真正完成上一階段後的位置。
+*/
+const startFromCurrentPosition =
+  hasTravelOptions &&
+  options.startFromCurrentPosition ===
+    true;
+
+
+
+
 const travelTimeline =
   createGardenCharacterTravelTimeline(
     requestedStartedAt
@@ -23822,13 +23873,16 @@ const travelTimeline =
   去建立一趟過去開始的 Travel。
 */
 const canonicalStart =
-  requestedStartedAt !== null
+  requestedStartedAt !== null &&
+  !startFromCurrentPosition
     ? resolveGardenDeterministicWanderPositionAtTimestamp(
         character,
         fromSceneId,
         travelTimeline.startedAt
       )
     : null;
+
+
 
 
 /*
@@ -23840,6 +23894,7 @@ const canonicalStart =
 */
 if (
   requestedStartedAt !== null &&
+  !startFromCurrentPosition &&
   (
     !canonicalStart ||
     !Number.isFinite(
@@ -39345,22 +39400,37 @@ else if (
     "exit"
 ) {
   /*
-    E → A 完成：
+    E → A 完成。
 
-    已經離開池水，
-    但仍然處於 Hot Spring
-    bathing session。
-
-    不可以切 WANDER，
-    否則 Canonical Wander
-    會立刻重新取得 Spatial Ownership，
-    造成位置跳動。
+    暫時仍保持 BATH semantic，
+    避免 Canonical Wander
+    搶走 Spatial Ownership。
   */
   setGardenCharacterActivity(
     characterId,
     GARDEN_CHARACTER_ACTIVITY
       .BATH,
     null
+  );
+
+
+  /*
+    Exit 已有精確 canonical endsAt。
+
+    不等下一次 1s Boundary Tick /
+    30s Live Tick，
+    直接把這個時間點交棒給
+    下一個 Schedule stage。
+
+    Cold Start 時即使現在已經 23:03，
+    也會從 23:00.xx 的 Exit 完成時間
+    繼續建立 Night Walk Travel，
+    然後由 Canonical Travel
+    自動 fast-forward 到現在。
+  */
+  continueGardenCharacterScheduleAfterSpatialHandoff(
+    characterId,
+    plan.endsAt
   );
 }
 
@@ -56221,6 +56291,14 @@ const scheduleStartedAt =
     decision.activeEntry
   );
 
+
+const handoffStartedAt =
+  isValidGardenWorldTimestamp(
+    options.handoffStartedAt
+  )
+    ? options.handoffStartedAt
+    : null;
+
 /*
   Bath Exit → Travel Handoff
 
@@ -56287,13 +56365,22 @@ const isTravelContinuationHandoff =
           .semanticActivityId ??
         null,
 
-     startedAt:
+startedAt:
   (
     isBathExitTravelHandoff ||
     isTravelContinuationHandoff
   )
-    ? null
+    ? (
+        handoffStartedAt ??
+        null
+      )
     : scheduleStartedAt,
+
+startFromCurrentPosition:
+  (
+    isBathExitTravelHandoff ||
+    isTravelContinuationHandoff
+  ),
     }
   );
 
@@ -56470,6 +56557,14 @@ if (
 
   不可以從 22:12 重新跑 A → E。
 */
+const handoffStartedAt =
+  isValidGardenWorldTimestamp(
+    options.handoffStartedAt
+  )
+    ? options.handoffStartedAt
+    : null;
+
+
 const scheduleBathStartedAt =
   getGardenScheduleEntryStartTimestamp(
     decision.activeEntry
@@ -56477,17 +56572,20 @@ const scheduleBathStartedAt =
 
 
 const bathStartedAt =
-  isValidGardenWorldTimestamp(
-    scheduleBathStartedAt
-  )
-    ? scheduleBathStartedAt
+  handoffStartedAt !== null
+    ? handoffStartedAt
 
     : isValidGardenWorldTimestamp(
-        options.worldTimestamp
+        scheduleBathStartedAt
       )
-      ? options.worldTimestamp
+      ? scheduleBathStartedAt
 
-      : getGardenWorldNow();
+      : isValidGardenWorldTimestamp(
+          options.worldTimestamp
+        )
+        ? options.worldTimestamp
+
+        : getGardenWorldNow();
 
 
 const bathPlan =
