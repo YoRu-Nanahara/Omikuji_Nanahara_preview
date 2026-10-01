@@ -72704,6 +72704,258 @@ gardenDebugLogEvent(
    Garden Debug HUD
 ========================= */
 
+/* =========================
+   Garden Debug
+   Performance Sampler
+========================= */
+
+const gardenDebugPerformanceState = {
+  running: false,
+
+  rafId: null,
+
+  lastFrameTimestamp:
+    null,
+
+  windowStartedAt:
+    null,
+
+  frameCount:
+    0,
+
+  totalFrameMs:
+    0,
+
+  maxFrameMs:
+    0,
+
+  over33Ms:
+    0,
+
+  over50Ms:
+    0,
+
+  over100Ms:
+    0,
+
+  latest: {
+    fps: null,
+
+    avgFrameMs: null,
+
+    maxFrameMs: null,
+
+    over33Ms: 0,
+
+    over50Ms: 0,
+
+    over100Ms: 0,
+  },
+};
+
+
+function resetGardenDebugPerformanceWindow(
+  timestamp
+) {
+  gardenDebugPerformanceState
+    .windowStartedAt =
+      timestamp;
+
+  gardenDebugPerformanceState
+    .frameCount =
+      0;
+
+  gardenDebugPerformanceState
+    .totalFrameMs =
+      0;
+
+  gardenDebugPerformanceState
+    .maxFrameMs =
+      0;
+
+  gardenDebugPerformanceState
+    .over33Ms =
+      0;
+
+  gardenDebugPerformanceState
+    .over50Ms =
+      0;
+
+  gardenDebugPerformanceState
+    .over100Ms =
+      0;
+}
+
+
+function updateGardenDebugPerformance(
+  timestamp
+) {
+  const state =
+    gardenDebugPerformanceState;
+
+
+  /*
+    第一幀只建立基準。
+  */
+  if (
+    state.lastFrameTimestamp ===
+    null
+  ) {
+    state.lastFrameTimestamp =
+      timestamp;
+
+    resetGardenDebugPerformanceWindow(
+      timestamp
+    );
+
+    state.rafId =
+      requestAnimationFrame(
+        updateGardenDebugPerformance
+      );
+
+    return;
+  }
+
+
+  const deltaMs =
+    timestamp -
+    state.lastFrameTimestamp;
+
+
+  state.lastFrameTimestamp =
+    timestamp;
+
+
+  /*
+    如果分頁曾進背景，
+    回來第一幀可能幾百甚至幾千 ms。
+
+    這不是 Garden 真正的 frame lag，
+    不納入統計。
+  */
+  if (
+    deltaMs > 0 &&
+    deltaMs < 1000
+  ) {
+    state.frameCount += 1;
+
+    state.totalFrameMs +=
+      deltaMs;
+
+    state.maxFrameMs =
+      Math.max(
+        state.maxFrameMs,
+        deltaMs
+      );
+
+
+    if (deltaMs >= 33) {
+      state.over33Ms += 1;
+    }
+
+
+    if (deltaMs >= 50) {
+      state.over50Ms += 1;
+    }
+
+
+    if (deltaMs >= 100) {
+      state.over100Ms += 1;
+    }
+  }
+
+
+  const windowElapsedMs =
+    timestamp -
+    state.windowStartedAt;
+
+
+  /*
+    每 2 秒產生一次統計。
+
+    不需要每幀更新 HUD，
+    避免 Debug 本身增加負擔。
+  */
+  if (
+    windowElapsedMs >= 2000
+  ) {
+    const frameCount =
+      state.frameCount;
+
+
+    state.latest = {
+      fps:
+        frameCount > 0
+          ? (
+              frameCount *
+              1000 /
+              windowElapsedMs
+            )
+          : 0,
+
+      avgFrameMs:
+        frameCount > 0
+          ? (
+              state.totalFrameMs /
+              frameCount
+            )
+          : null,
+
+      maxFrameMs:
+        state.maxFrameMs,
+
+      over33Ms:
+        state.over33Ms,
+
+      over50Ms:
+        state.over50Ms,
+
+      over100Ms:
+        state.over100Ms,
+    };
+
+
+    resetGardenDebugPerformanceWindow(
+      timestamp
+    );
+  }
+
+
+  state.rafId =
+    requestAnimationFrame(
+      updateGardenDebugPerformance
+    );
+}
+
+
+function startGardenDebugPerformanceSampler() {
+  if (
+    !GARDEN_DEBUG_ENABLED ||
+    gardenDebugPerformanceState
+      .running
+  ) {
+    return;
+  }
+
+
+  gardenDebugPerformanceState
+    .running =
+      true;
+
+  gardenDebugPerformanceState
+    .lastFrameTimestamp =
+      null;
+
+
+  gardenDebugPerformanceState
+    .rafId =
+      requestAnimationFrame(
+        updateGardenDebugPerformance
+      );
+}
+
+
+
 const gardenDebugHudState = {
   frozen: false,
   eventsVisible: false,
@@ -73034,6 +73286,39 @@ function createGardenDebugSnapshot() {
     worldTime:
       now,
 
+
+      performance: {
+  fps:
+    gardenDebugPerformanceState
+      .latest
+      .fps,
+
+  avgFrameMs:
+    gardenDebugPerformanceState
+      .latest
+      .avgFrameMs,
+
+  maxFrameMs:
+    gardenDebugPerformanceState
+      .latest
+      .maxFrameMs,
+
+  over33Ms:
+    gardenDebugPerformanceState
+      .latest
+      .over33Ms,
+
+  over50Ms:
+    gardenDebugPerformanceState
+      .latest
+      .over50Ms,
+
+  over100Ms:
+    gardenDebugPerformanceState
+      .latest
+      .over100Ms,
+},
+
     worldTimeText:
       formatGardenDebugWorldTime(
         now
@@ -73149,10 +73434,56 @@ function formatGardenDebugSnapshot(
       .join(" ");
 
 
-  return [
-    "=== GARDEN DEBUG ===",
-    `time: ${snapshot.worldTimeText}`,
-    `device: ${snapshot.device}`,
+  const performance =
+  snapshot.performance;
+
+
+const fpsText =
+  Number.isFinite(
+    performance?.fps
+  )
+    ? performance.fps.toFixed(1)
+    : "-";
+
+
+const avgFrameText =
+  Number.isFinite(
+    performance?.avgFrameMs
+  )
+    ? performance.avgFrameMs
+        .toFixed(1)
+    : "-";
+
+
+const maxFrameText =
+  Number.isFinite(
+    performance?.maxFrameMs
+  )
+    ? performance.maxFrameMs
+        .toFixed(1)
+    : "-";
+
+
+return [
+  "=== GARDEN DEBUG ===",
+  `time: ${snapshot.worldTimeText}`,
+  `device: ${snapshot.device}`,
+  `safeMode: ${snapshot.safeMode}`,
+  `viewport: ${snapshot.viewport.width}x${snapshot.viewport.height} @${snapshot.viewport.dpr}`,
+  `gardenVisible: ${snapshot.gardenVisible}`,
+  `viewScene: ${snapshot.viewScene}`,
+
+  "",
+  "--- PERFORMANCE ---",
+  `fps: ${fpsText}`,
+  `avg frame: ${avgFrameText} ms`,
+  `max frame: ${maxFrameText} ms`,
+  `>=33ms: ${performance?.over33Ms ?? 0}`,
+  `>=50ms: ${performance?.over50Ms ?? 0}`,
+  `>=100ms: ${performance?.over100Ms ?? 0}`,
+
+  "",
+  "--- MIST ---",
     `safeMode: ${snapshot.safeMode}`,
     `viewport: ${snapshot.viewport.width}x${snapshot.viewport.height} @${snapshot.viewport.dpr}`,
     `gardenVisible: ${snapshot.gardenVisible}`,
@@ -73535,4 +73866,6 @@ function initializeGardenDebugHud() {
 
 
 initializeGardenDebugHud();
+
+startGardenDebugPerformanceSampler();
 
