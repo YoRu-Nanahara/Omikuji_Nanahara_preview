@@ -20601,33 +20601,6 @@ releaseGardenCharacterAnimationTexture(
 );
 
 
-/*
-  iPad settled Bath diagnostic：
-
-  正式泡澡期間只保留目前正在顯示的
-  bathSoakIdle。
-
-  普通 idle / walk / talk 此刻都不會使用，
-  主動解除大型 texture 引用，
-  測試是否為 GPU / decoded image
-  resident memory 壓力來源。
-*/
-if (
-  GARDEN_IPAD_SAFE_MODE
-) {
-  for (
-    const mode of [
-      "idle",
-      "walk",
-      "talk",
-    ]
-  ) {
-    releaseGardenCharacterAnimationTexture(
-      characterId,
-      mode
-    );
-  }
-}
     });
   });
 }
@@ -21228,23 +21201,7 @@ function updateChifuyuAnimationFrame(
     return;
   }
 
-/*
-  iPad Bath Soak FPS diagnostic：
 
-  保留 bathSoakIdle sprite，
-  但暫停 background-position 換格。
-
-  用來確認 Hot Spring 的低 FPS
-  是否由 soak spritesheet frame switching
-  所造成。
-*/
-if (
-  GARDEN_IPAD_SAFE_MODE &&
-  state.animMode ===
-    "bathSoakIdle"
-) {
-  return;
-}
 
 
 
@@ -24988,17 +24945,6 @@ function updateChinatsuAnimationFrame(
     return;
   }
 
-
-/*
-  iPad Bath Soak FPS diagnostic
-*/
-if (
-  GARDEN_IPAD_SAFE_MODE &&
-  state.animMode ===
-    "bathSoakIdle"
-) {
-  return;
-}
 
 
   /*
