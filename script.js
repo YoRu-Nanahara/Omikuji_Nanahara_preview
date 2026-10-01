@@ -3902,16 +3902,39 @@ if (
 ) {
 
 
-  if (GARDEN_DEBUG_ENABLED) {
+if (GARDEN_DEBUG_ENABLED) {
   /*
-    Promotion Test
+    Queued Promotion Test
 
-    target 先以低優先、non-blocking 排入，
-    接著放一個 NEAR control，
-    最後再用相同 key 把 target 升級成
-    CRITICAL + blocking。
+    blocker 先開始執行，
+    讓後面的 target / control
+    都確實留在 pending Queue 中。
   */
 
+  void queueGardenResourceJob({
+    key:
+      "debug-promotion-blocker",
+
+    priority:
+      GARDEN_RESOURCE_PRIORITY.CRITICAL,
+
+    blocking:
+      false,
+
+    run: async () => {
+      await new Promise(
+        resolve =>
+          setTimeout(resolve, 500)
+      );
+
+      return true;
+    },
+  });
+
+
+  /*
+    target 先以最低優先排隊。
+  */
   void queueGardenResourceJob({
     key:
       "debug-promotion-target",
@@ -3925,7 +3948,7 @@ if (
     run: async () => {
       await new Promise(
         resolve =>
-          setTimeout(resolve, 600)
+          setTimeout(resolve, 300)
       );
 
       return true;
@@ -3933,6 +3956,10 @@ if (
   });
 
 
+  /*
+    control 比 target 優先。
+    promotion 前正常應排在 target 前面。
+  */
   void queueGardenResourceJob({
     key:
       "debug-promotion-control",
@@ -3955,10 +3982,12 @@ if (
 
 
   /*
-    相同 key 再送一次。
+    blocker 還在跑時，
+    target 尚未開始。
 
-    不應建立第二份 target，
-    而是直接升級原本那份。
+    現在用相同 key
+    把 pending target 升成：
+    CRITICAL + blocking。
   */
   void queueGardenResourceJob({
     key:
@@ -3971,10 +4000,6 @@ if (
       true,
 
     run: async () => {
-      /*
-        正常情況永遠不會執行到這份 run，
-        因為相同 key 會沿用原 Job。
-      */
       console.warn(
         "[Garden Debug] duplicate promotion run should not execute"
       );
