@@ -3901,25 +3901,71 @@ for (
 
   這不是最終 Resource Scheduler。
 */
+/*
+  =========================
+  Step 1 Resource Queue PoC
+  Prewarm Ordinary Walk
+  =========================
+
+  行為暫時維持與上一版完全相同：
+
+  1. Walk 素材先進 HTTP cache
+  2. 千冬 Walk warmup
+  3. 千夏 Walk warmup
+  4. 全部完成後才允許 Garden 開門
+
+  差別只有：
+  工作現在統一交給
+  Garden Resource Queue 排程。
+*/
 if (
   GARDEN_IPAD_SAFE_MODE &&
   initialMode !== "chat"
 ) {
-  await precacheGardenCharacterModeCompressed(
-    "walk"
-  );
+  await queueGardenResourceJob({
+    key:
+      "character-mode-cache:walk",
 
-  await requestGardenAnimationWarmup(
-    "chifuyu",
-    "walk",
-    CHIFUYU_ANIMS.walk
-  );
+    priority:
+      GARDEN_RESOURCE_PRIORITY.CRITICAL,
 
-  await requestGardenAnimationWarmup(
-    "chinatsu",
-    "walk",
-    CHINATSU_ANIMS.walk
-  );
+    run: () =>
+      precacheGardenCharacterModeCompressed(
+        "walk"
+      ),
+  });
+
+
+  await queueGardenResourceJob({
+    key:
+      "animation-warmup:chifuyu:walk",
+
+    priority:
+      GARDEN_RESOURCE_PRIORITY.CRITICAL,
+
+    run: () =>
+      requestGardenAnimationWarmup(
+        "chifuyu",
+        "walk",
+        CHIFUYU_ANIMS.walk
+      ),
+  });
+
+
+  await queueGardenResourceJob({
+    key:
+      "animation-warmup:chinatsu:walk",
+
+    priority:
+      GARDEN_RESOURCE_PRIORITY.CRITICAL,
+
+    run: () =>
+      requestGardenAnimationWarmup(
+        "chinatsu",
+        "walk",
+        CHINATSU_ANIMS.walk
+      ),
+  });
 }
 
   /*
@@ -19337,6 +19383,186 @@ const gardenOnDemandWarmupPromises =
 */
 let gardenIpadWarmupChain =
   Promise.resolve();
+
+
+
+/* =========================
+   Garden Resource Queue
+   Phase 1
+========================= */
+
+const GARDEN_RESOURCE_PRIORITY =
+  Object.freeze({
+    CRITICAL: 0,
+    NEAR: 10,
+    FUTURE: 20,
+    SPECULATIVE: 30,
+  });
+
+
+const gardenResourceQueue = [];
+
+const gardenResourceJobs =
+  new Map();
+
+let gardenResourceQueueRunning =
+  false;
+
+let gardenResourceJobSequence =
+  0;
+
+
+function queueGardenResourceJob({
+  key,
+  priority =
+    GARDEN_RESOURCE_PRIORITY.NEAR,
+  run,
+}) {
+  if (
+    !key ||
+    typeof run !== "function"
+  ) {
+    return Promise.resolve(false);
+  }
+
+
+  /*
+    同一個資源工作如果：
+    - 已在 Queue
+    - 或正在執行
+
+    直接沿用原本 Promise。
+  */
+  const existing =
+    gardenResourceJobs.get(key);
+
+  if (existing) {
+    return existing.promise;
+  }
+
+
+  let resolveJob;
+
+  const promise =
+    new Promise((resolve) => {
+      resolveJob = resolve;
+    });
+
+
+  const job = {
+    key,
+
+    priority:
+      Number.isFinite(priority)
+        ? priority
+        : GARDEN_RESOURCE_PRIORITY.NEAR,
+
+    sequence:
+      gardenResourceJobSequence++,
+
+    run,
+    resolve:
+      resolveJob,
+
+    promise,
+  };
+
+
+  gardenResourceJobs.set(
+    key,
+    job
+  );
+
+  gardenResourceQueue.push(
+    job
+  );
+
+
+  /*
+    數字越小越優先。
+
+    相同 Priority 時，
+    保持加入順序。
+  */
+  gardenResourceQueue.sort(
+    (a, b) =>
+      a.priority - b.priority ||
+      a.sequence - b.sequence
+  );
+
+
+  void runGardenResourceQueue();
+
+  return promise;
+}
+
+
+async function runGardenResourceQueue() {
+  if (gardenResourceQueueRunning) {
+    return;
+  }
+
+
+  gardenResourceQueueRunning =
+    true;
+
+
+  try {
+    while (
+      gardenResourceQueue.length > 0
+    ) {
+      const job =
+        gardenResourceQueue.shift();
+
+      if (!job) {
+        continue;
+      }
+
+
+      let result = false;
+
+      try {
+        result =
+          await job.run();
+
+        if (result === undefined) {
+          result = true;
+        }
+
+      } catch (err) {
+        console.warn(
+          "[Garden Resource Queue] job failed:",
+          job.key,
+          err
+        );
+
+        result = false;
+      }
+
+
+      /*
+        只有 Map 裡還是自己，
+        才能移除。
+      */
+      if (
+        gardenResourceJobs.get(
+          job.key
+        ) === job
+      ) {
+        gardenResourceJobs.delete(
+          job.key
+        );
+      }
+
+
+      job.resolve(result);
+    }
+
+  } finally {
+    gardenResourceQueueRunning =
+      false;
+  }
+}
 
 
 function requestGardenAnimationWarmup(
