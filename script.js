@@ -844,19 +844,6 @@ const GARDEN_DEBUG_ENABLED =
   ).get("gardenDebug") === "1";
 
 
-const GARDEN_DEBUG_IDLE_MOVE_TEST =
-  GARDEN_DEBUG_ENABLED &&
-  new URLSearchParams(
-    window.location.search
-  ).get("gardenIdleMoveTest") === "1";
-
-
-const GARDEN_DEBUG_DISABLE_DYNAMIC_Z =
-  GARDEN_DEBUG_ENABLED &&
-  new URLSearchParams(
-    window.location.search
-  ).get("gardenStaticZTest") === "1";
-
 
 const GARDEN_DEBUG_EVENT_STORAGE_KEY =
   "nanahara-garden-debug-events-v1";
@@ -3900,12 +3887,49 @@ for (
   );
 }
 
+
+
+/*
+  =========================
+  Step 1 PoC
+  Prewarm Ordinary Walk
+  =========================
+
+  暫時只用來驗證：
+  如果首次開門前 Walk 已經完全 warmup，
+  第一次開始移動是否還會卡頓。
+
+  這不是最終 Resource Scheduler。
+*/
+if (
+  GARDEN_IPAD_SAFE_MODE &&
+  initialMode !== "chat"
+) {
+  await precacheGardenCharacterModeCompressed(
+    "walk"
+  );
+
+  await requestGardenAnimationWarmup(
+    "chifuyu",
+    "walk",
+    CHIFUYU_ANIMS.walk
+  );
+
+  await requestGardenAnimationWarmup(
+    "chinatsu",
+    "walk",
+    CHINATSU_ANIMS.walk
+  );
+}
+
   /*
     這裡的 loaded 意思改成：
     「已經足夠安全地打開 Garden」。
 
     不代表六張角色動畫全部載完。
   */
+
+    
   gardenAssetsLoaded = true;
 }
 
@@ -32318,15 +32342,11 @@ moveChinatsuToDepthLayer(
     `scaleX(${facingScale}) ` +
     `scale(${depthScale})`;
 
-if (
-  !GARDEN_DEBUG_DISABLE_DYNAMIC_Z
-) {
-  chinatsuWalkTestWrap.style.zIndex =
-    getGardenCharacterVisualZIndex(
-      "chinatsu",
-      chinatsuWalkTestState.y
-    );
-}
+chinatsuWalkTestWrap.style.zIndex =
+  getGardenCharacterVisualZIndex(
+    "chinatsu",
+    chinatsuWalkTestState.y
+  );
 
 updateGardenCharacterGroundShadow(
   "chinatsu",
@@ -33053,15 +33073,11 @@ moveChifuyuToDepthLayer(
     chifuyuWalkTest.style.transformOrigin = "";
   }
 
-if (
-  !GARDEN_DEBUG_DISABLE_DYNAMIC_Z
-) {
-  chifuyuWalkTestWrap.style.zIndex =
-    getGardenCharacterVisualZIndex(
-      "chifuyu",
-      chifuyuWalkTestState.y
-    );
-}
+chifuyuWalkTestWrap.style.zIndex =
+  getGardenCharacterVisualZIndex(
+    "chifuyu",
+    chifuyuWalkTestState.y
+  );
 
     updateGardenCharacterGroundShadow(
   "chifuyu",
@@ -34014,32 +34030,11 @@ for (
   ] of
   GARDEN_CHARACTER_ANIMATION_REGISTRY
 ) {
-const resolvedAnimationCommand =
+const animationCommand =
   resolveGardenCharacterAnimationCommand(
     characterId,
     animationRuntime
   );
-
-
-const animationCommand =
-  (
-    GARDEN_DEBUG_IDLE_MOVE_TEST &&
-    resolvedAnimationCommand.mode ===
-      "walk"
-  )
-    ? {
-        ...resolvedAnimationCommand,
-
-        mode:
-          "idle",
-
-        force:
-          false,
-
-        source:
-          "debug-idle-move-test",
-      }
-    : resolvedAnimationCommand;
 
 
 setGardenCharacterAnimationMode(
@@ -34047,7 +34042,6 @@ setGardenCharacterAnimationMode(
   animationCommand.mode,
   animationCommand.force
 );
-
 
     updateGardenCharacterAnimationFrame(
   characterId,
