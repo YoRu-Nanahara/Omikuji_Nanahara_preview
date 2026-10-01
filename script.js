@@ -19408,9 +19408,15 @@ const gardenResourceJobs =
 let gardenResourceQueueRunning =
   false;
 
+  let gardenResourceCurrentJob =
+  null;
+
 let gardenResourceJobSequence =
   0;
 
+
+
+  
 
 function queueGardenResourceJob({
   key,
@@ -19478,6 +19484,19 @@ function queueGardenResourceJob({
   );
 
 
+gardenDebugLogEvent(
+  "resource-queued",
+  job.key,
+  {
+    priority:
+      job.priority,
+
+    queuedCount:
+      gardenResourceQueue.length,
+  }
+);
+
+
   /*
     數字越小越優先。
 
@@ -19512,14 +19531,31 @@ async function runGardenResourceQueue() {
       gardenResourceQueue.length > 0
     ) {
       const job =
-        gardenResourceQueue.shift();
+  gardenResourceQueue.shift();
 
-      if (!job) {
-        continue;
-      }
+if (!job) {
+  continue;
+}
 
 
-      let result = false;
+gardenResourceCurrentJob =
+  job;
+
+
+gardenDebugLogEvent(
+  "resource-started",
+  job.key,
+  {
+    priority:
+      job.priority,
+
+    remaining:
+      gardenResourceQueue.length,
+  }
+);
+
+
+let result = false;
 
       try {
         result =
@@ -19539,6 +19575,22 @@ async function runGardenResourceQueue() {
         result = false;
       }
 
+gardenDebugLogEvent(
+  result === false
+    ? "resource-failed"
+    : "resource-completed",
+
+  job.key,
+
+  {
+    priority:
+      job.priority,
+
+    result,
+  }
+);
+
+
 
       /*
         只有 Map 裡還是自己，
@@ -19556,12 +19608,54 @@ async function runGardenResourceQueue() {
 
 
       job.resolve(result);
+
+      gardenResourceCurrentJob =
+  null;
     }
 
   } finally {
-    gardenResourceQueueRunning =
-      false;
-  }
+  gardenResourceCurrentJob =
+    null;
+
+  gardenResourceQueueRunning =
+    false;
+}
+}
+
+
+function getGardenResourceQueueDebugState() {
+  return {
+    running:
+      gardenResourceQueueRunning,
+
+    current:
+      gardenResourceCurrentJob
+        ? {
+            key:
+              gardenResourceCurrentJob.key,
+
+            priority:
+              gardenResourceCurrentJob.priority,
+          }
+        : null,
+
+    queued:
+      gardenResourceQueue.map(
+        job => ({
+          key:
+            job.key,
+
+          priority:
+            job.priority,
+        })
+      ),
+
+    queuedCount:
+      gardenResourceQueue.length,
+
+    trackedCount:
+      gardenResourceJobs.size,
+  };
 }
 
 
@@ -73851,6 +73945,10 @@ viewScene:
   gardenViewSceneId ??
   null,
 
+resourceQueue:
+  getGardenResourceQueueDebugState(),
+
+
 mist:
   getGardenDebugMistState(),
 
@@ -73938,6 +74036,28 @@ function formatGardenDebugSnapshot(
   performance?.long30s;
 
 
+const resourceQueue =
+  snapshot.resourceQueue;
+
+
+const resourceCurrentText =
+  resourceQueue?.current
+    ? `${resourceQueue.current.key} [p${resourceQueue.current.priority}]`
+    : "null";
+
+
+const resourceQueuedText =
+  resourceQueue?.queued?.length
+    ? resourceQueue.queued
+        .map(
+          job =>
+            `${job.key} [p${job.priority}]`
+        )
+        .join(" | ")
+    : "(none)";
+
+
+
 const longFpsText =
   Number.isFinite(
     long30s?.fps
@@ -74017,6 +74137,16 @@ return [
   `>=33ms: ${long30s?.over33Ms ?? 0}`,
   `>=50ms: ${long30s?.over50Ms ?? 0}`,
   `>=100ms: ${long30s?.over100Ms ?? 0}`,
+
+
+"",
+"--- RESOURCE QUEUE ---",
+`running: ${resourceQueue?.running ?? false}`,
+`current: ${resourceCurrentText}`,
+`queued: ${resourceQueuedText}`,
+`queuedCount: ${resourceQueue?.queuedCount ?? 0}`,
+`trackedCount: ${resourceQueue?.trackedCount ?? 0}`,
+
 
   "",
   "--- MIST ---",
