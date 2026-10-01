@@ -21228,6 +21228,25 @@ function updateChifuyuAnimationFrame(
     return;
   }
 
+/*
+  iPad Bath Soak FPS diagnostic：
+
+  保留 bathSoakIdle sprite，
+  但暫停 background-position 換格。
+
+  用來確認 Hot Spring 的低 FPS
+  是否由 soak spritesheet frame switching
+  所造成。
+*/
+if (
+  GARDEN_IPAD_SAFE_MODE &&
+  state.animMode ===
+    "bathSoakIdle"
+) {
+  return;
+}
+
+
 
   const state =
     chifuyuWalkTestState;
@@ -24942,6 +24961,9 @@ function updateChinatsuAnimationFrame(
   }
 
 
+
+
+
   const state =
     chinatsuWalkTestState;
 
@@ -24965,6 +24987,18 @@ function updateChinatsuAnimationFrame(
   ) {
     return;
   }
+
+
+/*
+  iPad Bath Soak FPS diagnostic
+*/
+if (
+  GARDEN_IPAD_SAFE_MODE &&
+  state.animMode ===
+    "bathSoakIdle"
+) {
+  return;
+}
 
 
   /*
