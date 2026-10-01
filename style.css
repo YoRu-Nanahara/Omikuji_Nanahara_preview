@@ -4505,3 +4505,197 @@ hotSpringTransitionMistContinuousGrow {
   pointer-events: none;
   display: none
 }
+
+
+
+/* =========================
+   Garden Debug HUD
+========================= */
+
+#gardenDebugHud {
+  position: fixed;
+
+  left: 8px;
+  top: 8px;
+
+  width:
+    min(
+      430px,
+      calc(100vw - 16px)
+    );
+
+  max-height:
+    calc(100vh - 16px);
+
+  overflow: auto;
+
+  box-sizing:
+    border-box;
+
+  z-index: 2147483647;
+
+  padding: 8px;
+
+  background:
+    rgba(0, 0, 0, 0.88);
+
+  color: white;
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.35);
+
+  border-radius:
+    6px;
+
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+
+  font-size: 12px;
+  line-height: 1.4;
+
+  text-align: left;
+
+  pointer-events: auto;
+
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+
+#gardenDebugHud
+.garden-debug-header {
+  display: flex;
+
+  align-items: center;
+
+  justify-content:
+    space-between;
+
+  gap: 8px;
+
+  position: sticky;
+
+  top: -8px;
+
+  padding:
+    8px 0 6px;
+
+  background:
+    rgba(0, 0, 0, 0.95);
+
+  z-index: 1;
+}
+
+
+#gardenDebugHud
+.garden-debug-actions {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  justify-content:
+    flex-end;
+
+  gap: 4px;
+}
+
+
+#gardenDebugHud button {
+  min-width: 42px;
+
+  min-height: 28px;
+
+  padding:
+    3px 6px;
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.35);
+
+  border-radius:
+    4px;
+
+  background:
+    rgba(255, 255, 255, 0.12);
+
+  color: white;
+
+  font: inherit;
+
+  cursor: pointer;
+}
+
+
+#gardenDebugHud pre {
+  margin:
+    6px 0 0;
+
+  white-space:
+    pre-wrap;
+
+  overflow-wrap:
+    anywhere;
+
+  font: inherit;
+}
+
+
+#gardenDebugHud
+.garden-debug-events {
+  margin-top: 10px;
+
+  padding-top: 8px;
+
+  border-top:
+    1px solid
+    rgba(255, 255, 255, 0.25);
+}
+
+
+#gardenDebugHud.is-collapsed
+.garden-debug-snapshot,
+
+#gardenDebugHud.is-collapsed
+.garden-debug-events {
+  display: none;
+}
+
+
+@media (
+  max-width: 600px
+) {
+  #gardenDebugHud {
+    left: 4px;
+    top: 4px;
+
+    width:
+      calc(100vw - 8px);
+
+    max-height:
+      52vh;
+
+    padding: 6px;
+
+    font-size: 10px;
+  }
+
+
+  #gardenDebugHud
+  .garden-debug-header {
+    top: -6px;
+  }
+
+
+  #gardenDebugHud button {
+    min-width: 38px;
+    min-height: 26px;
+
+    padding:
+      2px 4px;
+  }
+}

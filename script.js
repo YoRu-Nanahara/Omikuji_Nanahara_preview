@@ -834,7 +834,115 @@ const gardenScreen = document.getElementById("gardenScreen");
 
 
 
+/* =========================
+   Garden Debug Core
+========================= */
 
+const GARDEN_DEBUG_ENABLED =
+  new URLSearchParams(
+    window.location.search
+  ).get("gardenDebug") === "1";
+
+
+const GARDEN_DEBUG_EVENT_STORAGE_KEY =
+  "nanahara-garden-debug-events-v1";
+
+const GARDEN_DEBUG_MAX_EVENTS =
+  80;
+
+
+function loadGardenDebugEvents() {
+  if (!GARDEN_DEBUG_ENABLED) {
+    return [];
+  }
+
+  try {
+    const raw =
+      sessionStorage.getItem(
+        GARDEN_DEBUG_EVENT_STORAGE_KEY
+      );
+
+    const parsed =
+      raw
+        ? JSON.parse(raw)
+        : [];
+
+    return Array.isArray(parsed)
+      ? parsed
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+
+let gardenDebugEvents =
+  loadGardenDebugEvents();
+
+
+function saveGardenDebugEvents() {
+  if (!GARDEN_DEBUG_ENABLED) {
+    return;
+  }
+
+  try {
+    sessionStorage.setItem(
+      GARDEN_DEBUG_EVENT_STORAGE_KEY,
+      JSON.stringify(
+        gardenDebugEvents
+      )
+    );
+  } catch {}
+}
+
+
+function gardenDebugLogEvent(
+  type,
+  message,
+  data = null
+) {
+  if (!GARDEN_DEBUG_ENABLED) {
+    return;
+  }
+
+  const timestamp =
+    typeof getGardenWorldNow ===
+      "function"
+      ? getGardenWorldNow()
+      : Date.now();
+
+
+  const entry = {
+    timestamp,
+    type:
+      String(type ?? "event"),
+
+    message:
+      String(message ?? ""),
+
+    data:
+      data ?? null,
+  };
+
+
+  gardenDebugEvents.push(
+    entry
+  );
+
+
+  if (
+    gardenDebugEvents.length >
+    GARDEN_DEBUG_MAX_EVENTS
+  ) {
+    gardenDebugEvents =
+      gardenDebugEvents.slice(
+        -GARDEN_DEBUG_MAX_EVENTS
+      );
+  }
+
+
+  saveGardenDebugEvents();
+}
 
 /*
   =========================
@@ -22708,6 +22816,15 @@ if (
   );
 }
 
+gardenDebugLogEvent(
+  "travel-transit",
+  `${character}: ${travel.fromSceneId} → transit`,
+  {
+    toSceneId:
+      travel.toSceneId,
+  }
+);
+
 
 console.log(
   `[Garden Travel] ${character} → transit`
@@ -22803,6 +22920,12 @@ continueGardenCharacterScheduleAfterTravel(
 
     updateGardenCharacterVisibility();
 
+
+
+gardenDebugLogEvent(
+  "travel-arrived",
+  `${character}: arrived ${destinationSceneId}`
+);
 
     console.log(
       `[Garden Travel] ${character} arrived:`,
@@ -23254,6 +23377,24 @@ worldState.travel = {
 
 
   updateGardenCharacterVisibility();
+
+
+
+gardenDebugLogEvent(
+  "travel-start",
+  `${character}: ${fromSceneId} → ${travelSceneId}`,
+  {
+    finalSceneId,
+
+    startedAt:
+      travelTimeline.startedAt,
+
+    expectedArrivalAt:
+      travelTimeline
+        .expectedArrivalAt,
+  }
+);
+
 
 
  console.log(
@@ -28407,13 +28548,44 @@ function setGardenCharacterAnimationMode(
   }
 
 
-  runtime.setMode(
-    resolvedMode,
-    force
+ const previousMode =
+  runtime.state?.animMode ??
+  null;
+
+
+runtime.setMode(
+  resolvedMode,
+  force
+);
+
+
+const nextMode =
+  runtime.state?.animMode ??
+  resolvedMode;
+
+
+if (
+  previousMode !==
+  nextMode
+) {
+  gardenDebugLogEvent(
+    "animation",
+    `${characterId}: ${previousMode ?? "null"} → ${nextMode}`,
+    {
+      requestedMode:
+        mode,
+
+      resolvedMode:
+        nextMode,
+
+      force:
+        force === true,
+    }
   );
+}
 
 
-  return true;
+return true;
 }
 
 
@@ -36159,6 +36331,20 @@ function startGardenHotSpringBathPositioning(
     plan;
 
 
+gardenDebugLogEvent(
+  "bath-positioning",
+  `${characterId}: positioning to bath spot`,
+  {
+    startedAt:
+      plan.startedAt,
+
+    endsAt:
+      plan.endsAt,
+  }
+);
+
+
+
   console.log(
     "[Bath Positioning] started",
     {
@@ -36301,6 +36487,20 @@ function startGardenHotSpringBathReturnPositioning(
 
   worldState.bathPositioning =
     plan;
+
+
+gardenDebugLogEvent(
+  "bath-return",
+  `${characterId}: returning to exit point`,
+  {
+    startedAt:
+      plan.startedAt,
+
+    endsAt:
+      plan.endsAt,
+  }
+);
+
 
 
   console.log(
@@ -36892,6 +37092,22 @@ setGardenCharacterActivity(
   bathTransitionActivityData
 );
 
+gardenDebugLogEvent(
+  "bath-enter",
+  `${characterId}: enter started`,
+  {
+    startedAt:
+      plan.startedAt,
+
+    endsAt:
+      plan.endsAt,
+
+    durationMs:
+      plan.durationMs,
+  }
+);
+
+
   console.log(
     "[Bath Enter] started",
     {
@@ -37438,6 +37654,21 @@ function startGardenHotSpringBathExitTransition(
         "exit",
     }
   );
+
+
+
+gardenDebugLogEvent(
+  "bath-exit",
+  `${characterId}: exit started`,
+  {
+    startedAt:
+      plan.startedAt,
+
+    endsAt:
+      plan.endsAt,
+  }
+);
+
 
 
   console.log(
@@ -38421,6 +38652,28 @@ else {
 
   return false;
 }
+
+
+gardenDebugLogEvent(
+  "bath-finalized",
+  `${characterId}: ${plan.direction} finalized`,
+  {
+    activity:
+      worldState.activity,
+
+    x:
+      Math.round(
+        runtime.moveState.x
+      ),
+
+    y:
+      Math.round(
+        runtime.moveState.y
+      ),
+  }
+);
+
+
 
 
 console.log(
@@ -72429,6 +72682,13 @@ setGardenCharacterAnimationMode(
   }
 
 
+gardenDebugLogEvent(
+  "view-scene",
+  `player view → ${sceneId}`
+);
+
+
+
   console.log(
     "[Garden] scene switched:",
     sceneId
@@ -72438,4 +72698,841 @@ setGardenCharacterAnimationMode(
   return true;
 }
 
+
+
+/* =========================
+   Garden Debug HUD
+========================= */
+
+const gardenDebugHudState = {
+  frozen: false,
+  eventsVisible: false,
+
+  root: null,
+  snapshotEl: null,
+  eventsEl: null,
+
+  timerId: null,
+};
+
+
+function formatGardenDebugWorldTime(
+  timestamp
+) {
+  if (
+    !Number.isFinite(timestamp)
+  ) {
+    return "-";
+  }
+
+  try {
+    return new Intl.DateTimeFormat(
+      "en-CA",
+      {
+        timeZone:
+          "Asia/Tokyo",
+
+        year:
+          "numeric",
+
+        month:
+          "2-digit",
+
+        day:
+          "2-digit",
+
+        hour:
+          "2-digit",
+
+        minute:
+          "2-digit",
+
+        second:
+          "2-digit",
+
+        hour12:
+          false,
+      }
+    ).format(
+      new Date(timestamp)
+    );
+  } catch {
+    return String(timestamp);
+  }
+}
+
+
+function getGardenDebugDeviceLabel() {
+  if (
+    typeof GARDEN_IPAD_SAFE_MODE !==
+      "undefined" &&
+    GARDEN_IPAD_SAFE_MODE
+  ) {
+    return "ipad-safe";
+  }
+
+  if (
+    window.innerWidth <= 600
+  ) {
+    return "mobile";
+  }
+
+  if (
+    window.innerWidth <= 1100
+  ) {
+    return "tablet";
+  }
+
+  return "desktop";
+}
+
+
+function getGardenDebugCharacterState(
+  characterId
+) {
+  const worldState =
+    gardenCharacterWorldState?.[
+      characterId
+    ] ??
+    null;
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  const animationRuntime =
+    getGardenCharacterAnimationRuntime(
+      characterId
+    );
+
+
+  const moveState =
+    runtime?.moveState ??
+    null;
+
+
+  const now =
+    getGardenWorldNow();
+
+
+  const bathTransitionSample =
+    worldState?.bathTransition
+      ? resolveGardenHotSpringBathTransitionSpatialState(
+          worldState
+            .bathTransition,
+          now
+        )
+      : null;
+
+
+  const bathPositioningSample =
+    worldState?.bathPositioning
+      ? resolveGardenHotSpringBathPositioningPlan(
+          worldState
+            .bathPositioning,
+          now
+        )
+      : null;
+
+
+  const warmupModes = [
+    "idle",
+    "walk",
+    "bathWalk",
+    "bathIdle",
+    "bathSoakIdle",
+  ];
+
+
+  const warmup =
+    Object.fromEntries(
+      warmupModes.map(
+        mode => {
+          const key =
+            getGardenAnimationWarmupKey(
+              characterId,
+              mode
+            );
+
+          return [
+            mode,
+            !!gardenAnimationWarmupState[
+              key
+            ],
+          ];
+        }
+      )
+    );
+
+
+  return {
+    characterId,
+
+    scene:
+      worldState?.sceneId ??
+      null,
+
+    activity:
+      worldState?.activity ??
+      null,
+
+    animation:
+      animationRuntime
+        ?.state
+        ?.animMode ??
+      null,
+
+    x:
+      Number.isFinite(
+        moveState?.x
+      )
+        ? Math.round(
+            moveState.x
+          )
+        : null,
+
+    y:
+      Number.isFinite(
+        moveState?.y
+      )
+        ? Math.round(
+            moveState.y
+          )
+        : null,
+
+    moving:
+      moveState?.isMoving ===
+      true,
+
+    travel:
+      worldState?.travel
+        ? {
+            from:
+              worldState
+                .travel
+                .fromSceneId ??
+              null,
+
+            to:
+              worldState
+                .travel
+                .toSceneId ??
+              null,
+
+            phase:
+              worldState
+                .travel
+                .phase ??
+              null,
+          }
+        : null,
+
+    bathTransition:
+      worldState?.bathTransition
+        ? {
+            direction:
+              worldState
+                .bathTransition
+                .direction ??
+              null,
+
+            phase:
+              bathTransitionSample
+                ?.phase ??
+              null,
+          }
+        : null,
+
+    bathPositioning:
+      worldState?.bathPositioning
+        ? {
+            intent:
+              worldState
+                .bathPositioning
+                .intent ??
+              null,
+
+            phase:
+              bathPositioningSample
+                ?.phase ??
+              null,
+          }
+        : null,
+
+    warmup,
+  };
+}
+
+
+function getGardenDebugMistState() {
+  const root =
+    document.getElementById(
+      "hotSpringMistTransition"
+    );
+
+
+  const images =
+    root
+      ? [
+          ...root.querySelectorAll(
+            ".hot-spring-transition-mist-image"
+          ),
+        ]
+      : [];
+
+
+  return {
+    hydrated:
+      typeof hotSpringMistImagesHydrated !==
+        "undefined"
+        ? hotSpringMistImagesHydrated
+        : null,
+
+    active:
+      root?.classList.contains(
+        "is-active"
+      ) ??
+      false,
+
+    leaving:
+      root?.classList.contains(
+        "is-leaving"
+      ) ??
+      false,
+
+    images:
+      images.map(
+        (img, index) => ({
+          index,
+
+          complete:
+            img.complete,
+
+          width:
+            img.naturalWidth,
+
+          height:
+            img.naturalHeight,
+        })
+      ),
+  };
+}
+
+
+function createGardenDebugSnapshot() {
+  const now =
+    getGardenWorldNow();
+
+
+  return {
+    generatedAt:
+      Date.now(),
+
+    worldTime:
+      now,
+
+    worldTimeText:
+      formatGardenDebugWorldTime(
+        now
+      ),
+
+    device:
+      getGardenDebugDeviceLabel(),
+
+    safeMode:
+      typeof GARDEN_IPAD_SAFE_MODE !==
+        "undefined"
+        ? GARDEN_IPAD_SAFE_MODE
+        : null,
+
+    viewport:
+      {
+        width:
+          window.innerWidth,
+
+        height:
+          window.innerHeight,
+
+        dpr:
+          window.devicePixelRatio,
+      },
+
+    gardenVisible:
+      !!gardenScreen &&
+      !gardenScreen.classList.contains(
+        "hidden"
+      ),
+
+    viewScene:
+      gardenViewSceneId ??
+      null,
+
+    mist:
+      getGardenDebugMistState(),
+
+    chifuyu:
+      getGardenDebugCharacterState(
+        "chifuyu"
+      ),
+
+    chinatsu:
+      getGardenDebugCharacterState(
+        "chinatsu"
+      ),
+  };
+}
+
+
+function formatGardenDebugCharacter(
+  state
+) {
+  if (!state) {
+    return "(missing)";
+  }
+
+
+  const travelText =
+    state.travel
+      ? `${state.travel.from} → ${state.travel.to} / ${state.travel.phase}`
+      : "null";
+
+
+  const transitionText =
+    state.bathTransition
+      ? `${state.bathTransition.direction} / ${state.bathTransition.phase}`
+      : "null";
+
+
+  const positioningText =
+    state.bathPositioning
+      ? `${state.bathPositioning.intent} / ${state.bathPositioning.phase}`
+      : "null";
+
+
+  const warmupText =
+    Object.entries(
+      state.warmup
+    )
+      .map(
+        ([key, ready]) =>
+          `${key}:${ready ? "Y" : "-"}`
+      )
+      .join(" ");
+
+
+  return [
+    `scene: ${state.scene}`,
+    `activity: ${state.activity}`,
+    `anim: ${state.animation}`,
+    `xy: ${state.x}, ${state.y}`,
+    `moving: ${state.moving}`,
+    `travel: ${travelText}`,
+    `bathTransition: ${transitionText}`,
+    `bathPositioning: ${positioningText}`,
+    `warmup: ${warmupText}`,
+  ].join("\n");
+}
+
+
+function formatGardenDebugSnapshot(
+  snapshot
+) {
+  const mistImages =
+    snapshot.mist.images
+      .map(
+        image =>
+          `${image.index}:${image.width}x${image.height}/${image.complete ? "ok" : "wait"}`
+      )
+      .join(" ");
+
+
+  return [
+    "=== GARDEN DEBUG ===",
+    `time: ${snapshot.worldTimeText}`,
+    `device: ${snapshot.device}`,
+    `safeMode: ${snapshot.safeMode}`,
+    `viewport: ${snapshot.viewport.width}x${snapshot.viewport.height} @${snapshot.viewport.dpr}`,
+    `gardenVisible: ${snapshot.gardenVisible}`,
+    `viewScene: ${snapshot.viewScene}`,
+
+    "",
+    "--- MIST ---",
+    `hydrated: ${snapshot.mist.hydrated}`,
+    `active: ${snapshot.mist.active}`,
+    `leaving: ${snapshot.mist.leaving}`,
+    `images: ${mistImages}`,
+
+    "",
+    "--- CHIFUYU ---",
+    formatGardenDebugCharacter(
+      snapshot.chifuyu
+    ),
+
+    "",
+    "--- CHINATSU ---",
+    formatGardenDebugCharacter(
+      snapshot.chinatsu
+    ),
+  ].join("\n");
+}
+
+
+function formatGardenDebugEvents() {
+  return gardenDebugEvents
+    .slice(-50)
+    .map(
+      entry => {
+        const time =
+          formatGardenDebugWorldTime(
+            entry.timestamp
+          );
+
+        const data =
+          entry.data
+            ? ` ${JSON.stringify(
+                entry.data
+              )}`
+            : "";
+
+        return (
+          `${time} ` +
+          `[${entry.type}] ` +
+          `${entry.message}` +
+          data
+        );
+      }
+    )
+    .join("\n");
+}
+
+
+function renderGardenDebugHud() {
+  if (
+    !GARDEN_DEBUG_ENABLED ||
+    gardenDebugHudState.frozen
+  ) {
+    return;
+  }
+
+
+  if (
+    !gardenDebugHudState
+      .snapshotEl
+  ) {
+    return;
+  }
+
+
+  const snapshot =
+    createGardenDebugSnapshot();
+
+
+  gardenDebugHudState
+    .snapshotEl
+    .textContent =
+      formatGardenDebugSnapshot(
+        snapshot
+      );
+
+
+  if (
+    gardenDebugHudState
+      .eventsVisible &&
+    gardenDebugHudState
+      .eventsEl
+  ) {
+    gardenDebugHudState
+      .eventsEl
+      .textContent =
+        formatGardenDebugEvents();
+  }
+}
+
+
+async function copyGardenDebugSnapshot() {
+  const snapshot =
+    createGardenDebugSnapshot();
+
+
+  const text = [
+    formatGardenDebugSnapshot(
+      snapshot
+    ),
+
+    "",
+    "",
+    "=== LAST EVENTS ===",
+    formatGardenDebugEvents(),
+  ].join("\n");
+
+
+  try {
+    await navigator.clipboard.writeText(
+      text
+    );
+
+    return true;
+  } catch {}
+
+
+  /*
+    Clipboard API 不可用時，
+    fallback 到傳統 textarea。
+  */
+  const textarea =
+    document.createElement(
+      "textarea"
+    );
+
+  textarea.value =
+    text;
+
+  textarea.style.position =
+    "fixed";
+
+  textarea.style.left =
+    "-9999px";
+
+  document.body.appendChild(
+    textarea
+  );
+
+  textarea.select();
+
+
+  try {
+    document.execCommand(
+      "copy"
+    );
+  } catch {}
+
+
+  textarea.remove();
+
+  return true;
+}
+
+
+function initializeGardenDebugHud() {
+  if (!GARDEN_DEBUG_ENABLED) {
+    return;
+  }
+
+
+  if (
+    document.getElementById(
+      "gardenDebugHud"
+    )
+  ) {
+    return;
+  }
+
+
+  const root =
+    document.createElement(
+      "div"
+    );
+
+  root.id =
+    "gardenDebugHud";
+
+
+  root.innerHTML = `
+    <div class="garden-debug-header">
+      <strong>GARDEN DEBUG</strong>
+
+      <div class="garden-debug-actions">
+        <button type="button" data-action="collapse">−</button>
+        <button type="button" data-action="freeze">Freeze</button>
+        <button type="button" data-action="copy">Copy</button>
+        <button type="button" data-action="events">Events</button>
+        <button type="button" data-action="clear">Clear</button>
+      </div>
+    </div>
+
+    <pre class="garden-debug-snapshot"></pre>
+
+    <pre
+      class="garden-debug-events"
+      hidden
+    ></pre>
+  `;
+
+
+  document.body.appendChild(
+    root
+  );
+
+
+  gardenDebugHudState.root =
+    root;
+
+  gardenDebugHudState.snapshotEl =
+    root.querySelector(
+      ".garden-debug-snapshot"
+    );
+
+  gardenDebugHudState.eventsEl =
+    root.querySelector(
+      ".garden-debug-events"
+    );
+
+
+  root.addEventListener(
+    "click",
+    async event => {
+      const button =
+        event.target.closest(
+          "button[data-action]"
+        );
+
+      if (!button) {
+        return;
+      }
+
+
+      const action =
+        button.dataset.action;
+
+
+      if (
+        action === "collapse"
+      ) {
+        root.classList.toggle(
+          "is-collapsed"
+        );
+
+        button.textContent =
+          root.classList.contains(
+            "is-collapsed"
+          )
+            ? "+"
+            : "−";
+
+        return;
+      }
+
+
+      if (
+        action === "freeze"
+      ) {
+        gardenDebugHudState.frozen =
+          !gardenDebugHudState
+            .frozen;
+
+        button.textContent =
+          gardenDebugHudState
+            .frozen
+            ? "Resume"
+            : "Freeze";
+
+        if (
+          !gardenDebugHudState
+            .frozen
+        ) {
+          renderGardenDebugHud();
+        }
+
+        return;
+      }
+
+
+      if (
+        action === "copy"
+      ) {
+        await copyGardenDebugSnapshot();
+
+        button.textContent =
+          "Copied";
+
+        setTimeout(() => {
+          button.textContent =
+            "Copy";
+        }, 1000);
+
+        return;
+      }
+
+
+      if (
+        action === "events"
+      ) {
+        gardenDebugHudState
+          .eventsVisible =
+            !gardenDebugHudState
+              .eventsVisible;
+
+        gardenDebugHudState
+          .eventsEl
+          .hidden =
+            !gardenDebugHudState
+              .eventsVisible;
+
+        if (
+          gardenDebugHudState
+            .eventsVisible
+        ) {
+          gardenDebugHudState
+            .eventsEl
+            .textContent =
+              formatGardenDebugEvents();
+        }
+
+        return;
+      }
+
+
+      if (
+        action === "clear"
+      ) {
+        gardenDebugEvents = [];
+
+        saveGardenDebugEvents();
+
+        renderGardenDebugHud();
+
+        if (
+          gardenDebugHudState
+            .eventsEl
+        ) {
+          gardenDebugHudState
+            .eventsEl
+            .textContent = "";
+        }
+      }
+    }
+  );
+
+
+  gardenDebugLogEvent(
+    "debug",
+    "HUD initialized",
+    {
+      device:
+        getGardenDebugDeviceLabel(),
+
+      safeMode:
+        typeof GARDEN_IPAD_SAFE_MODE !==
+          "undefined"
+          ? GARDEN_IPAD_SAFE_MODE
+          : null,
+    }
+  );
+
+
+  renderGardenDebugHud();
+
+
+  gardenDebugHudState.timerId =
+    setInterval(
+      renderGardenDebugHud,
+      750
+    );
+}
+
+
+initializeGardenDebugHud();
 
