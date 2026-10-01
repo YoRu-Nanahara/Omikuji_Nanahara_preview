@@ -1842,29 +1842,7 @@ async function precacheGardenCharacterModeCompressed(
 }
 
 
-function queueGardenCompressedModeCache(
-  mode,
-  delay = 0
-) {
-  if (!GARDEN_IPAD_SAFE_MODE) {
-    return;
-  }
 
-  setTimeout(() => {
-    if (
-      !gardenScreen ||
-      gardenScreen.classList.contains(
-        "hidden"
-      )
-    ) {
-      return;
-    }
-
-    precacheGardenCharacterModeCompressed(
-      mode
-    );
-  }, delay);
-}
 
 /*
   Garden 角色統一使用 50% spritesheet。
@@ -3922,6 +3900,89 @@ if (
   GARDEN_IPAD_SAFE_MODE &&
   initialMode !== "chat"
 ) {
+
+
+  if (GARDEN_DEBUG_ENABLED) {
+  /*
+    Promotion Test
+
+    target 先以低優先、non-blocking 排入，
+    接著放一個 NEAR control，
+    最後再用相同 key 把 target 升級成
+    CRITICAL + blocking。
+  */
+
+  void queueGardenResourceJob({
+    key:
+      "debug-promotion-target",
+
+    priority:
+      GARDEN_RESOURCE_PRIORITY.SPECULATIVE,
+
+    blocking:
+      false,
+
+    run: async () => {
+      await new Promise(
+        resolve =>
+          setTimeout(resolve, 600)
+      );
+
+      return true;
+    },
+  });
+
+
+  void queueGardenResourceJob({
+    key:
+      "debug-promotion-control",
+
+    priority:
+      GARDEN_RESOURCE_PRIORITY.NEAR,
+
+    blocking:
+      false,
+
+    run: async () => {
+      await new Promise(
+        resolve =>
+          setTimeout(resolve, 300)
+      );
+
+      return true;
+    },
+  });
+
+
+  /*
+    相同 key 再送一次。
+
+    不應建立第二份 target，
+    而是直接升級原本那份。
+  */
+  void queueGardenResourceJob({
+    key:
+      "debug-promotion-target",
+
+    priority:
+      GARDEN_RESOURCE_PRIORITY.CRITICAL,
+
+    blocking:
+      true,
+
+    run: async () => {
+      /*
+        正常情況永遠不會執行到這份 run，
+        因為相同 key 會沿用原 Job。
+      */
+      console.warn(
+        "[Garden Debug] duplicate promotion run should not execute"
+      );
+
+      return false;
+    },
+  });
+}
   /*
     三個工作一次交給 Resource Queue。
 
@@ -3948,27 +4009,6 @@ if (
       ),
   });
 
-  if (GARDEN_DEBUG_ENABLED) {
-  void queueGardenResourceJob({
-    key:
-      "debug-priority-test:speculative",
-
-    priority:
-      GARDEN_RESOURCE_PRIORITY.SPECULATIVE,
-
-    blocking:
-      false,
-
-    run: async () => {
-      await new Promise(
-        resolve =>
-          setTimeout(resolve, 1000)
-      );
-
-      return true;
-    },
-  });
-}
 
   void queueGardenResourceJob({
     key:
@@ -8204,12 +8244,58 @@ updateGardenSceneNav();
 if (actualInitialMode === "chat") {
 
   /*
-    聊天期間先把 Idle 壓縮檔放進 cache。
-  */
-  queueGardenCompressedModeCache(
-    "idle",
-    600
-  );
+  Chat 期間預先準備 Idle 壓縮檔。
+
+  600ms 延遲保留，
+  避免剛開門時立刻和目前 Talk presentation
+  搶資源。
+
+  Idle 很快可能會用到，
+  所以屬於 NEAR。
+
+  但它不是目前畫面 Reveal 的必要條件，
+  因此 blocking:false。
+*/
+setTimeout(() => {
+  if (
+    !gardenScreen ||
+    gardenScreen.classList.contains(
+      "hidden"
+    )
+  ) {
+    return;
+  }
+
+
+  void queueGardenResourceJob({
+    key:
+      "character-mode-cache:idle",
+
+    priority:
+      GARDEN_RESOURCE_PRIORITY.NEAR,
+
+    blocking:
+      false,
+
+    run: async () => {
+      if (
+        !gardenScreen ||
+        gardenScreen.classList.contains(
+          "hidden"
+        )
+      ) {
+        return true;
+      }
+
+      await precacheGardenCharacterModeCompressed(
+        "idle"
+      );
+
+      return true;
+    },
+  });
+
+}, 600);
 
   /*
     初次進場就是聊天時，
@@ -8220,50 +8306,118 @@ if (actualInitialMode === "chat") {
     這樣聊天結束後開始散步時，
     不會出現「有位移但仍停在 Idle」。
   */
-  setTimeout(async () => {
-    if (
-      !gardenScreen ||
-      gardenScreen.classList.contains(
-        "hidden"
-      )
-    ) {
-      return;
-    }
+  setTimeout(() => {
+  if (
+    !gardenScreen ||
+    gardenScreen.classList.contains(
+      "hidden"
+    )
+  ) {
+    return;
+  }
 
-    await precacheGardenCharacterModeCompressed(
-      "walk"
-    );
 
-    if (
-      !gardenScreen ||
-      gardenScreen.classList.contains(
-        "hidden"
-      )
-    ) {
-      return;
-    }
+  /*
+    Chat → Wander 預測準備。
 
-    await requestGardenAnimationWarmup(
-      "chifuyu",
-      "walk",
-      CHIFUYU_ANIMS.walk
-    );
+    這些資源很快會使用，
+    所以屬於 NEAR。
 
-    if (
-      !gardenScreen ||
-      gardenScreen.classList.contains(
-        "hidden"
-      )
-    ) {
-      return;
-    }
+    但目前玩家正在正常觀看 Talk，
+    不需要因此重新關門，
+    所以全部 blocking:false。
+  */
+  void queueGardenResourceJob({
+    key:
+      "character-mode-cache:walk",
 
-    await requestGardenAnimationWarmup(
-      "chinatsu",
-      "walk",
-      CHINATSU_ANIMS.walk
-    );
-  }, 800);
+    priority:
+      GARDEN_RESOURCE_PRIORITY.NEAR,
+
+    blocking:
+      false,
+
+    run: async () => {
+      if (
+        !gardenScreen ||
+        gardenScreen.classList.contains(
+          "hidden"
+        )
+      ) {
+        return true;
+      }
+
+      await precacheGardenCharacterModeCompressed(
+        "walk"
+      );
+
+      return true;
+    },
+  });
+
+
+  void queueGardenResourceJob({
+    key:
+      "animation-warmup:chifuyu:walk",
+
+    priority:
+      GARDEN_RESOURCE_PRIORITY.NEAR,
+
+    blocking:
+      false,
+
+    run: async () => {
+      if (
+        !gardenScreen ||
+        gardenScreen.classList.contains(
+          "hidden"
+        )
+      ) {
+        return true;
+      }
+
+      await requestGardenAnimationWarmup(
+        "chifuyu",
+        "walk",
+        CHIFUYU_ANIMS.walk
+      );
+
+      return true;
+    },
+  });
+
+
+  void queueGardenResourceJob({
+    key:
+      "animation-warmup:chinatsu:walk",
+
+    priority:
+      GARDEN_RESOURCE_PRIORITY.NEAR,
+
+    blocking:
+      false,
+
+    run: async () => {
+      if (
+        !gardenScreen ||
+        gardenScreen.classList.contains(
+          "hidden"
+        )
+      ) {
+        return true;
+      }
+
+      await requestGardenAnimationWarmup(
+        "chinatsu",
+        "walk",
+        CHINATSU_ANIMS.walk
+      );
+
+      return true;
+    },
+  });
+
+}, 800);
 
 } else {
   }
@@ -19501,11 +19655,119 @@ function queueGardenResourceJob({
     直接沿用原本 Promise。
   */
   const existing =
-    gardenResourceJobs.get(key);
+  gardenResourceJobs.get(key);
 
-  if (existing) {
-    return existing.promise;
+if (existing) {
+  /*
+    同一個 Resource Job 已存在時，
+    不建立第二份工作。
+
+    但新的需求如果更緊急，
+    必須能把既有 Job 升級。
+  */
+
+  const requestedPriority =
+    Number.isFinite(priority)
+      ? priority
+      : GARDEN_RESOURCE_PRIORITY.NEAR;
+
+
+  let priorityPromoted =
+    false;
+
+  let blockingPromoted =
+    false;
+
+
+  /*
+    Priority 數字越小越重要。
+
+    例如：
+    NEAR 10
+    → CRITICAL 0
+
+    可以升級。
+
+    反方向則不降級。
+  */
+  if (
+    requestedPriority <
+    existing.priority
+  ) {
+    existing.priority =
+      requestedPriority;
+
+    priorityPromoted =
+      true;
   }
+
+
+  /*
+    blocking 只允許：
+
+    false → true
+
+    不允許後來一個
+    non-blocking 要求把原本的
+    blocking 工作降回 false。
+  */
+  if (
+    blocking === true &&
+    existing.blocking !== true
+  ) {
+    existing.blocking =
+      true;
+
+    blockingPromoted =
+      true;
+  }
+
+
+  /*
+    Priority 有改變時，
+    重新整理尚未執行的 Queue。
+
+    如果 existing 正在執行，
+    它本來就已經不在 Queue 裡，
+    sort 也不會影響目前工作。
+  */
+  if (priorityPromoted) {
+    gardenResourceQueue.sort(
+      (a, b) =>
+        a.priority - b.priority ||
+        a.sequence - b.sequence
+    );
+  }
+
+
+  /*
+    Debug：
+    只有真的發生升級才記錄。
+  */
+  if (
+    priorityPromoted ||
+    blockingPromoted
+  ) {
+    gardenDebugLogEvent(
+      "resource-promoted",
+      existing.key,
+      {
+        priority:
+          existing.priority,
+
+        blocking:
+          existing.blocking,
+
+        priorityPromoted,
+
+        blockingPromoted,
+      }
+    );
+  }
+
+
+  return existing.promise;
+}
 
 
   let resolveJob;
