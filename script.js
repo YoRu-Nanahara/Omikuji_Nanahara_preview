@@ -838,23 +838,24 @@ const gardenScreen = document.getElementById("gardenScreen");
    Garden Debug Core
 ========================= */
 
-const GARDEN_DEBUG_DISABLE_DYNAMIC_Z =
-  GARDEN_DEBUG_ENABLED &&
-  new URLSearchParams(
-    window.location.search
-  ).get("gardenStaticZTest") === "1";
-
-
 const GARDEN_DEBUG_ENABLED =
   new URLSearchParams(
     window.location.search
   ).get("gardenDebug") === "1";
 
-  const GARDEN_DEBUG_IDLE_MOVE_TEST =
+
+const GARDEN_DEBUG_IDLE_MOVE_TEST =
   GARDEN_DEBUG_ENABLED &&
   new URLSearchParams(
     window.location.search
   ).get("gardenIdleMoveTest") === "1";
+
+
+const GARDEN_DEBUG_DISABLE_DYNAMIC_Z =
+  GARDEN_DEBUG_ENABLED &&
+  new URLSearchParams(
+    window.location.search
+  ).get("gardenStaticZTest") === "1";
 
 
 const GARDEN_DEBUG_EVENT_STORAGE_KEY =
