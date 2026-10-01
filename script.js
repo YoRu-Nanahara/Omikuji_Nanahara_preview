@@ -843,6 +843,12 @@ const GARDEN_DEBUG_ENABLED =
     window.location.search
   ).get("gardenDebug") === "1";
 
+  const GARDEN_DEBUG_IDLE_MOVE_TEST =
+  GARDEN_DEBUG_ENABLED &&
+  new URLSearchParams(
+    window.location.search
+  ).get("gardenIdleMoveTest") === "1";
+
 
 const GARDEN_DEBUG_EVENT_STORAGE_KEY =
   "nanahara-garden-debug-events-v1";
@@ -33992,11 +33998,32 @@ for (
   ] of
   GARDEN_CHARACTER_ANIMATION_REGISTRY
 ) {
-  const animationCommand =
+const resolvedAnimationCommand =
   resolveGardenCharacterAnimationCommand(
     characterId,
     animationRuntime
   );
+
+
+const animationCommand =
+  (
+    GARDEN_DEBUG_IDLE_MOVE_TEST &&
+    resolvedAnimationCommand.mode ===
+      "walk"
+  )
+    ? {
+        ...resolvedAnimationCommand,
+
+        mode:
+          "idle",
+
+        force:
+          false,
+
+        source:
+          "debug-idle-move-test",
+      }
+    : resolvedAnimationCommand;
 
 
 setGardenCharacterAnimationMode(
