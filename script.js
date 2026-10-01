@@ -20688,15 +20688,44 @@ function queueGardenSettledBathTextureCleanup(
         return;
       }
 
-      releaseGardenCharacterAnimationTexture(
-        characterId,
-        "bathWalk"
-      );
+    releaseGardenCharacterAnimationTexture(
+  characterId,
+  "bathWalk"
+);
 
-      releaseGardenCharacterAnimationTexture(
-        characterId,
-        "bathIdle"
-      );
+releaseGardenCharacterAnimationTexture(
+  characterId,
+  "bathIdle"
+);
+
+
+/*
+  iPad settled Bath diagnostic：
+
+  正式泡澡期間只保留目前正在顯示的
+  bathSoakIdle。
+
+  普通 idle / walk / talk 此刻都不會使用，
+  主動解除大型 texture 引用，
+  測試是否為 GPU / decoded image
+  resident memory 壓力來源。
+*/
+if (
+  GARDEN_IPAD_SAFE_MODE
+) {
+  for (
+    const mode of [
+      "idle",
+      "walk",
+      "talk",
+    ]
+  ) {
+    releaseGardenCharacterAnimationTexture(
+      characterId,
+      mode
+    );
+  }
+}
     });
   });
 }
