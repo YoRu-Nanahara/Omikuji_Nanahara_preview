@@ -18539,22 +18539,20 @@ bathSoakIdle:
     sheetClass:
       CHIFUYU_BATH_SOAK_IDLE_SHEET_CLASS,
 
-    /*
-      A/B Test：
-      cadence 仍保留 Bath 的 idle cadence，
-      只把 texture / frame layout 換成 Talk。
-    */
     frameMs:
       CHIFUYU_IDLE_FRAME_MS,
 
     positions:
-      CHIFUYU_TALK_FRAME_POSITIONS,
+      GARDEN_BATH_SOAK_IDLE_FRAME_POSITIONS,
 
     src:
-      CHIFUYU_TALK_SHEET_SRC,
+      CHIFUYU_BATH_SOAK_IDLE_SHEET_SRC,
 
-    logicalSize:
-      GARDEN_TALK_LOGICAL_SHEET_SIZE,
+    logicalWidth:
+      GARDEN_BATH_SOAK_LOGICAL_WIDTH,
+
+    logicalHeight:
+      GARDEN_BATH_SOAK_LOGICAL_HEIGHT,
 
     type:
       "idle",
@@ -18574,7 +18572,6 @@ bathSoakIdle:
     holdLastFrame:
       false,
   }),
-
   });
 
 /* =========================
@@ -20352,7 +20349,165 @@ function requestGardenHotSpringEntranceVisualGate(
   return false;
 }
 
+/*
+  =========================
+  Bath Transform Atlas Test
+  =========================
 
+  只在 ?gardenBathTest=1 使用。
+
+  原本：
+  650×650 viewport
+  + 每格改 background-position
+
+  測試：
+  atlas layer 本身放大成整張 logical sheet
+  + parent 650×650 負責裁切
+  + 每格只改 transform
+*/
+function parseGardenSpriteBackgroundPosition(
+  position
+) {
+  if (
+    typeof position !==
+    "string"
+  ) {
+    return null;
+  }
+
+  const match =
+    position.match(
+      /^(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px$/
+    );
+
+  if (!match) {
+    return null;
+  }
+
+  const x =
+    Number(match[1]);
+
+  const y =
+    Number(match[2]);
+
+  if (
+    !Number.isFinite(x) ||
+    !Number.isFinite(y)
+  ) {
+    return null;
+  }
+
+  return {
+    x,
+    y,
+  };
+}
+
+
+function prepareGardenBathTransformLayer(
+  characterId,
+  layer,
+  anim
+) {
+  if (
+    !GARDEN_BATH_TEST_ENABLED ||
+    !layer ||
+    !anim ||
+    !Number.isFinite(
+      anim.logicalWidth
+    ) ||
+    !Number.isFinite(
+      anim.logicalHeight
+    )
+  ) {
+    return false;
+  }
+
+
+  const viewport =
+    characterId ===
+      "chifuyu"
+      ? chifuyuWalkTest
+      : characterId ===
+          "chinatsu"
+        ? chinatsuWalkTest
+        : null;
+
+
+  if (!viewport) {
+    return false;
+  }
+
+
+  /*
+    外層仍維持 650×650，
+    專門當裁切 viewport。
+  */
+  viewport.style.overflow =
+    "hidden";
+
+
+  /*
+    Bath layer 本身變成整張 atlas。
+  */
+  layer.style.width =
+    `${anim.logicalWidth}px`;
+
+  layer.style.height =
+    `${anim.logicalHeight}px`;
+
+
+  /*
+    不再用 background-position 選格。
+    背景固定在 atlas 原點。
+  */
+  layer.style.backgroundPosition =
+    "0px 0px";
+
+
+  /*
+    這次診斷的核心：
+    frame 切換只更新 transform。
+  */
+  layer.style.willChange =
+    "transform";
+
+  layer.style.backfaceVisibility =
+    "hidden";
+
+
+  return true;
+}
+
+
+function applyGardenBathTransformFrame(
+  layer,
+  position
+) {
+  if (
+    !layer
+  ) {
+    return false;
+  }
+
+
+  const parsed =
+    parseGardenSpriteBackgroundPosition(
+      position
+    );
+
+
+  if (!parsed) {
+    return false;
+  }
+
+
+  layer.style.transform =
+    `translate3d(${parsed.x}px, ${parsed.y}px, 0)`;
+
+
+  return true;
+}
 
 function bindGardenSpriteLayerImage(
   character,
@@ -21175,16 +21330,34 @@ state.animFinished =
   false;
 
 
-  const layer =
-    getChifuyuSpriteLayer(
-      safeMode
+ const layer =
+  getChifuyuSpriteLayer(
+    safeMode
+  );
+
+
+if (layer) {
+  if (
+    GARDEN_BATH_TEST_ENABLED &&
+    safeMode ===
+      "bathSoakIdle"
+  ) {
+    prepareGardenBathTransformLayer(
+      "chifuyu",
+      layer,
+      anim
     );
 
+    applyGardenBathTransformFrame(
+      layer,
+      anim.positions[0]
+    );
 
-  if (layer) {
+  } else {
     layer.style.backgroundPosition =
       anim.positions[0];
   }
+}
 
 
   /*
@@ -21256,13 +21429,7 @@ function updateChifuyuAnimationFrame(
   保持真正 Bath texture 顯示，
   但停止 background-position 換格。
 */
-if (
-  GARDEN_BATH_TEST_ENABLED &&
-  state.animMode ===
-    "bathSoakIdle"
-) {
-  return;
-}
+
 
 
   /*
@@ -21422,13 +21589,27 @@ if (
 
 
     state.frameIndex =
-      nextFrameIndex;
+  nextFrameIndex;
 
 
-    layer.style.backgroundPosition =
-      anim.positions[
-        state.frameIndex
-      ];
+if (
+  GARDEN_BATH_TEST_ENABLED &&
+  state.animMode ===
+    "bathSoakIdle"
+) {
+  applyGardenBathTransformFrame(
+    layer,
+    anim.positions[
+      state.frameIndex
+    ]
+  );
+
+} else {
+  layer.style.backgroundPosition =
+    anim.positions[
+      state.frameIndex
+    ];
+}
 
 
     /*
@@ -24491,13 +24672,16 @@ bathSoakIdle:
       CHINATSU_IDLE_FRAME_MS,
 
     positions:
-      CHINATSU_TALK_FRAME_POSITIONS,
+      GARDEN_BATH_SOAK_IDLE_FRAME_POSITIONS,
 
     src:
-      CHINATSU_TALK_SHEET_SRC,
+      CHINATSU_BATH_SOAK_IDLE_SHEET_SRC,
 
-    logicalSize:
-      GARDEN_TALK_LOGICAL_SHEET_SIZE,
+    logicalWidth:
+      GARDEN_BATH_SOAK_LOGICAL_WIDTH,
+
+    logicalHeight:
+      GARDEN_BATH_SOAK_LOGICAL_HEIGHT,
 
     type:
       "idle",
@@ -24967,16 +25151,34 @@ state.animFinished =
   false;
 
 
-  const layer =
-    getChinatsuSpriteLayer(
-      safeMode
+const layer =
+  getChinatsuSpriteLayer(
+    safeMode
+  );
+
+
+if (layer) {
+  if (
+    GARDEN_BATH_TEST_ENABLED &&
+    safeMode ===
+      "bathSoakIdle"
+  ) {
+    prepareGardenBathTransformLayer(
+      "chinatsu",
+      layer,
+      anim
     );
 
+    applyGardenBathTransformFrame(
+      layer,
+      anim.positions[0]
+    );
 
-  if (layer) {
+  } else {
     layer.style.backgroundPosition =
       anim.positions[0];
   }
+}
 
 
   showChinatsuSpriteLayer(
@@ -25032,13 +25234,6 @@ function updateChinatsuAnimationFrame(
     return;
   }
 
-  if (
-  GARDEN_BATH_TEST_ENABLED &&
-  state.animMode ===
-    "bathSoakIdle"
-) {
-  return;
-}
 
 
   /*
@@ -25191,14 +25386,28 @@ function updateChinatsuAnimationFrame(
     }
 
 
-    state.frameIndex =
-      nextFrameIndex;
+   state.frameIndex =
+  nextFrameIndex;
 
 
-    layer.style.backgroundPosition =
-      anim.positions[
-        state.frameIndex
-      ];
+if (
+  GARDEN_BATH_TEST_ENABLED &&
+  state.animMode ===
+    "bathSoakIdle"
+) {
+  applyGardenBathTransformFrame(
+    layer,
+    anim.positions[
+      state.frameIndex
+    ]
+  );
+
+} else {
+  layer.style.backgroundPosition =
+    anim.positions[
+      state.frameIndex
+    ];
+}
 
 
     /*
