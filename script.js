@@ -18539,20 +18539,22 @@ bathSoakIdle:
     sheetClass:
       CHIFUYU_BATH_SOAK_IDLE_SHEET_CLASS,
 
+    /*
+      A/B Test：
+      cadence 仍保留 Bath 的 idle cadence，
+      只把 texture / frame layout 換成 Talk。
+    */
     frameMs:
       CHIFUYU_IDLE_FRAME_MS,
 
     positions:
-      GARDEN_BATH_SOAK_IDLE_FRAME_POSITIONS,
+      CHIFUYU_TALK_FRAME_POSITIONS,
 
     src:
-      CHIFUYU_BATH_SOAK_IDLE_SHEET_SRC,
+      CHIFUYU_TALK_SHEET_SRC,
 
-    logicalWidth:
-      GARDEN_BATH_SOAK_LOGICAL_WIDTH,
-
-    logicalHeight:
-      GARDEN_BATH_SOAK_LOGICAL_HEIGHT,
+    logicalSize:
+      GARDEN_TALK_LOGICAL_SHEET_SIZE,
 
     type:
       "idle",
@@ -24475,16 +24477,13 @@ bathSoakIdle:
       CHINATSU_IDLE_FRAME_MS,
 
     positions:
-      GARDEN_BATH_SOAK_IDLE_FRAME_POSITIONS,
+      CHINATSU_TALK_FRAME_POSITIONS,
 
     src:
-      CHINATSU_BATH_SOAK_IDLE_SHEET_SRC,
+      CHINATSU_TALK_SHEET_SRC,
 
-    logicalWidth:
-      GARDEN_BATH_SOAK_LOGICAL_WIDTH,
-
-    logicalHeight:
-      GARDEN_BATH_SOAK_LOGICAL_HEIGHT,
+    logicalSize:
+      GARDEN_TALK_LOGICAL_SHEET_SIZE,
 
     type:
       "idle",
