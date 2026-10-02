@@ -1388,12 +1388,96 @@ function goToScreen(
     leftDoor.classList.remove("show");
     rightDoor.classList.remove("show");
 
-    if (typeof onClosedReady === "function") {
-      await onClosedReady();
-    }
+  let closedReadyResult =
+  true;
 
-    fromScreen.classList.add("hidden");
-toScreen.classList.remove("hidden");
+
+if (
+  typeof onClosedReady ===
+  "function"
+) {
+  closedReadyResult =
+    await onClosedReady();
+}
+
+
+/*
+  Closed-ready callback
+  可以明確回傳 false，
+  取消這一次 Screen Transition。
+
+  用途例如：
+  - Scene Admission denied
+  - Entry resource contract failed
+  - 未來其他需要在關門期間
+    阻止 Reveal 的 Gate
+
+  undefined / true / 其他值
+  都維持原本行為。
+*/
+if (
+  closedReadyResult ===
+  false
+) {
+  console.warn(
+    "[Screen Transition] cancelled by closed-ready gate."
+  );
+
+
+  requestAnimationFrame(
+    () => {
+      /*
+        不切換 Screen。
+
+        只把已經關閉的門重新打開，
+        玩家仍留在原畫面。
+      */
+      leftDoor.classList.remove(
+        "closed"
+      );
+
+      rightDoor.classList.remove(
+        "closed"
+      );
+
+
+      leftDoor.classList.add(
+        "hide"
+      );
+
+      rightDoor.classList.add(
+        "hide"
+      );
+
+
+      /*
+        與正常 Transition 相同：
+        等門動畫結束才解除輸入鎖。
+      */
+      rightDoor.addEventListener(
+        "animationend",
+        () => {
+          unlockShrineTransitionInput();
+        },
+        {
+          once: true,
+        }
+      );
+    }
+  );
+
+
+  return;
+}
+
+
+fromScreen.classList.add(
+  "hidden"
+);
+
+toScreen.classList.remove(
+  "hidden"
+);
 
 /*
   Garden 顯示狀態。
@@ -1404,28 +1488,162 @@ document.body.classList.toggle(
   toScreen === gardenScreen
 );
 
-    requestAnimationFrame(() => {
-  if (
-    typeof onScreenShown === "function"
-  ) {
-    onScreenShown();
+ /*
+  =========================
+  Screen Shown Ready Phase
+  =========================
+
+  Target Screen 已經解除 hidden，
+  但拉門仍然完全關閉。
+
+  這時允許 onScreenShown()
+  執行同步或 async 的
+ 「真正 Reveal 前準備」。
+
+  只有 hook 完成後，
+  才開始計算開門 holdTime。
+*/
+let shownReadyResult =
+  true;
+
+
+await new Promise(
+  (resolve) => {
+    requestAnimationFrame(
+      async () => {
+        try {
+          if (
+            typeof onScreenShown ===
+            "function"
+          ) {
+            shownReadyResult =
+              await onScreenShown();
+          }
+        } catch (err) {
+          /*
+            維持既有 generic 行為：
+
+            exception 本身不讓網站
+            永久卡在關門狀態。
+
+            只有 callback 明確回傳 false
+            才取消 Reveal。
+          */
+          console.error(
+            "[Screen Transition] onScreenShown failed:",
+            err
+          );
+        }
+
+
+        resolve();
+      }
+    );
   }
+);
+
+
+/*
+  =========================
+  Shown-ready Cancellation
+  =========================
+
+  Target Screen 已經解除 hidden，
+  但拉門仍完全關閉。
+
+  若 hook 明確回傳 false，
+  就在玩家真正看見 Target 前
+  切回原本畫面。
+*/
+if (
+  shownReadyResult ===
+    false
+) {
+  console.warn(
+    "[Screen Transition] cancelled by shown-ready gate."
+  );
+
+
+  toScreen.classList.add(
+    "hidden"
+  );
+
+  fromScreen.classList.remove(
+    "hidden"
+  );
+
+
+  document.body.classList.toggle(
+    "garden-active",
+    fromScreen === gardenScreen
+  );
+
 
   /*
-    只有真的回到 Menu，
-    才重新允許 Garden 背景 preload。
-
-    如果已經全部載完，
-    函式自己會直接 return。
+    如果原畫面就是 Menu，
+    rollback 後重新允許
+    Garden 背景 preload。
   */
-  if (toScreen === menuScreen) {
+  if (
+    fromScreen === menuScreen
+  ) {
     startGardenBackgroundPreloadIdle(
       1800
     );
   }
-});
 
-    setTimeout(() => {
+
+  requestAnimationFrame(
+    () => {
+      leftDoor.classList.remove(
+        "closed"
+      );
+
+      rightDoor.classList.remove(
+        "closed"
+      );
+
+
+      leftDoor.classList.add(
+        "hide"
+      );
+
+      rightDoor.classList.add(
+        "hide"
+      );
+
+
+      rightDoor.addEventListener(
+        "animationend",
+        () => {
+          unlockShrineTransitionInput();
+        },
+        {
+          once: true,
+        }
+      );
+    }
+  );
+
+
+  return;
+}
+
+
+/*
+  正常成功切到 Menu 時，
+  才重新允許 Garden 背景 preload。
+*/
+if (
+  toScreen === menuScreen
+) {
+  startGardenBackgroundPreloadIdle(
+    1800
+  );
+}
+
+
+setTimeout(() => {
       requestAnimationFrame(() => {
         leftDoor.classList.remove("closed");
         rightDoor.classList.remove("closed");
@@ -3236,9 +3454,6 @@ function isGardenSceneModeLoaded(
 }
 
 
-
-let gardenPendingInitialMode = null;
-
 function preloadGardenImage(
   src,
   options = {}
@@ -3553,6 +3768,3393 @@ async function ensureGardenSceneModeReady(
 }
 
 
+/* =========================
+   Garden Presentation Planner
+========================= */
+
+const GARDEN_PRESENTATION_PLAN_SCHEMA =
+  "nanaharaGardenPresentationPlan";
+
+const GARDEN_PRESENTATION_PLAN_VERSION =
+  1;
+
+
+/*
+  =========================
+  Garden Presentation Transaction
+  =========================
+
+  每一次準備：
+  - Garden Entry
+  - Scene Switch
+  - 未來 Map Jump
+
+  都會取得自己的 generation。
+
+  只允許目前最新 generation
+  繼續修改 Presentation。
+*/
+let gardenPresentationGeneration =
+  0;
+
+let gardenActivePresentationTransaction =
+  null;
+
+
+function beginGardenPresentationTransaction(
+  reason = "unknown"
+) {
+  gardenPresentationGeneration +=
+    1;
+
+  const transaction =
+    Object.freeze({
+      generation:
+        gardenPresentationGeneration,
+
+      reason:
+        typeof reason === "string"
+          ? reason
+          : "unknown",
+
+      createdAt:
+        performance.now(),
+    });
+
+
+  gardenActivePresentationTransaction =
+    transaction;
+
+
+  if (GARDEN_DEBUG_ENABLED) {
+    console.log(
+      "[Garden Presentation Transaction] begin:",
+      transaction
+    );
+  }
+
+
+  return transaction;
+}
+
+
+function isGardenPresentationTransactionCurrent(
+  transaction
+) {
+  if (
+    !transaction ||
+    !Number.isInteger(
+      transaction.generation
+    )
+  ) {
+    return false;
+  }
+
+
+  return (
+    gardenActivePresentationTransaction
+      ?.generation ===
+        transaction.generation &&
+    gardenPresentationGeneration ===
+      transaction.generation
+  );
+}
+
+
+function cancelGardenPresentationTransaction(
+  transaction = null,
+  reason = "cancelled"
+) {
+  const target =
+    transaction ??
+    gardenActivePresentationTransaction;
+
+  if (!target) {
+    return false;
+  }
+
+
+  /*
+    舊 transaction 已經不是 active，
+    不允許它反過來取消新的 transaction。
+  */
+  if (
+    !isGardenPresentationTransactionCurrent(
+      target
+    )
+  ) {
+    return false;
+  }
+
+
+  gardenPresentationGeneration +=
+    1;
+
+  gardenActivePresentationTransaction =
+    null;
+
+
+  if (GARDEN_DEBUG_ENABLED) {
+    console.log(
+      "[Garden Presentation Transaction] cancelled:",
+      {
+        generation:
+          target.generation,
+
+        reason:
+          typeof reason === "string"
+            ? reason
+            : "cancelled",
+      }
+    );
+  }
+
+
+  return true;
+}
+
+
+function completeGardenPresentationTransaction(
+  transaction
+) {
+  if (
+    !isGardenPresentationTransactionCurrent(
+      transaction
+    )
+  ) {
+    return false;
+  }
+
+
+  gardenActivePresentationTransaction =
+    null;
+
+
+  if (GARDEN_DEBUG_ENABLED) {
+    console.log(
+      "[Garden Presentation Transaction] complete:",
+      transaction
+    );
+  }
+
+
+  return true;
+}
+
+
+function getGardenPresentationTransactionInfo() {
+  return Object.freeze({
+    generation:
+      gardenPresentationGeneration,
+
+    active:
+      gardenActivePresentationTransaction,
+
+    activeGeneration:
+      gardenActivePresentationTransaction
+        ?.generation ??
+      null,
+  });
+}
+
+
+/* =========================
+   Garden Resource Lease / Release v2
+   Conservative Actual Release
+   =========================
+
+   v2 在已驗證的 v1 dry-run 判定上，
+   啟用保守的 generic actual release。
+
+   只接管：
+   - 已離開且超過 grace 的 Scene Presentation
+   - 已離開且超過 grace 的普通 Character Animation
+
+   明確不接管：
+   - Bath animation 專用生命週期
+   - active / pending resource
+   - 目前 Player View 的整個 Scene
+   - Presentation Transaction target
+   - 目前 Animation Runtime mode
+   - Resource Queue 執行中的工作
+
+   Scene release 會解除 inactive DOM <img> src
+   並清除 loaded registry，使瀏覽器有資格回收
+   decoded image / texture；HTTP cache 不主動清除。
+
+   Animation release 沿用既有已實機驗證的
+   releaseGardenCharacterAnimationTexture()。
+*/
+const GARDEN_RESOURCE_LEASE_OBSERVER_VERSION =
+  2;
+
+
+const GARDEN_RESOURCE_LEASE_DRY_RUN_POLICY =
+  Object.freeze({
+    sceneGraceMs:
+      60 * 1000,
+
+    coreAnimationGraceMs:
+      180 * 1000,
+
+    onDemandAnimationGraceMs:
+      90 * 1000,
+  });
+
+
+/*
+  已經有專用生命週期的 Animation
+  不交給 generic release policy。
+
+  Hot Spring 現有 cleanup 已經經過
+  實機驗證，因此 v1 只觀察、排除。
+*/
+const GARDEN_GENERIC_RELEASE_EXCLUDED_ANIMATION_MODES =
+  Object.freeze([
+    "bathWalk",
+    "bathIdle",
+    "bathSoakIdle",
+  ]);
+
+
+/*
+  key：
+  - scene:<sceneId>:<day|night>
+  - animation:<warmupKey>
+
+  只記錄「目前仍 loaded」的資源。
+  資源若被既有 cleanup 真正移除，
+  下一次 dry-run 會同步把歷史紀錄清掉。
+*/
+const gardenResourceLeaseRegistry =
+  new Map();
+
+
+function getGardenObservedPresentationTargetSceneId(
+  transaction
+) {
+  if (
+    !transaction ||
+    typeof transaction.reason !==
+      "string"
+  ) {
+    return null;
+  }
+
+
+  const reason =
+    transaction.reason;
+
+
+  if (reason === "gardenEntry") {
+    return (
+      typeof gardenViewSceneId ===
+        "string"
+        ? gardenViewSceneId
+        : null
+    );
+  }
+
+
+  const sceneSwitchMatch =
+    reason.match(
+      /^sceneSwitch:[^>]+->(.+)$/
+    );
+
+
+  if (!sceneSwitchMatch) {
+    return null;
+  }
+
+
+  const targetSceneId =
+    sceneSwitchMatch[1]?.trim();
+
+
+  return targetSceneId || null;
+}
+
+
+function mergeGardenObservedResourceLease(
+  registry,
+  descriptor,
+  owner
+) {
+  if (
+    !registry ||
+    !descriptor?.key ||
+    !owner
+  ) {
+    return;
+  }
+
+
+  const existing =
+    registry.get(
+      descriptor.key
+    );
+
+
+  if (existing) {
+    existing.owners.add(owner);
+
+    existing.loaded =
+      existing.loaded ||
+      descriptor.loaded === true;
+
+    existing.pending =
+      existing.pending ||
+      descriptor.pending === true;
+
+    return;
+  }
+
+
+  registry.set(
+    descriptor.key,
+    {
+      ...descriptor,
+
+      owners:
+        new Set([owner]),
+    }
+  );
+}
+
+
+function collectGardenObservedSceneLeases({
+  sceneId,
+  owner,
+  source,
+  registry,
+  timestamp,
+} = {}) {
+  if (
+    !sceneId ||
+    !owner ||
+    !registry ||
+    !Number.isFinite(timestamp)
+  ) {
+    return;
+  }
+
+
+  const scene =
+    getGardenSceneById(sceneId);
+
+
+  if (!scene) {
+    return;
+  }
+
+
+  const sceneMode =
+    getGardenWorldDayNightMode(
+      timestamp
+    );
+
+
+  const sceneResourceKey =
+    getGardenSceneAssetKey(
+      sceneId,
+      sceneMode
+    );
+
+
+  mergeGardenObservedResourceLease(
+    registry,
+    {
+      key:
+        `scene:${sceneResourceKey}`,
+
+      kind:
+        "scene",
+
+      sceneId,
+
+      mode:
+        sceneMode,
+
+      resourceKey:
+        sceneResourceKey,
+
+      source:
+        source ?? null,
+
+      loaded:
+        gardenSceneAssetsLoaded.has(
+          sceneResourceKey
+        ),
+
+      pending:
+        gardenSceneModePromises.has(
+          sceneResourceKey
+        ),
+    },
+    owner
+  );
+
+
+  /*
+    角色部分沿用正式 Planner +
+    Animation Resolver 的答案。
+
+    Lease System 不自己猜角色應該用
+    idle / walk / talk / bath...。
+  */
+  const presentationPlan =
+    planGardenPresentation({
+      reason:
+        `resourceLeaseObserver:${source ?? "unknown"}`,
+
+      sceneId,
+
+      timestamp,
+    });
+
+
+  if (!presentationPlan) {
+    return;
+  }
+
+
+  const visuals =
+    getGardenInitialCriticalCharacterVisuals(
+      presentationPlan
+    );
+
+
+  for (
+    const visual of visuals
+  ) {
+    const characterId =
+      visual?.characterId;
+
+    const mode =
+      visual?.mode;
+
+
+    if (
+      !characterId ||
+      !mode
+    ) {
+      continue;
+    }
+
+
+    const warmupKey =
+      getGardenAnimationWarmupKey(
+        characterId,
+        mode
+      );
+
+
+    if (!warmupKey) {
+      continue;
+    }
+
+
+    const resourceState =
+      getGardenResourceState(
+        `animation-warmup:${characterId}:${mode}`
+      );
+
+
+    mergeGardenObservedResourceLease(
+      registry,
+      {
+        key:
+          `animation:${warmupKey}`,
+
+        kind:
+          "animation",
+
+        sceneId,
+
+        characterId,
+
+        mode,
+
+        warmupKey,
+
+        src:
+          visual.anim?.src ??
+          null,
+
+        source:
+          source ?? null,
+
+        loaded:
+          gardenAnimationWarmupState[
+            warmupKey
+          ] === true,
+
+        pending:
+          gardenOnDemandWarmupPromises.has(
+            warmupKey
+          ) ||
+          resourceState ===
+            GARDEN_RESOURCE_STATE.QUEUED ||
+          resourceState ===
+            GARDEN_RESOURCE_STATE.LOADING,
+      },
+      owner
+    );
+  }
+}
+
+
+function getGardenAnimationWarmupMetadata(
+  warmupKey
+) {
+  if (!warmupKey) {
+    return null;
+  }
+
+
+  for (
+    const [
+      characterId,
+      runtime,
+    ] of
+      GARDEN_CHARACTER_ANIMATION_REGISTRY
+        .entries()
+  ) {
+    const animations =
+      runtime?.animations ??
+      null;
+
+
+    if (!animations) {
+      continue;
+    }
+
+
+    for (
+      const mode of
+        Object.keys(animations)
+    ) {
+      const candidateKey =
+        getGardenAnimationWarmupKey(
+          characterId,
+          mode
+        );
+
+
+      if (
+        candidateKey !==
+          warmupKey
+      ) {
+        continue;
+      }
+
+
+      const definition =
+        animations[mode] ??
+        null;
+
+
+      return Object.freeze({
+        characterId,
+
+        mode,
+
+        preloadTier:
+          definition?.preloadTier ??
+          "unknown",
+
+        specializedLifecycle:
+          GARDEN_GENERIC_RELEASE_EXCLUDED_ANIMATION_MODES
+            .includes(mode)
+            ? "bath"
+            : null,
+      });
+    }
+  }
+
+
+  return null;
+}
+
+
+function getGardenSceneResourceMetadata(
+  resourceKey
+) {
+  if (
+    typeof resourceKey !==
+      "string" ||
+    !resourceKey
+  ) {
+    return null;
+  }
+
+
+  const separatorIndex =
+    resourceKey.lastIndexOf(":");
+
+
+  if (separatorIndex <= 0) {
+    return null;
+  }
+
+
+  const sceneId =
+    resourceKey.slice(
+      0,
+      separatorIndex
+    );
+
+  const mode =
+    resourceKey.slice(
+      separatorIndex + 1
+    );
+
+
+  if (
+    !getGardenSceneById(sceneId) ||
+    (
+      mode !== "day" &&
+      mode !== "night"
+    )
+  ) {
+    return null;
+  }
+
+
+  return Object.freeze({
+    sceneId,
+    mode,
+  });
+}
+
+
+function getGardenResourceLeaseObservation() {
+  const timestamp =
+    getGardenWorldNow();
+
+
+  const registry =
+    new Map();
+
+
+  const currentViewSceneId =
+    typeof gardenViewSceneId ===
+      "string"
+      ? gardenViewSceneId
+      : null;
+
+
+  const gardenViewVisible =
+    Boolean(
+      gardenScreen &&
+      !gardenScreen.classList.contains(
+        "hidden"
+      )
+    );
+
+
+  /*
+    Player View 只有在 Garden 真正顯示時
+    才持有 view lease。
+
+    Menu 階段則交給 grace period；
+    Garden Entry transaction 會另外持有
+    target Scene 的 transaction lease。
+  */
+  if (
+    gardenViewVisible &&
+    currentViewSceneId
+  ) {
+    collectGardenObservedSceneLeases({
+      sceneId:
+        currentViewSceneId,
+
+      owner:
+        `view:${currentViewSceneId}`,
+
+      source:
+        "playerView",
+
+      registry,
+
+      timestamp,
+    });
+  }
+
+
+  const activeTransaction =
+    gardenActivePresentationTransaction;
+
+
+  const transactionTargetSceneId =
+    getGardenObservedPresentationTargetSceneId(
+      activeTransaction
+    );
+
+
+  if (
+    activeTransaction &&
+    transactionTargetSceneId
+  ) {
+    collectGardenObservedSceneLeases({
+      sceneId:
+        transactionTargetSceneId,
+
+      owner:
+        `transaction:${activeTransaction.generation}`,
+
+      source:
+        activeTransaction.reason,
+
+      registry,
+
+      timestamp,
+    });
+  }
+
+
+  const leases =
+    [...registry.values()]
+      .map(
+        item =>
+          Object.freeze({
+            ...item,
+
+            owners:
+              Object.freeze(
+                [...item.owners]
+              ),
+          })
+      );
+
+
+  const leasedSceneResourceKeys =
+    new Set(
+      leases
+        .filter(
+          item =>
+            item.kind ===
+              "scene"
+        )
+        .map(
+          item =>
+            item.resourceKey
+        )
+        .filter(Boolean)
+    );
+
+
+  const leasedAnimationWarmupKeys =
+    new Set(
+      leases
+        .filter(
+          item =>
+            item.kind ===
+              "animation"
+        )
+        .map(
+          item =>
+            item.warmupKey
+        )
+        .filter(Boolean)
+    );
+
+
+  const loadedSceneResourceKeys =
+    [...gardenSceneAssetsLoaded];
+
+
+  const loadedAnimationWarmupKeys =
+    Object.entries(
+      gardenAnimationWarmupState
+    )
+      .filter(
+        ([, ready]) =>
+          ready === true
+      )
+      .map(
+        ([key]) => key
+      );
+
+
+  const unleasedLoaded =
+    Object.freeze({
+      sceneResourceKeys:
+        Object.freeze(
+          loadedSceneResourceKeys.filter(
+            key =>
+              !leasedSceneResourceKeys.has(
+                key
+              )
+          )
+        ),
+
+      animationWarmupKeys:
+        Object.freeze(
+          loadedAnimationWarmupKeys.filter(
+            key =>
+              !leasedAnimationWarmupKeys.has(
+                key
+              )
+          )
+        ),
+    });
+
+
+  return Object.freeze({
+    version:
+      GARDEN_RESOURCE_LEASE_OBSERVER_VERSION,
+
+    mode:
+      "dryRun",
+
+    generatedAt:
+      timestamp,
+
+    gardenViewVisible,
+
+    currentViewSceneId,
+
+    activeTransaction:
+      activeTransaction
+        ? Object.freeze({
+            generation:
+              activeTransaction.generation,
+
+            reason:
+              activeTransaction.reason,
+
+            targetSceneId:
+              transactionTargetSceneId,
+          })
+        : null,
+
+    leaseCount:
+      leases.length,
+
+    leases:
+      Object.freeze(leases),
+
+    loadedInventory:
+      Object.freeze({
+        sceneResourceKeys:
+          Object.freeze(
+            loadedSceneResourceKeys
+          ),
+
+        animationWarmupKeys:
+          Object.freeze(
+            loadedAnimationWarmupKeys
+          ),
+      }),
+
+    unleasedLoaded,
+  });
+}
+
+
+function normalizeGardenResourceLeaseGraceMs(
+  value,
+  fallback
+) {
+  return (
+    Number.isFinite(value) &&
+    value >= 0
+  )
+    ? value
+    : fallback;
+}
+
+
+function syncGardenResourceLeaseRegistry(
+  observation,
+  runtimeNowMs = performance.now()
+) {
+  if (!observation) {
+    return;
+  }
+
+
+  const activeLeaseByKey =
+    new Map(
+      observation.leases.map(
+        lease => [
+          lease.key,
+          lease,
+        ]
+      )
+    );
+
+
+  const loadedDescriptors =
+    new Map();
+
+
+  for (
+    const resourceKey of
+      observation.loadedInventory
+        .sceneResourceKeys
+  ) {
+    const metadata =
+      getGardenSceneResourceMetadata(
+        resourceKey
+      );
+
+
+    loadedDescriptors.set(
+      `scene:${resourceKey}`,
+      {
+        key:
+          `scene:${resourceKey}`,
+
+        kind:
+          "scene",
+
+        resourceKey,
+
+        sceneId:
+          metadata?.sceneId ??
+          null,
+
+        mode:
+          metadata?.mode ??
+          null,
+      }
+    );
+  }
+
+
+  for (
+    const warmupKey of
+      observation.loadedInventory
+        .animationWarmupKeys
+  ) {
+    const metadata =
+      getGardenAnimationWarmupMetadata(
+        warmupKey
+      );
+
+
+    loadedDescriptors.set(
+      `animation:${warmupKey}`,
+      {
+        key:
+          `animation:${warmupKey}`,
+
+        kind:
+          "animation",
+
+        warmupKey,
+
+        characterId:
+          metadata?.characterId ??
+          null,
+
+        mode:
+          metadata?.mode ??
+          null,
+
+        preloadTier:
+          metadata?.preloadTier ??
+          "unknown",
+
+        specializedLifecycle:
+          metadata?.specializedLifecycle ??
+          null,
+      }
+    );
+  }
+
+
+  /*
+    已經不在 loaded inventory 的資源
+    不再保留 stale history。
+
+    例如既有 Bath cleanup 已真正 release，
+    Registry 下一輪就同步忘掉它。
+  */
+  for (
+    const key of
+      [...gardenResourceLeaseRegistry.keys()]
+  ) {
+    if (
+      !loadedDescriptors.has(key)
+    ) {
+      gardenResourceLeaseRegistry.delete(
+        key
+      );
+    }
+  }
+
+
+  for (
+    const [
+      key,
+      descriptor,
+    ] of
+      loadedDescriptors.entries()
+  ) {
+    const activeLease =
+      activeLeaseByKey.get(key) ??
+      null;
+
+
+    let entry =
+      gardenResourceLeaseRegistry.get(
+        key
+      );
+
+
+    if (!entry) {
+      entry = {
+        ...descriptor,
+
+        firstObservedLoadedAt:
+          runtimeNowMs,
+
+        lastSeenLoadedAt:
+          runtimeNowMs,
+
+        lastLeasedAt:
+          activeLease
+            ? runtimeNowMs
+            : null,
+
+        unleasedSince:
+          activeLease
+            ? null
+            : runtimeNowMs,
+
+        leased:
+          Boolean(activeLease),
+      };
+
+      gardenResourceLeaseRegistry.set(
+        key,
+        entry
+      );
+
+      continue;
+    }
+
+
+    Object.assign(
+      entry,
+      descriptor
+    );
+
+    entry.lastSeenLoadedAt =
+      runtimeNowMs;
+
+
+    if (activeLease) {
+      entry.leased =
+        true;
+
+      entry.lastLeasedAt =
+        runtimeNowMs;
+
+      entry.unleasedSince =
+        null;
+
+      continue;
+    }
+
+
+    if (
+      entry.leased === true ||
+      !Number.isFinite(
+        entry.unleasedSince
+      )
+    ) {
+      entry.unleasedSince =
+        runtimeNowMs;
+    }
+
+
+    entry.leased =
+      false;
+  }
+}
+
+
+function evaluateGardenResourceReleaseDryRun(
+  entry,
+  observation,
+  runtimeNowMs,
+  policy
+) {
+  const activeLease =
+    observation.leases.find(
+      lease =>
+        lease.key ===
+          entry.key
+    ) ??
+    null;
+
+
+  if (activeLease) {
+    return Object.freeze({
+      status:
+        "protected",
+
+      reason:
+        "activeLease",
+
+      graceMs:
+        null,
+
+      unleasedForMs:
+        0,
+    });
+  }
+
+
+  if (entry.kind === "scene") {
+    if (
+      !entry.sceneId ||
+      !entry.mode
+    ) {
+      return Object.freeze({
+        status:
+          "protected",
+
+        reason:
+          "unknownSceneResource",
+
+        graceMs:
+          null,
+
+        unleasedForMs:
+          null,
+      });
+    }
+
+
+    /*
+      v2 defense-in-depth：
+
+      就算「同一 Scene 的另一個 day/night key」
+      沒有出現在 active lease，
+      只要這個 Scene 本身目前正在 Player View，
+      就不解除它的 DOM src。
+
+      Hot Spring day/night 暫時共用素材時尤其重要。
+    */
+    if (
+      observation.gardenViewVisible ===
+        true &&
+      observation.currentViewSceneId ===
+        entry.sceneId
+    ) {
+      return Object.freeze({
+        status:
+          "protected",
+
+        reason:
+          "sceneCurrentlyPresented",
+
+        graceMs:
+          null,
+
+        unleasedForMs:
+          null,
+      });
+    }
+
+
+    if (
+      observation.activeTransaction
+        ?.targetSceneId ===
+          entry.sceneId
+    ) {
+      return Object.freeze({
+        status:
+          "protected",
+
+        reason:
+          "sceneTargetedByTransaction",
+
+        graceMs:
+          null,
+
+        unleasedForMs:
+          null,
+      });
+    }
+
+    if (
+      gardenSceneModePromises.has(
+        entry.resourceKey
+      )
+    ) {
+      return Object.freeze({
+        status:
+          "protected",
+
+        reason:
+          "sceneLoadPending",
+
+        graceMs:
+          null,
+
+        unleasedForMs:
+          null,
+      });
+    }
+  }
+
+
+  if (entry.kind === "animation") {
+    if (
+      !entry.characterId ||
+      !entry.mode
+    ) {
+      return Object.freeze({
+        status:
+          "protected",
+
+        reason:
+          "unknownAnimationResource",
+
+        graceMs:
+          null,
+
+        unleasedForMs:
+          null,
+      });
+    }
+
+
+    if (
+      entry.specializedLifecycle
+    ) {
+      return Object.freeze({
+        status:
+          "protected",
+
+        reason:
+          `specializedLifecycle:${entry.specializedLifecycle}`,
+
+        graceMs:
+          null,
+
+        unleasedForMs:
+          null,
+      });
+    }
+
+
+    const currentMode =
+      getGardenCharacterCurrentAnimation(
+        entry.characterId
+      );
+
+
+    if (
+      currentMode ===
+        entry.mode
+    ) {
+      return Object.freeze({
+        status:
+          "protected",
+
+        reason:
+          "animationRuntimeActive",
+
+        graceMs:
+          null,
+
+        unleasedForMs:
+          null,
+      });
+    }
+
+
+
+    const resourceState =
+      getGardenResourceState(
+        `animation-warmup:${entry.characterId}:${entry.mode}`
+      );
+
+
+    if (
+      gardenOnDemandWarmupPromises.has(
+        entry.warmupKey
+      ) ||
+      resourceState ===
+        GARDEN_RESOURCE_STATE.QUEUED ||
+      resourceState ===
+        GARDEN_RESOURCE_STATE.LOADING
+    ) {
+      return Object.freeze({
+        status:
+          "protected",
+
+        reason:
+          "animationWarmupPending",
+
+        graceMs:
+          null,
+
+        unleasedForMs:
+          null,
+      });
+    }
+  }
+
+
+  const graceMs =
+    entry.kind === "scene"
+      ? policy.sceneGraceMs
+      : entry.preloadTier ===
+          "onDemand"
+        ? policy.onDemandAnimationGraceMs
+        : policy.coreAnimationGraceMs;
+
+
+  const unleasedForMs =
+    Number.isFinite(
+      entry.unleasedSince
+    )
+      ? Math.max(
+          0,
+          runtimeNowMs -
+            entry.unleasedSince
+        )
+      : 0;
+
+
+  if (
+    unleasedForMs <
+      graceMs
+  ) {
+    return Object.freeze({
+      status:
+        "grace",
+
+      reason:
+        "recentlyUnleased",
+
+      graceMs,
+
+      unleasedForMs,
+    });
+  }
+
+
+  return Object.freeze({
+    status:
+      "candidate",
+
+    reason:
+      "genericReleaseCandidate",
+
+    graceMs,
+
+    unleasedForMs,
+  });
+}
+
+
+function getGardenResourceReleaseDryRun(
+  options = {}
+) {
+  const observation =
+    getGardenResourceLeaseObservation();
+
+  const runtimeNowMs =
+    performance.now();
+
+
+  const policy =
+    Object.freeze({
+      sceneGraceMs:
+        normalizeGardenResourceLeaseGraceMs(
+          options.sceneGraceMs,
+          GARDEN_RESOURCE_LEASE_DRY_RUN_POLICY
+            .sceneGraceMs
+        ),
+
+      coreAnimationGraceMs:
+        normalizeGardenResourceLeaseGraceMs(
+          options.coreAnimationGraceMs,
+          GARDEN_RESOURCE_LEASE_DRY_RUN_POLICY
+            .coreAnimationGraceMs
+        ),
+
+      onDemandAnimationGraceMs:
+        normalizeGardenResourceLeaseGraceMs(
+          options.onDemandAnimationGraceMs,
+          GARDEN_RESOURCE_LEASE_DRY_RUN_POLICY
+            .onDemandAnimationGraceMs
+        ),
+    });
+
+
+  syncGardenResourceLeaseRegistry(
+    observation,
+    runtimeNowMs
+  );
+
+
+  const decisions =
+    [...gardenResourceLeaseRegistry.values()]
+      .map(
+        entry => {
+          const evaluation =
+            evaluateGardenResourceReleaseDryRun(
+              entry,
+              observation,
+              runtimeNowMs,
+              policy
+            );
+
+
+          return Object.freeze({
+            key:
+              entry.key,
+
+            kind:
+              entry.kind,
+
+            sceneId:
+              entry.sceneId ??
+              null,
+
+            characterId:
+              entry.characterId ??
+              null,
+
+            mode:
+              entry.mode ??
+              null,
+
+            preloadTier:
+              entry.preloadTier ??
+              null,
+
+            specializedLifecycle:
+              entry.specializedLifecycle ??
+              null,
+
+            status:
+              evaluation.status,
+
+            reason:
+              evaluation.reason,
+
+            graceMs:
+              evaluation.graceMs,
+
+            unleasedForMs:
+              evaluation.unleasedForMs,
+
+            firstObservedLoadedAt:
+              entry.firstObservedLoadedAt,
+
+            lastLeasedAt:
+              entry.lastLeasedAt,
+
+            unleasedSince:
+              entry.unleasedSince,
+          });
+        }
+      );
+
+
+  const candidates =
+    decisions.filter(
+      item =>
+        item.status ===
+          "candidate"
+    );
+
+
+  return Object.freeze({
+    version:
+      GARDEN_RESOURCE_LEASE_OBSERVER_VERSION,
+
+    mode:
+      "dryRun",
+
+    runtimeNowMs,
+
+    policy,
+
+    observation,
+
+    decisionCount:
+      decisions.length,
+
+    decisions:
+      Object.freeze(decisions),
+
+    candidateCount:
+      candidates.length,
+
+    candidates:
+      Object.freeze(candidates),
+  });
+}
+
+
+/* =========================
+   Garden Resource Lease v2
+   Actual Release Layer
+   ========================= */
+
+const GARDEN_RESOURCE_RELEASE_SWEEP_INTERVAL_MS =
+  30 * 1000;
+
+
+let gardenResourceReleaseEnabled =
+  true;
+
+let gardenResourceReleaseSweepTimer =
+  null;
+
+let gardenResourceReleaseSweepRunning =
+  false;
+
+
+function getGardenResourceReleaseSweepGate() {
+  if (!gardenResourceReleaseEnabled) {
+    return Object.freeze({
+      allowed: false,
+      reason: "disabled",
+    });
+  }
+
+
+  if (document.hidden) {
+    return Object.freeze({
+      allowed: false,
+      reason: "documentHidden",
+    });
+  }
+
+
+  if (shrineScreenTransitionBusy) {
+    return Object.freeze({
+      allowed: false,
+      reason: "screenTransitionBusy",
+    });
+  }
+
+
+  if (gardenSceneSwitchBusy) {
+    return Object.freeze({
+      allowed: false,
+      reason: "sceneSwitchBusy",
+    });
+  }
+
+
+  if (gardenActivePresentationTransaction) {
+    return Object.freeze({
+      allowed: false,
+      reason: "presentationTransactionActive",
+    });
+  }
+
+
+  if (
+    gardenResourceQueueRunning ||
+    gardenResourceCurrentJob
+  ) {
+    return Object.freeze({
+      allowed: false,
+      reason: "resourceQueueBusy",
+    });
+  }
+
+
+  return Object.freeze({
+    allowed: true,
+    reason: "ready",
+  });
+}
+
+
+function releaseGardenScenePresentationTexture(
+  sceneId,
+  mode
+) {
+  if (
+    !sceneId ||
+    (
+      mode !== "day" &&
+      mode !== "night"
+    )
+  ) {
+    return false;
+  }
+
+
+  const scene =
+    getGardenSceneById(
+      sceneId
+    );
+
+
+  if (!scene) {
+    return false;
+  }
+
+
+  const resourceKey =
+    getGardenSceneAssetKey(
+      sceneId,
+      mode
+    );
+
+
+  if (
+    !gardenSceneAssetsLoaded.has(
+      resourceKey
+    )
+  ) {
+    return false;
+  }
+
+
+  /*
+    Defense-in-depth：
+    decision 之後即使狀態改變，
+    release helper 本身仍拒絕碰目前 Scene。
+  */
+  const gardenViewVisible =
+    Boolean(
+      gardenScreen &&
+      !gardenScreen.classList.contains(
+        "hidden"
+      )
+    );
+
+
+  if (
+    gardenViewVisible &&
+    gardenViewSceneId ===
+      sceneId
+  ) {
+    return false;
+  }
+
+
+  const transactionTargetSceneId =
+    getGardenObservedPresentationTargetSceneId(
+      gardenActivePresentationTransaction
+    );
+
+
+  if (
+    transactionTargetSceneId ===
+      sceneId
+  ) {
+    return false;
+  }
+
+
+  if (
+    gardenSceneModePromises.has(
+      resourceKey
+    )
+  ) {
+    return false;
+  }
+
+
+  const sceneLayers =
+    scene.sceneLayers || [];
+
+
+  let detachedCount =
+    0;
+
+
+  for (
+    const item of
+      sceneLayers
+  ) {
+    const expectedSrc =
+      item?.[mode] ??
+      null;
+
+
+    if (!expectedSrc) {
+      continue;
+    }
+
+
+    const elements =
+      gardenScreen?.querySelectorAll(
+        item.selector
+      );
+
+
+    if (!elements) {
+      continue;
+    }
+
+
+    for (const el of elements) {
+      /*
+        Scene 已經不是 Player View，
+        所以先確保它維持不可見。
+      */
+      el.style.display =
+        "none";
+
+
+      if (
+        el.getAttribute("src") ===
+          expectedSrc
+      ) {
+        el.removeAttribute(
+          "src"
+        );
+
+        el.removeAttribute(
+          "srcset"
+        );
+
+        detachedCount +=
+          1;
+      }
+    }
+  }
+
+
+  /*
+    解除 loaded registry。
+
+    下次回到這張 Scene 時，
+    ensureGardenSceneModeReady()
+    會重新走正式 preload gate。
+
+    HTTP cache 不清除；
+    這裡只讓 DOM / decoded texture
+    失去持續引用。
+  */
+  gardenSceneAssetsLoaded.delete(
+    resourceKey
+  );
+
+  gardenResourceLeaseRegistry.delete(
+    `scene:${resourceKey}`
+  );
+
+
+  console.log(
+    "[Garden Scene Texture Release]",
+    {
+      sceneId,
+      mode,
+      resourceKey,
+      detachedCount,
+    }
+  );
+
+
+  return true;
+}
+
+
+function releaseGardenGenericAnimationTexture(
+  characterId,
+  mode
+) {
+  if (
+    !characterId ||
+    !mode ||
+    GARDEN_GENERIC_RELEASE_EXCLUDED_ANIMATION_MODES
+      .includes(mode)
+  ) {
+    return false;
+  }
+
+
+  /*
+    v2 第一版只接管目前正式角色。
+    未來新角色要加入 generic release，
+    應先擴充統一 Sprite Layer API。
+  */
+  if (
+    characterId !== "chifuyu" &&
+    characterId !== "chinatsu"
+  ) {
+    return false;
+  }
+
+
+  const released =
+    releaseGardenCharacterAnimationTexture(
+      characterId,
+      mode
+    );
+
+
+  if (released) {
+    const warmupKey =
+      getGardenAnimationWarmupKey(
+        characterId,
+        mode
+      );
+
+    gardenResourceLeaseRegistry.delete(
+      `animation:${warmupKey}`
+    );
+  }
+
+
+  return released;
+}
+
+
+function releaseGardenResourceDecision(
+  decision
+) {
+  if (
+    !decision ||
+    decision.status !==
+      "candidate"
+  ) {
+    return false;
+  }
+
+
+  if (decision.kind === "scene") {
+    return (
+      releaseGardenScenePresentationTexture(
+        decision.sceneId,
+        decision.mode
+      )
+    );
+  }
+
+
+  if (
+    decision.kind ===
+      "animation"
+  ) {
+    return (
+      releaseGardenGenericAnimationTexture(
+        decision.characterId,
+        decision.mode
+      )
+    );
+  }
+
+
+  return false;
+}
+
+
+function runGardenResourceReleaseSweep(
+  options = {}
+) {
+  const source =
+    typeof options.source ===
+      "string"
+      ? options.source
+      : "manual";
+
+
+  if (
+    gardenResourceReleaseSweepRunning
+  ) {
+    return Object.freeze({
+      version:
+        GARDEN_RESOURCE_LEASE_OBSERVER_VERSION,
+      mode: "release",
+      source,
+      ran: false,
+      reason: "sweepAlreadyRunning",
+      releasedCount: 0,
+      released: Object.freeze([]),
+      refused: Object.freeze([]),
+    });
+  }
+
+
+  const gate =
+    getGardenResourceReleaseSweepGate();
+
+
+  if (!gate.allowed) {
+    return Object.freeze({
+      version:
+        GARDEN_RESOURCE_LEASE_OBSERVER_VERSION,
+      mode: "release",
+      source,
+      ran: false,
+      reason: gate.reason,
+      releasedCount: 0,
+      released: Object.freeze([]),
+      refused: Object.freeze([]),
+    });
+  }
+
+
+  gardenResourceReleaseSweepRunning =
+    true;
+
+
+  try {
+    /*
+      先沿用已驗證的 v1 decision engine。
+      inspectGardenResourceLeases() 仍然只是 dry-run，
+      只有這個函式會真正 release。
+    */
+    const plan =
+      getGardenResourceReleaseDryRun(
+        options
+      );
+
+
+    const released =
+      [];
+
+    const refused =
+      [];
+
+
+    for (
+      const decision of
+        plan.candidates
+    ) {
+      const ok =
+        releaseGardenResourceDecision(
+          decision
+        );
+
+
+      const record =
+        Object.freeze({
+          key:
+            decision.key,
+
+          kind:
+            decision.kind,
+
+          sceneId:
+            decision.sceneId,
+
+          characterId:
+            decision.characterId,
+
+          mode:
+            decision.mode,
+
+          released:
+            ok === true,
+        });
+
+
+      if (ok) {
+        released.push(record);
+      } else {
+        refused.push(record);
+      }
+    }
+
+
+    const result =
+      Object.freeze({
+        version:
+          GARDEN_RESOURCE_LEASE_OBSERVER_VERSION,
+
+        mode:
+          "release",
+
+        source,
+
+        ran:
+          true,
+
+        reason:
+          "completed",
+
+        candidateCount:
+          plan.candidateCount,
+
+        releasedCount:
+          released.length,
+
+        refusedCount:
+          refused.length,
+
+        released:
+          Object.freeze(released),
+
+        refused:
+          Object.freeze(refused),
+      });
+
+
+    if (
+      released.length > 0 ||
+      GARDEN_DEBUG_ENABLED
+    ) {
+      console.log(
+        "[Garden Resource Lease v2] release sweep:",
+        result
+      );
+    }
+
+
+    return result;
+
+  } finally {
+    gardenResourceReleaseSweepRunning =
+      false;
+  }
+}
+
+
+function scheduleGardenResourceReleaseSweep(
+  delay =
+    GARDEN_RESOURCE_RELEASE_SWEEP_INTERVAL_MS
+) {
+  if (gardenResourceReleaseSweepTimer) {
+    clearTimeout(
+      gardenResourceReleaseSweepTimer
+    );
+  }
+
+
+  const safeDelay =
+    Number.isFinite(delay) &&
+    delay >= 0
+      ? delay
+      : GARDEN_RESOURCE_RELEASE_SWEEP_INTERVAL_MS;
+
+
+  gardenResourceReleaseSweepTimer =
+    setTimeout(() => {
+      gardenResourceReleaseSweepTimer =
+        null;
+
+
+      runGardenResourceReleaseSweep({
+        source:
+          "scheduled",
+      });
+
+
+      scheduleGardenResourceReleaseSweep();
+    }, safeDelay);
+
+
+  return true;
+}
+
+
+function setGardenResourceReleaseEnabled(
+  enabled
+) {
+  gardenResourceReleaseEnabled =
+    enabled === true;
+
+
+  console.log(
+    "[Garden Resource Lease v2] actual release:",
+    gardenResourceReleaseEnabled
+      ? "enabled"
+      : "disabled"
+  );
+
+
+  return gardenResourceReleaseEnabled;
+}
+
+
+function getGardenResourceReleaseStatus() {
+  return Object.freeze({
+    version:
+      GARDEN_RESOURCE_LEASE_OBSERVER_VERSION,
+
+    enabled:
+      gardenResourceReleaseEnabled,
+
+    sweepRunning:
+      gardenResourceReleaseSweepRunning,
+
+    sweepScheduled:
+      gardenResourceReleaseSweepTimer !==
+        null,
+
+    sweepIntervalMs:
+      GARDEN_RESOURCE_RELEASE_SWEEP_INTERVAL_MS,
+  });
+}
+
+
+function inspectGardenResourceLeases(
+  options = {}
+) {
+  const dryRun =
+    getGardenResourceReleaseDryRun(
+      options
+    );
+
+  const snapshot =
+    dryRun.observation;
+
+
+  console.log(
+    "[Garden Resource Lease v2]",
+    snapshot
+  );
+
+
+  console.table(
+    snapshot.leases.map(
+      item => ({
+        kind:
+          item.kind,
+
+        scene:
+          item.sceneId ?? "",
+
+        character:
+          item.characterId ?? "",
+
+        mode:
+          item.mode ?? "",
+
+        loaded:
+          item.loaded,
+
+        pending:
+          item.pending,
+
+        owners:
+          item.owners.join(", "),
+
+        key:
+          item.key,
+      })
+    )
+  );
+
+
+  console.table(
+    dryRun.decisions.map(
+      item => ({
+        kind:
+          item.kind,
+
+        scene:
+          item.sceneId ?? "",
+
+        character:
+          item.characterId ?? "",
+
+        mode:
+          item.mode ?? "",
+
+        tier:
+          item.preloadTier ?? "",
+
+        status:
+          item.status,
+
+        reason:
+          item.reason,
+
+        unleasedMs:
+          Number.isFinite(
+            item.unleasedForMs
+          )
+            ? Math.round(
+                item.unleasedForMs
+              )
+            : "",
+
+        graceMs:
+          Number.isFinite(
+            item.graceMs
+          )
+            ? item.graceMs
+            : "",
+
+        key:
+          item.key,
+      })
+    )
+  );
+
+
+  console.log(
+    "[Garden Resource Lease v2] release candidates (dry-run only):",
+    dryRun.candidates
+  );
+
+
+  return dryRun;
+}
+
+
+function resetGardenResourceLeaseDryRunHistory() {
+  gardenResourceLeaseRegistry.clear();
+
+  console.log(
+    "[Garden Resource Lease v2] dry-run history reset"
+  );
+
+  return true;
+}
+
+
+window.inspectGardenResourceLeases =
+  inspectGardenResourceLeases;
+
+window.getGardenResourceLeaseObservation =
+  getGardenResourceLeaseObservation;
+
+window.getGardenResourceReleaseDryRun =
+  getGardenResourceReleaseDryRun;
+
+window.resetGardenResourceLeaseDryRunHistory =
+  resetGardenResourceLeaseDryRunHistory;
+
+window.runGardenResourceReleaseSweep =
+  runGardenResourceReleaseSweep;
+
+window.setGardenResourceReleaseEnabled =
+  setGardenResourceReleaseEnabled;
+
+window.getGardenResourceReleaseStatus =
+  getGardenResourceReleaseStatus;
+
+
+/*
+  首次只排程，不立刻 release。
+
+  讓 Registry 先觀察一輪；
+  真正釋放仍必須滿足各自 grace period。
+*/
+scheduleGardenResourceReleaseSweep();
+
+
+
+/*
+  Presentation Planner：
+
+  只描述玩家「現在準備看到什麼」。
+
+  不負責：
+  - 修改 Character World
+  - 修改 Schedule
+  - Travel
+  - preload / decode / warmup
+  - DOM binding
+  - reveal / black fade
+
+  以上責任之後分別交給：
+  - Resource System
+  - Scene Admission / Entry Gate
+  - Paint / Reveal Gate
+*/
+function planGardenPresentation({
+  reason =
+    "gardenEntry",
+
+  sceneId =
+    gardenViewSceneId,
+
+  timestamp =
+    getGardenWorldNow(),
+} = {}) {
+  /*
+    Player View 與 Character World
+    保持完全分離。
+
+    Planner 第一版只接受
+    現有 Player View。
+
+    不因角色人在別的 Scene
+    就偷偷改變鏡頭。
+  */
+  const plannedSceneId =
+    (
+      typeof sceneId ===
+        "string" &&
+      getGardenSceneById(
+        sceneId
+      )
+    )
+      ? sceneId
+      : "courtyard";
+
+
+  const scene =
+    getGardenSceneById(
+      plannedSceneId
+    );
+
+
+  if (
+    !scene ||
+    !Number.isFinite(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+/*
+  =========================
+  Scene Presentation Requirement
+  =========================
+
+  Planner 只宣告：
+  「這一次 Presentation
+  需要哪個 Scene + 哪個 Mode」。
+
+  不在這裡展開實際圖片 URL。
+
+  真正 Scene Layers / Assets
+  仍由 Scene Registry +
+  Resource System 負責解析。
+*/
+const sceneMode =
+  getGardenWorldDayNightMode(
+    timestamp
+  );
+
+
+const sceneRequirement =
+  Object.freeze({
+    sceneId:
+      plannedSceneId,
+
+    mode:
+      sceneMode,
+
+    resourceKey:
+      getGardenSceneAssetKey(
+        plannedSceneId,
+        sceneMode
+      ),
+  });
+
+
+  /*
+    只列出這次 Presentation
+    真正能被玩家看到的角色。
+
+    注意：
+    這裡只是描述，
+    不修改任何角色狀態。
+  */
+  const visibleCharacters =
+    [];
+
+
+  for (
+    const characterId of [
+      "chifuyu",
+      "chinatsu",
+    ]
+  ) {
+    const worldState =
+      gardenCharacterWorldState[
+        characterId
+      ];
+
+
+    if (
+      !worldState ||
+      worldState.sceneId !==
+        plannedSceneId
+    ) {
+      continue;
+    }
+
+
+    visibleCharacters.push(
+      Object.freeze({
+        characterId,
+
+        sceneId:
+          worldState.sceneId,
+
+        activity:
+          worldState.activity ??
+          null,
+
+        intentId:
+          worldState.activityData
+            ?.intentId ??
+          null,
+      })
+    );
+  }
+
+
+  return Object.freeze({
+    schema:
+      GARDEN_PRESENTATION_PLAN_SCHEMA,
+
+    version:
+      GARDEN_PRESENTATION_PLAN_VERSION,
+
+    reason,
+
+    timestamp,
+
+   sceneId:
+  plannedSceneId,
+
+sceneMode,
+
+sceneRequirement,
+
+visibleCharacters:
+      Object.freeze(
+        visibleCharacters
+      ),
+  });
+}
+
+
+function inspectGardenPresentationPlan(
+  options = {}
+) {
+  const plan =
+    planGardenPresentation(
+      options
+    );
+
+
+  if (!plan) {
+    console.warn(
+      "[Garden Presentation Planner] unavailable"
+    );
+
+    return null;
+  }
+
+
+  console.log(
+    "[Garden Presentation Planner]",
+    plan
+  );
+
+
+  console.table(
+    plan.visibleCharacters
+  );
+
+
+  return plan;
+}
+
+
+/* =========================
+   Garden Scene Admission Gate
+========================= */
+
+/*
+  Scene Admission Gate：
+
+  只回答：
+
+  「這份 Presentation Plan
+   所要求的 Scene Resource，
+   現在是否已經 ready？」
+
+  不負責：
+  - preload
+  - 修改 Player View
+  - 修改 Character World
+  - DOM 顯示
+  - Paint / Reveal
+
+  因此這個函式本身
+  不會造成任何狀態變化。
+*/
+function evaluateGardenSceneAdmission(
+  presentationPlan
+) {
+  /*
+    1. Presentation Plan Contract
+  */
+  if (
+    presentationPlan?.schema !==
+      GARDEN_PRESENTATION_PLAN_SCHEMA ||
+    presentationPlan?.version !==
+      GARDEN_PRESENTATION_PLAN_VERSION
+  ) {
+    return Object.freeze({
+      admitted:
+        false,
+
+      reason:
+        "invalidPresentationPlan",
+
+      resourceKey:
+        null,
+
+      sceneId:
+        null,
+
+      mode:
+        null,
+
+      sceneReady:
+        false,
+    });
+  }
+
+
+  const requirement =
+    presentationPlan.sceneRequirement;
+
+
+  /*
+    2. Scene Requirement Contract
+  */
+  if (
+    !requirement ||
+    typeof requirement.sceneId !==
+      "string" ||
+    (
+      requirement.mode !==
+        "day" &&
+      requirement.mode !==
+        "night"
+    )
+  ) {
+    return Object.freeze({
+      admitted:
+        false,
+
+      reason:
+        "invalidSceneRequirement",
+
+      resourceKey:
+        requirement?.resourceKey ??
+        null,
+
+      sceneId:
+        requirement?.sceneId ??
+        null,
+
+      mode:
+        requirement?.mode ??
+        null,
+
+      sceneReady:
+        false,
+    });
+  }
+
+
+  const expectedResourceKey =
+    getGardenSceneAssetKey(
+      requirement.sceneId,
+      requirement.mode
+    );
+
+
+  /*
+    3. Requirement 必須自洽
+  */
+  if (
+    requirement.resourceKey !==
+      expectedResourceKey
+  ) {
+    return Object.freeze({
+      admitted:
+        false,
+
+      reason:
+        "sceneRequirementKeyMismatch",
+
+      resourceKey:
+        requirement.resourceKey ??
+        null,
+
+      expectedResourceKey,
+
+      sceneId:
+        requirement.sceneId,
+
+      mode:
+        requirement.mode,
+
+      sceneReady:
+        false,
+    });
+  }
+
+
+  /*
+    4. Scene 必須真的存在
+  */
+  if (
+    !getGardenSceneById(
+      requirement.sceneId
+    )
+  ) {
+    return Object.freeze({
+      admitted:
+        false,
+
+      reason:
+        "unknownScene",
+
+      resourceKey:
+        requirement.resourceKey,
+
+      sceneId:
+        requirement.sceneId,
+
+      mode:
+        requirement.mode,
+
+      sceneReady:
+        false,
+    });
+  }
+
+
+  /*
+    5. 真正的 Resource Ready 判定
+
+    這裡不看 Browser Cache，
+    也不猜圖片是不是可能已下載。
+
+    只相信 Garden Resource System
+    自己的 loaded registry。
+  */
+  const sceneReady =
+    isGardenSceneModeLoaded(
+      requirement.sceneId,
+      requirement.mode
+    );
+
+
+  return Object.freeze({
+    admitted:
+      sceneReady,
+
+    reason:
+      sceneReady
+        ? "ready"
+        : "sceneResourcesNotReady",
+
+    resourceKey:
+      requirement.resourceKey,
+
+    sceneId:
+      requirement.sceneId,
+
+    mode:
+      requirement.mode,
+
+    sceneReady,
+  });
+}
+
+
+function inspectGardenSceneAdmission(
+  presentationPlan =
+    planGardenPresentation()
+) {
+  const result =
+    evaluateGardenSceneAdmission(
+      presentationPlan
+    );
+
+
+  console.log(
+    "[Garden Scene Admission]",
+    result
+  );
+
+
+  return result;
+}
+
+
+/* =========================
+   Garden Paint / Reveal Gate
+   Scene Paint Readiness
+========================= */
+
+/*
+  這一階段只檢查：
+
+  Presentation Plan 要求的 Scene
+  是否真的已經寫進 DOM。
+
+  不 preload。
+  不修改 DOM。
+  不切換 Scene。
+  不 Reveal。
+
+  Character Paint Readiness
+  下一步再加入。
+*/
+function evaluateGardenScenePaintReadiness(
+  presentationPlan
+) {
+  if (
+    presentationPlan?.schema !==
+      GARDEN_PRESENTATION_PLAN_SCHEMA ||
+    presentationPlan?.version !==
+      GARDEN_PRESENTATION_PLAN_VERSION
+  ) {
+    return Object.freeze({
+      ready: false,
+      reason:
+        "invalidPresentationPlan",
+      sceneId: null,
+      mode: null,
+      layerCount: 0,
+      readyLayerCount: 0,
+    });
+  }
+
+
+  const requirement =
+    presentationPlan.sceneRequirement;
+
+
+  if (
+    !requirement ||
+    typeof requirement.sceneId !==
+      "string" ||
+    (
+      requirement.mode !== "day" &&
+      requirement.mode !== "night"
+    )
+  ) {
+    return Object.freeze({
+      ready: false,
+      reason:
+        "invalidSceneRequirement",
+      sceneId:
+        requirement?.sceneId ?? null,
+      mode:
+        requirement?.mode ?? null,
+      layerCount: 0,
+      readyLayerCount: 0,
+    });
+  }
+
+
+  /*
+    Planner 要呈現的 Scene
+    必須已經是目前 Player View。
+  */
+  if (
+    gardenViewSceneId !==
+      requirement.sceneId
+  ) {
+    return Object.freeze({
+      ready: false,
+      reason:
+        "viewSceneMismatch",
+      sceneId:
+        requirement.sceneId,
+      mode:
+        requirement.mode,
+      currentViewSceneId:
+        gardenViewSceneId,
+      layerCount: 0,
+      readyLayerCount: 0,
+    });
+  }
+
+
+  const scene =
+    getGardenSceneById(
+      requirement.sceneId
+    );
+
+
+  if (!scene) {
+    return Object.freeze({
+      ready: false,
+      reason:
+        "unknownScene",
+      sceneId:
+        requirement.sceneId,
+      mode:
+        requirement.mode,
+      layerCount: 0,
+      readyLayerCount: 0,
+    });
+  }
+
+
+  const requiredLayers =
+    (scene.sceneLayers || [])
+      .filter(
+        item =>
+          Boolean(
+            item[
+              requirement.mode
+            ]
+          )
+      );
+
+
+  const layerResults = [];
+
+
+  for (
+    const item of
+    requiredLayers
+  ) {
+    const el =
+      gardenScreen?.querySelector(
+        item.selector
+      );
+
+
+    const expectedSrc =
+      item[
+        requirement.mode
+      ];
+
+
+    const actualSrc =
+      el?.getAttribute("src") ??
+      null;
+
+
+    const displayed =
+      Boolean(el) &&
+      el.style.display !==
+        "none";
+
+
+    const srcReady =
+      Boolean(el) &&
+      actualSrc ===
+        expectedSrc;
+
+
+    layerResults.push(
+      Object.freeze({
+        selector:
+          item.selector,
+
+        expectedSrc,
+
+        actualSrc,
+
+        displayed,
+
+        ready:
+          displayed &&
+          srcReady,
+      })
+    );
+  }
+
+
+  const readyLayerCount =
+    layerResults.filter(
+      item => item.ready
+    ).length;
+
+
+  const ready =
+    readyLayerCount ===
+      requiredLayers.length;
+
+
+  return Object.freeze({
+    ready,
+
+    reason:
+      ready
+        ? "ready"
+        : "sceneDomNotReady",
+
+    sceneId:
+      requirement.sceneId,
+
+    mode:
+      requirement.mode,
+
+    layerCount:
+      requiredLayers.length,
+
+    readyLayerCount,
+
+    layers:
+      Object.freeze(
+        layerResults
+      ),
+  });
+}
+
+
+function inspectGardenScenePaintReadiness(
+  presentationPlan =
+    planGardenPresentation()
+) {
+  const result =
+    evaluateGardenScenePaintReadiness(
+      presentationPlan
+    );
+
+
+  console.log(
+    "[Garden Scene Paint Readiness]",
+    result
+  );
+
+
+  console.table(
+    result.layers ?? []
+  );
+
+
+  return result;
+}
+
+
+/* =========================
+   Garden Paint / Reveal Gate
+   Character Paint Readiness
+========================= */
+
+/*
+  純檢查器。
+
+  不建立 Sprite Layer。
+  不切動畫。
+  不 preload。
+  不修改 visibility。
+
+  只檢查目前 DOM 是否已經符合：
+  - Presentation Plan
+  - Character World
+  - Animation Runtime
+*/
+function evaluateGardenCharacterPaintReadiness(
+  presentationPlan
+) {
+  if (
+    presentationPlan?.schema !==
+      GARDEN_PRESENTATION_PLAN_SCHEMA ||
+    presentationPlan?.version !==
+      GARDEN_PRESENTATION_PLAN_VERSION
+  ) {
+    return Object.freeze({
+      ready: false,
+      reason:
+        "invalidPresentationPlan",
+      characterCount: 0,
+      readyCharacterCount: 0,
+      characters:
+        Object.freeze([]),
+    });
+  }
+
+
+  const plannedSceneId =
+    presentationPlan.sceneId;
+
+
+  const plannedVisibleIds =
+    new Set(
+      (
+        presentationPlan
+          .visibleCharacters ||
+        []
+      )
+        .map(
+          item =>
+            item?.characterId
+        )
+        .filter(Boolean)
+    );
+
+
+  const characterResults = [];
+
+
+  for (
+    const characterId of [
+      "chifuyu",
+      "chinatsu",
+    ]
+  ) {
+    const worldState =
+      gardenCharacterWorldState[
+        characterId
+      ];
+
+
+    const plannedVisible =
+      plannedVisibleIds.has(
+        characterId
+      );
+
+
+    const worldVisible =
+      worldState?.sceneId ===
+        plannedSceneId;
+
+
+    const wrapper =
+      characterId === "chifuyu"
+        ? chifuyuWalkTestWrap
+        : chinatsuWalkTestWrap;
+
+
+    const layers =
+      characterId === "chifuyu"
+        ? chifuyuSpriteLayers
+        : chinatsuSpriteLayers;
+
+
+    const wrapperVisibility =
+      wrapper?.style.visibility ||
+      "";
+
+
+    const wrapperVisible =
+      Boolean(wrapper) &&
+      wrapperVisibility ===
+        "visible";
+
+
+    /*
+      Presentation Plan 與目前 World
+      對「角色是否在這張 Scene」
+      必須仍然一致。
+
+      如果進場期間剛好跨過 Schedule
+      boundary，這裡會抓到 Plan 已過期。
+    */
+    const visibilityContractReady =
+      plannedVisible ===
+      worldVisible;
+
+
+    /*
+      不該出現在這張 Scene 的角色，
+      只要求 wrapper 確實隱藏。
+    */
+    if (!plannedVisible) {
+      const hiddenReady =
+        visibilityContractReady &&
+        Boolean(wrapper) &&
+        wrapperVisibility ===
+          "hidden";
+
+
+      characterResults.push(
+        Object.freeze({
+          characterId,
+
+          plannedVisible,
+
+          worldVisible,
+
+          wrapperVisibility,
+
+          currentMode:
+            getGardenCharacterCurrentAnimation(
+              characterId
+            ),
+
+          layerExists:
+            null,
+
+          layerOpacity:
+            null,
+
+          activeLayerCount:
+            null,
+
+          backgroundReady:
+            null,
+
+          ready:
+            hiddenReady,
+        })
+      );
+
+
+      continue;
+    }
+
+
+    /*
+      以下是「應該被玩家看到」的角色。
+    */
+    const currentMode =
+      getGardenCharacterCurrentAnimation(
+        characterId
+      );
+
+
+    const activeLayer =
+      currentMode
+        ? layers?.[
+            currentMode
+          ] ?? null
+        : null;
+
+
+    const animationAsset =
+      currentMode
+        ? getGardenAnimationAsset(
+            characterId,
+            currentMode
+          )
+        : null;
+
+
+    const layerOpacity =
+      activeLayer?.style.opacity ??
+      null;
+
+
+    /*
+      確認沒有同時兩張角色動畫
+      opacity = 1。
+    */
+    const activeLayerCount =
+      Object.values(
+        layers || {}
+      )
+        .filter(
+          layer =>
+            layer?.style.opacity ===
+            "1"
+        )
+        .length;
+
+
+    const actualBackgroundImage =
+      activeLayer?.style
+        .backgroundImage ??
+      "";
+
+
+    const backgroundReady =
+      Boolean(
+        animationAsset?.src &&
+        actualBackgroundImage &&
+        actualBackgroundImage !==
+          "none" &&
+        actualBackgroundImage.includes(
+          animationAsset.src
+        )
+      );
+
+
+    const ready =
+      visibilityContractReady &&
+      worldVisible &&
+      wrapperVisible &&
+      Boolean(currentMode) &&
+      Boolean(activeLayer) &&
+      layerOpacity === "1" &&
+      activeLayerCount === 1 &&
+      backgroundReady;
+
+
+    characterResults.push(
+      Object.freeze({
+        characterId,
+
+        plannedVisible,
+
+        worldVisible,
+
+        wrapperVisibility,
+
+        currentMode,
+
+        layerExists:
+          Boolean(activeLayer),
+
+        layerOpacity,
+
+        activeLayerCount,
+
+        backgroundReady,
+
+        ready,
+      })
+    );
+  }
+
+
+  const readyCharacterCount =
+    characterResults.filter(
+      item => item.ready
+    ).length;
+
+
+  const ready =
+    readyCharacterCount ===
+      characterResults.length;
+
+
+  return Object.freeze({
+    ready,
+
+    reason:
+      ready
+        ? "ready"
+        : "characterDomNotReady",
+
+    sceneId:
+      plannedSceneId,
+
+    characterCount:
+      characterResults.length,
+
+    readyCharacterCount,
+
+    characters:
+      Object.freeze(
+        characterResults
+      ),
+  });
+}
+
+
+function inspectGardenCharacterPaintReadiness(
+  presentationPlan =
+    planGardenPresentation()
+) {
+  const result =
+    evaluateGardenCharacterPaintReadiness(
+      presentationPlan
+    );
+
+
+  console.log(
+    "[Garden Character Paint Readiness]",
+    result
+  );
+
+
+  console.table(
+    result.characters
+  );
+
+
+  return result;
+}
+/* =========================
+   Garden Paint / Reveal Gate
+   Combined Paint Readiness
+========================= */
+
+/*
+  Paint Gate 的單一正式入口。
+
+  只整合：
+  - Scene DOM Readiness
+  - Character DOM Readiness
+
+  不 preload。
+  不修改 DOM。
+  不等待 frame。
+  不 Reveal。
+*/
+function evaluateGardenPaintReadiness(
+  presentationPlan
+) {
+  const scene =
+    evaluateGardenScenePaintReadiness(
+      presentationPlan
+    );
+
+
+  /*
+    Scene 本身都還沒 Paint Ready，
+    就不需要繼續把 Character
+    當成可以 Reveal 的條件。
+  */
+  if (!scene.ready) {
+    return Object.freeze({
+      ready:
+        false,
+
+      reason:
+        scene.reason,
+
+      scene,
+
+      characters:
+        null,
+    });
+  }
+
+
+  const characters =
+    evaluateGardenCharacterPaintReadiness(
+      presentationPlan
+    );
+
+
+  if (!characters.ready) {
+    return Object.freeze({
+      ready:
+        false,
+
+      reason:
+        characters.reason,
+
+      scene,
+
+      characters,
+    });
+  }
+
+
+  return Object.freeze({
+    ready:
+      true,
+
+    reason:
+      "ready",
+
+    scene,
+
+    characters,
+  });
+}
+
+
+function inspectGardenPaintReadiness(
+  presentationPlan =
+    planGardenPresentation()
+) {
+  const result =
+    evaluateGardenPaintReadiness(
+      presentationPlan
+    );
+
+
+  console.log(
+    "[Garden Paint Readiness]",
+    result
+  );
+
+
+  return result;
+}
 
 
 /*
@@ -3569,50 +7171,72 @@ async function ensureGardenSceneModeReady(
   =========================
 */
 function getGardenInitialCriticalCharacterVisuals(
-  sceneId =
-    gardenViewSceneId
+  presentationPlan = null
 ) {
+  const plan =
+    (
+      presentationPlan?.schema ===
+        GARDEN_PRESENTATION_PLAN_SCHEMA &&
+      presentationPlan?.version ===
+        GARDEN_PRESENTATION_PLAN_VERSION
+    )
+      ? presentationPlan
+      : planGardenPresentation();
+
+
+  if (!plan) {
+    return [];
+  }
+
+
   const result = [];
 
-  for (
-    const characterId of [
-      "chifuyu",
-      "chinatsu",
-    ]
-  ) {
-    const worldState =
-      gardenCharacterWorldState[
-        characterId
-      ];
 
-    /*
-      角色不在目前 Player View，
-      完全不需要卡住拉門。
-    */
-    if (
-      !worldState ||
-      worldState.sceneId !== sceneId
-    ) {
+  /*
+    從這一步開始，
+    Resource Resolver 不再自己判斷：
+
+    「哪些角色應該出現在第一眼」。
+
+    這個答案由 Presentation Planner
+    唯一提供。
+  */
+  for (
+    const visibleCharacter of
+      plan.visibleCharacters
+  ) {
+    const characterId =
+      visibleCharacter?.characterId;
+
+
+    if (!characterId) {
       continue;
     }
+
 
     const animationRuntime =
       getGardenCharacterAnimationRuntime(
         characterId
       );
 
+
     if (!animationRuntime) {
       continue;
     }
 
-    /*
-      直接詢問正式 Animation Resolver。
 
-      例如：
-      wander → idle / walk
-      chat   → talk
-      bath   → bathSoakIdle
-      travel → walk / bathWalk
+    /*
+      Animation 本身仍交給
+      正式 Animation Resolver。
+
+      Presentation Planner
+      目前只負責決定：
+
+      - Scene
+      - Visible Characters
+
+      還不直接管理
+      Animation Command。
     */
     const command =
       resolveGardenCharacterAnimationCommand(
@@ -3620,9 +7244,11 @@ function getGardenInitialCriticalCharacterVisuals(
         animationRuntime
       );
 
+
     const requestedMode =
       command?.mode ??
       "idle";
+
 
     const resolvedMode =
       resolveGardenCharacterAnimationFallback(
@@ -3630,9 +7256,11 @@ function getGardenInitialCriticalCharacterVisuals(
         requestedMode
       );
 
+
     if (!resolvedMode) {
       continue;
     }
+
 
     const anim =
       getGardenCharacterAnimationDefinition(
@@ -3640,60 +7268,361 @@ function getGardenInitialCriticalCharacterVisuals(
         resolvedMode
       );
 
+
     if (!anim) {
       continue;
     }
 
-    result.push({
-      characterId,
-      mode:
-        resolvedMode,
-      anim,
-    });
+
+    result.push(
+      Object.freeze({
+        characterId,
+
+        mode:
+          resolvedMode,
+
+        anim,
+      })
+    );
   }
+
 
   return result;
 }
 
+/* =========================
+   Garden Character
+   Presentation Hydrator
+========================= */
 
+/*
+  Reveal 前，把目前 World / Resolver
+  已經決定好的角色動畫
+  正式同步到 Presentation DOM。
+
+  不修改：
+  - Character World State
+  - activity
+  - travel
+  - position
+  - schedule
+
+  也不推進 animation frame。
+
+  只負責：
+  World / Resolver
+  → Animation Runtime
+  → Sprite Layer
+*/
+function hydrateGardenCharacterPresentation(
+  presentationPlan
+) {
+  const visuals =
+    getGardenInitialCriticalCharacterVisuals(
+      presentationPlan
+    );
+
+
+  const results = [];
+
+
+  for (
+    const visual of
+    visuals
+  ) {
+    const characterId =
+      visual.characterId;
+
+    const mode =
+      visual.mode;
+
+
+    const warmupKey =
+      getGardenAnimationWarmupKey(
+        characterId,
+        mode
+      );
+
+
+    /*
+      Entry Preload 理論上已經完成
+      這張 Critical Visual 的 warmup。
+
+      Hydrator 本身不偷偷下載資源。
+    */
+    if (
+      !gardenAnimationWarmupState[
+        warmupKey
+      ]
+    ) {
+      results.push(
+        Object.freeze({
+          characterId,
+          requestedMode:
+            mode,
+          currentMode:
+            getGardenCharacterCurrentAnimation(
+              characterId
+            ),
+          warmupReady:
+            false,
+          hydrated:
+            false,
+          reason:
+            "animationNotWarm",
+        })
+      );
+
+      continue;
+    }
+
+
+    /*
+      確保已 warmup 的 sheet
+      真正綁到固定 Sprite Layer。
+    */
+    bindGardenSpriteLayerImage(
+      characterId,
+      mode
+    );
+
+
+    /*
+      不 force。
+
+      這裡不是重新開始動畫，
+      只是把目前 Resolver 的結果
+      同步到 Presentation。
+
+      animMode === null 時會正常建立
+      第一個正式 animation state。
+    */
+    setGardenCharacterAnimationMode(
+      characterId,
+      mode,
+      false
+    );
+
+
+    const currentMode =
+      getGardenCharacterCurrentAnimation(
+        characterId
+      );
+
+
+    /*
+      即使未來出現：
+      runtime mode 已經正確，
+      但 layer opacity 尚未恢復，
+
+      Hydrator 也明確把目前 mode
+      對應的固定 layer 顯示出來。
+    */
+    if (
+      currentMode === mode
+    ) {
+      if (
+        characterId ===
+        "chifuyu"
+      ) {
+        showChifuyuSpriteLayer(
+          currentMode
+        );
+      }
+
+      else if (
+        characterId ===
+        "chinatsu"
+      ) {
+        showChinatsuSpriteLayer(
+          currentMode
+        );
+      }
+    }
+
+
+    const hydrated =
+      currentMode === mode;
+
+
+    results.push(
+      Object.freeze({
+        characterId,
+
+        requestedMode:
+          mode,
+
+        currentMode,
+
+        warmupReady:
+          true,
+
+        hydrated,
+
+        reason:
+          hydrated
+            ? "ready"
+            : "animationModeNotApplied",
+      })
+    );
+  }
+
+
+  const hydratedCount =
+    results.filter(
+      item => item.hydrated
+    ).length;
+
+
+  return Object.freeze({
+    ready:
+      hydratedCount ===
+        results.length,
+
+    reason:
+      hydratedCount ===
+        results.length
+        ? "ready"
+        : "characterPresentationNotReady",
+
+    characterCount:
+      results.length,
+
+    hydratedCount,
+
+    characters:
+      Object.freeze(
+        results
+      ),
+  });
+}
 
 
 async function preloadGardenAssets(
-  initialMode = null
+  presentationPlan = null
 ) {
   /*
     =========================
-    只準備首次畫面必要素材
+    Presentation-driven Preload
     =========================
 
-    chat
-    → Talk 兩張
+    Resource System 不再自行判斷：
+    - 要準備哪個 Scene
+    - 現在是 Day / Night
+    - 第一眼有哪些角色
 
-    wander
-    → Idle 兩張
+    以上全部由
+    Presentation Planner 提供。
 
-    不再在拉門關閉期間
-    一口氣處理六張角色 spritesheet。
+    暫時仍保留 fallback：
+    舊 caller 如果還傳入
+    "wander" / "chat"，
+    這裡會自動建立正式 Plan。
+
+    等下一步把 caller 改完後，
+    就可以移除這個相容層。
   */
+  const plan =
+  (
+    presentationPlan?.schema ===
+      GARDEN_PRESENTATION_PLAN_SCHEMA &&
+    presentationPlan?.version ===
+      GARDEN_PRESENTATION_PLAN_VERSION
+  )
+    ? presentationPlan
+    : null;
 
-  const firstMode =
-    initialMode === "chat"
-      ? "talk"
-      : "idle";
+
+if (!plan) {
+  console.warn(
+    "[Garden Preload] valid presentation plan required"
+  );
+
+  return false;
+}
 
 
-  /*
-    場景素材只需要準備一次。
-  */
-  /*
-  只準備目前時間需要的
-  day / night 場景。
+  const sceneRequirement =
+  plan.sceneRequirement;
+
+
+if (
+  !sceneRequirement ||
+  typeof sceneRequirement.sceneId !==
+    "string" ||
+  (
+    sceneRequirement.mode !==
+      "day" &&
+    sceneRequirement.mode !==
+      "night"
+  )
+) {
+  console.warn(
+    "[Garden Preload] invalid scene requirement:",
+    sceneRequirement
+  );
+
+  return false;
+}
+
+
+const expectedResourceKey =
+  getGardenSceneAssetKey(
+    sceneRequirement.sceneId,
+    sceneRequirement.mode
+  );
+
+
+/*
+  Plan 內的 Requirement 必須自洽。
+
+  如果未來某段程式錯誤地改到：
+  sceneId / mode / resourceKey
+  其中任一項，
+  Resource System 不應默默接受。
 */
+if (
+  sceneRequirement.resourceKey !==
+    expectedResourceKey
+) {
+  console.warn(
+    "[Garden Preload] scene requirement key mismatch:",
+    {
+      received:
+        sceneRequirement.resourceKey,
+
+      expected:
+        expectedResourceKey,
+    }
+  );
+
+  return false;
+}
+
+
+const plannedScene =
+  getGardenSceneById(
+    sceneRequirement.sceneId
+  );
+
+
+if (!plannedScene) {
+  console.warn(
+    "[Garden Preload] unknown required scene:",
+    sceneRequirement.sceneId
+  );
+
+  return false;
+}
+
+
 const gardenSceneMode =
-  getGardenSceneModeByTime();
+  sceneRequirement.mode;
+
 
 await ensureGardenSceneModeReady(
-  gardenSceneMode
+  gardenSceneMode,
+  plannedScene
 );
 
 /*
@@ -3739,7 +7668,7 @@ applyGardenSceneMode(
 */
 const criticalVisuals =
   getGardenInitialCriticalCharacterVisuals(
-    gardenViewSceneId
+    plan
   );
 
 
@@ -3803,7 +7732,9 @@ for (
   */
 
     
-  gardenAssetsLoaded = true;
+gardenAssetsLoaded = true;
+
+return true;
 }
 
 
@@ -4095,6 +8026,8 @@ function startGardenBackgroundPreloadIdle(
     讓舊排程失效。
   */
   pauseGardenBackgroundPreload();
+
+
 
 
   const token =
@@ -7816,6 +11749,139 @@ ensureHtml2CanvasLoaded();
   }
 );
 
+/* =========================
+   Garden Entry Rollback
+========================= */
+
+/*
+  Garden Entry 在拉門關閉期間失敗時，
+  玩家實際上仍然留在 Menu。
+
+  因此必須把「已經開始進 Garden」
+  所造成的前景狀態全部還原。
+
+  注意：
+  這裡不切 Screen。
+  Screen Transition 本身由
+  goToScreen() 的 return false
+  負責取消。
+*/
+
+
+function rollbackGardenEntryToMenu(
+  reason = "entryGateDenied"
+) {
+  const rollbackReason =
+    (
+      typeof reason === "string" &&
+      reason
+    )
+      ? reason
+      : "entryGateDenied";
+
+
+  /*
+    Garden Entry 前面已經 Resume World。
+
+    如果最後沒有真正進場，
+    World 必須重新變回 Suspended，
+    否則玩家人在 Menu，
+    Runtime 卻仍會被視為前景狀態。
+  */
+  if (
+    typeof suspendGardenWorld ===
+    "function"
+  ) {
+    suspendGardenWorld(
+      rollbackReason
+    );
+  }
+
+
+  if (
+    typeof saveGardenWorldState ===
+    "function"
+  ) {
+    saveGardenWorldState(
+      rollbackReason
+    );
+  }
+
+/*
+  如果 Entry 已經進到
+  initGardenScreen() 之後才失敗，
+
+  角色 RAF / Scene 動態效果
+  可能已經啟動。
+
+  Rollback 必須把這些
+  Presentation Runtime 一起停止。
+*/
+if (
+  typeof stopChifuyuWalkMoveTest ===
+  "function"
+) {
+  stopChifuyuWalkMoveTest();
+}
+
+
+if (
+  typeof stopMoonBridgeClouds ===
+  "function"
+) {
+  stopMoonBridgeClouds();
+}
+
+
+
+  /*
+    恢復 Menu 的櫻花 / body class。
+  */
+  if (
+    typeof resumeSakuraFromGarden ===
+    "function"
+  ) {
+    resumeSakuraFromGarden();
+  }
+
+
+  /*
+    Garden BGM → Shrine BGM。
+  */
+  if (
+    typeof exitGardenAudioMode ===
+    "function"
+  ) {
+    exitGardenAudioMode();
+  }
+
+
+  /*
+    點 Garden 時曾暫停 Menu 背景 preload。
+
+    現在既然仍停在 Menu，
+    就恢復原本的 idle preload 行為。
+  */
+  if (
+    typeof startGardenBackgroundPreloadIdle ===
+    "function"
+  ) {
+    startGardenBackgroundPreloadIdle(
+      1800
+    );
+  }
+
+
+  console.warn(
+    "[Garden Entry] rolled back to Menu:",
+    rollbackReason
+  );
+
+
+  return true;
+}
+
+
 if (btnGarden) {
   btnGarden.addEventListener("click", (e) => {
     e.preventDefault();
@@ -7837,13 +11903,42 @@ if (btnGarden) {
     */
     pauseGardenBackgroundPreload();
 
-/*
-  在 planGardenInitialMode()
-  之前先恢復 World Clock。
 
-  下一步加入 Reconciliation 後，
-  角色世界會先推算到「現在」，
-  再決定進場要顯示什麼動畫。
+/*
+  =========================
+  Garden World Ready Gate
+  =========================
+
+  Cold Start 必須已經由：
+  - Snapshot Restore
+  - Fresh Bootstrap
+  - Emergency Bootstrap
+
+  其中一條路徑建立完成。
+
+  Presentation 層不再負責
+  臨時建立 Garden World。
+*/
+if (!gardenWorldInitialized) {
+  console.error(
+    "[Garden Entry] canonical world unavailable"
+  );
+
+  startGardenBackgroundPreloadIdle(
+    1800
+  );
+
+  return;
+}
+
+
+/*
+  正式進場前先恢復 Garden World。
+
+  Resume / Reconciliation 必須先完成，
+  後面的 Presentation Planner
+  才能根據「現在」的 canonical world
+  建立正確的進場畫面。
 */
 const gardenResumeResult =
   resumeGardenWorld(
@@ -7874,8 +11969,65 @@ if (gardenEnterWorldResult) {
 }
 
 
-const gardenInitialMode =
-  planGardenInitialMode();
+const gardenEntryTransaction =
+  beginGardenPresentationTransaction(
+    "gardenEntry"
+  );
+
+
+
+/*
+  =========================
+  Garden Entry Presentation Plan
+  =========================
+
+  World 已經 Resume / Reconcile 到現在，
+  接著才建立這一次真正的
+  Player Presentation 計畫。
+
+  後面的 Resource Gate
+  必須共用同一份 Plan，
+  不可以各自重新推測
+  Scene / Mode / Visible Characters。
+*/
+const gardenPresentationPlan =
+  planGardenPresentation({
+    reason:
+      "gardenEntry",
+
+    sceneId:
+      gardenViewSceneId,
+
+    timestamp:
+      getGardenWorldNow(),
+  });
+
+
+if (!gardenPresentationPlan) {
+  cancelGardenPresentationTransaction(
+    gardenEntryTransaction,
+    "presentationPlanUnavailable"
+  );
+
+  console.warn(
+    "[Garden Entry] presentation plan unavailable"
+  );
+
+  startGardenBackgroundPreloadIdle(
+    1800
+  );
+
+  return;
+}
+
+
+if (gardenPresentationPlan) {
+  console.log(
+    "[Garden Entry Presentation Plan]",
+    gardenPresentationPlan
+  );
+}
+
 
 let actualInitialMode =
   "wander";
@@ -7895,81 +12047,630 @@ let actualInitialMode =
 
   let timeoutId = null;
 
-  try {
-   await Promise.race([
-  /*
-    Garden Entry Gate
+let entryGateResult = null;
 
-    1. 先建立並準備這次進場需要的資源
-    2. 再確認所有 blocking resource job
-       都已經清空
-    3. 才允許拉門進入下一階段
-  */
-  (async () => {
-    await preloadGardenAssets(
-      gardenInitialMode
+
+try {
+  entryGateResult =
+    await Promise.race([
+      /*
+        =========================
+        Garden Entry Gate
+        =========================
+
+        正常成功順序：
+
+        1. Presentation Resource Preload
+        2. Blocking Jobs 全部完成
+        3. Scene Admission
+        4. 才允許初始化 / Reveal
+      */
+      (async () => {
+
+
+        if (
+  !isGardenPresentationTransactionCurrent(
+    gardenEntryTransaction
+  )
+) {
+  return Object.freeze({
+    allowed: false,
+    reason:
+      "stalePresentationTransaction",
+    phase:
+      "beforePreload",
+    stale: true,
+    sceneAdmission: null,
+  });
+}
+        const preloadReady =
+          await preloadGardenAssets(
+            gardenPresentationPlan
+          );
+
+
+if (
+  !isGardenPresentationTransactionCurrent(
+    gardenEntryTransaction
+  )
+) {
+  return Object.freeze({
+    allowed: false,
+    reason:
+      "stalePresentationTransaction",
+    phase:
+      "afterPreload",
+    stale: true,
+    sceneAdmission: null,
+  });
+}
+
+
+
+        /*
+          Preload Contract 本身失敗，
+          不再繼續 Admission。
+        */
+        if (!preloadReady) {
+          return Object.freeze({
+            allowed:
+              false,
+
+            reason:
+              "preloadRejected",
+
+            sceneAdmission:
+              null,
+          });
+        }
+
+
+        await waitForGardenBlockingResources();
+
+
+        if (
+  !isGardenPresentationTransactionCurrent(
+    gardenEntryTransaction
+  )
+) {
+  return Object.freeze({
+    allowed: false,
+    reason:
+      "stalePresentationTransaction",
+    phase:
+      "afterBlockingResources",
+    stale: true,
+    sceneAdmission: null,
+  });
+}
+
+        const sceneAdmission =
+          evaluateGardenSceneAdmission(
+            gardenPresentationPlan
+          );
+
+
+       if (GARDEN_DEBUG_ENABLED) {
+  console.log(
+    "[Garden Entry Scene Admission]",
+    sceneAdmission
+  );
+}
+
+
+        /*
+          Scene 尚未 ready，
+          或 Presentation Contract
+          被 Admission Gate 拒絕。
+        */
+        if (
+          !sceneAdmission.admitted
+        ) {
+          return Object.freeze({
+            allowed:
+              false,
+
+            reason:
+              sceneAdmission.reason,
+
+            sceneAdmission,
+          });
+        }
+
+
+        return Object.freeze({
+          allowed:
+            true,
+
+          reason:
+            "ready",
+
+          sceneAdmission,
+        });
+      })(),
+
+
+      /*
+        Safety timeout
+
+        舊行為：
+        timeout 後仍硬開 Garden。
+
+        新行為：
+        timeout 視為 Entry Gate 失敗，
+        rollback 回 Menu。
+
+        這樣不會把尚未 ready 的畫面
+        暴露給玩家。
+      */
+      new Promise(
+        (resolve) => {
+          timeoutId =
+            setTimeout(
+              () => {
+                console.warn(
+                  "[Garden Entry] resource gate safety timeout."
+                );
+
+
+                resolve(
+                  Object.freeze({
+                    allowed:
+                      false,
+
+                    reason:
+                      "timeout",
+
+                    sceneAdmission:
+                      null,
+                  })
+                );
+              },
+
+              15000
+            );
+        }
+      ),
+    ]);
+} catch (err) {
+  console.error(
+    "[Garden Entry] resource gate failed:",
+    err
+  );
+
+
+  entryGateResult =
+    Object.freeze({
+      allowed:
+        false,
+
+      reason:
+        "exception",
+
+      sceneAdmission:
+        null,
+    });
+} finally {
+  if (timeoutId) {
+    clearTimeout(
+      timeoutId
     );
 
-    await waitForGardenBlockingResources();
-  })(),
-
-  /*
-    Safety timeout：
-
-    即使某個 Safari / WebKit 資源工作
-    發生異常，也不能永久把玩家鎖在拉門後。
-  */
-  new Promise((resolve) => {
-    timeoutId = setTimeout(() => {
-      console.warn(
-        "[Garden] preload / blocking resource safety timeout — opening Garden anyway."
-      );
-
-      resolve();
-    }, 15000);
-  }),
-]);
-  } catch (err) {
-    /*
-      即使 Safari 某個 preload / warmup 發生例外，
-      也不能讓拉門永久鎖住。
-    */
-    console.error(
-      "[Garden] preload failed:",
-      err
-    );
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
+    timeoutId =
+      null;
   }
+}
 
 
 /*
-  素材已準備好，而且拉門現在仍完全關閉。
+  =========================
+  Admission Denied
+  =========================
 
-  在這裡就完成：
-  - 角色位置
-  - Idle / Talk 模式
-  - sprite layer opacity
-  - Garden world 初始化
+  不初始化 Garden。
+  不 Reveal Garden。
 
-  不再等畫面露出後才初始化角色。
+  還原：
+  - Garden World suspend state
+  - Snapshot
+  - Sakura / body mode
+  - Audio
+  - Menu background preload
+
+  接著明確 return false，
+  讓 goToScreen() 取消 Transition。
 */
+if (
+  !entryGateResult?.allowed
+) {
+  const failureReason =
+    entryGateResult?.reason ??
+    "unknown";
+
+const hasNewerPresentationOwner =
+  !!(
+    gardenActivePresentationTransaction &&
+    gardenActivePresentationTransaction
+      .generation !==
+      gardenEntryTransaction
+        .generation
+  );
+
+
+
+  console.warn(
+    "[Garden Entry] denied:",
+    entryGateResult
+  );
+
+  cancelGardenPresentationTransaction(
+  gardenEntryTransaction,
+  `entryGate:${failureReason}`
+);
+
+ /*
+  如果只是目前 transaction
+  自己失敗／被取消，
+  就正常 rollback。
+
+  如果已經有更新的 transaction
+  接手 Presentation ownership，
+  舊 transaction 不准反過來
+  清掉新 transaction 的狀態。
+*/
+if (!hasNewerPresentationOwner) {
+  rollbackGardenEntryToMenu(
+    `entryGate:${failureReason}`
+  );
+}
+
+
+  return false;
+}
+
+
+/*
+  =========================
+  Admission Granted
+  =========================
+
+  到這裡才代表：
+  - Presentation Plan 合法
+  - Scene Resource ready
+  - Blocking Character Resources 完成
+
+  而且拉門現在仍然完全關閉。
+
+  現在才允許建立第一個
+  Garden Presentation。
+*/
+
+
+if (
+  !isGardenPresentationTransactionCurrent(
+    gardenEntryTransaction
+  )
+) {
+  const hasNewerPresentationOwner =
+    !!gardenActivePresentationTransaction;
+
+  if (!hasNewerPresentationOwner) {
+    rollbackGardenEntryToMenu(
+      "presentationTransaction:beforeInit"
+    );
+  }
+
+  return false;
+}
+
 if (
   typeof initGardenScreen ===
   "function"
 ) {
+  const initializedMode =
+    initGardenScreen();
+
+  if (!initializedMode) {
+    console.warn(
+      "[Garden Entry] presentation init denied"
+    );
+
+cancelGardenPresentationTransaction(
+  gardenEntryTransaction,
+  "presentationInitDenied"
+);
+
+
+    rollbackGardenEntryToMenu(
+      "presentationInit:worldUnavailable"
+    );
+
+    return false;
+  }
+
   actualInitialMode =
-    initGardenScreen() ||
-    "wander";
+    initializedMode;
 }
+
+
+/*
+  =========================
+  Character Presentation Hydrate
+  =========================
+
+  initGardenScreen() 已經完成：
+  - World spatial sync
+  - character visibility
+  - position render
+
+  現在把同一份 Presentation Plan
+  對應的第一個 Animation Presentation
+  正式套進 DOM。
+*/
+const characterPresentation =
+  hydrateGardenCharacterPresentation(
+    gardenPresentationPlan
+  );
+
+ if (
+  !isGardenPresentationTransactionCurrent(
+    gardenEntryTransaction
+  )
+) {
+  const hasNewerPresentationOwner =
+    !!gardenActivePresentationTransaction;
+
+  if (!hasNewerPresentationOwner) {
+    rollbackGardenEntryToMenu(
+      "presentationTransaction:afterHydrate"
+    );
+  }
+
+  return false;
+}
+
+if (GARDEN_DEBUG_ENABLED) {
+  console.log(
+    "[Garden Entry Character Presentation]",
+    characterPresentation
+  );
+}
+
+
+/*
+  Hydrate 本身沒有成功，
+  就不進 Paint Gate。
+*/
+if (
+  !characterPresentation.ready
+) {
+  console.warn(
+    "[Garden Entry] character presentation hydrate denied:",
+    characterPresentation
+  );
+
+cancelGardenPresentationTransaction(
+  gardenEntryTransaction,
+  `characterPresentation:${characterPresentation.reason}`
+);
+
+
+  rollbackGardenEntryToMenu(
+    `characterPresentation:${characterPresentation.reason}`
+  );
+
+
+  return false;
+}
+
+
+
+
+/*
+  =========================
+  Paint / Reveal Gate
+  =========================
+
+  注意：
+  必須檢查「進場開始時建立的
+  同一份 Presentation Plan」。
+
+  不重新 plan。
+
+  這樣如果關門期間 World 狀態
+  已經與原本 Presentation 分歧，
+  就會拒絕 Reveal。
+*/
+const paintReadiness =
+  evaluateGardenPaintReadiness(
+    gardenPresentationPlan
+  );
+
+if (
+  !isGardenPresentationTransactionCurrent(
+    gardenEntryTransaction
+  )
+) {
+  const hasNewerPresentationOwner =
+    !!gardenActivePresentationTransaction;
+
+  if (!hasNewerPresentationOwner) {
+    rollbackGardenEntryToMenu(
+      "presentationTransaction:afterPaintCheck"
+    );
+  }
+
+  return false;
+}
+
+
+if (GARDEN_DEBUG_ENABLED) {
+  console.log(
+    "[Garden Entry Paint Readiness]",
+    paintReadiness
+  );
+}
+
+
+if (!paintReadiness.ready) {
+  console.warn(
+    "[Garden Entry] paint readiness denied:",
+    paintReadiness
+  );
+
+  cancelGardenPresentationTransaction(
+  gardenEntryTransaction,
+  `paintGate:${paintReadiness.reason}`
+);
+
+  rollbackGardenEntryToMenu(
+    `paintGate:${paintReadiness.reason}`
+  );
+
+
+  /*
+    告訴 goToScreen：
+    不可以切換到 Garden。
+  */
+  return false;
+}
+
+
+/*
+  Admission + Paint Contract
+  全部通過。
+
+  現在才允許 goToScreen()
+  Reveal Garden。
+*/
+return true;
 
   
 },
 
- () => {
- 
+ async () => {
+
+  /*
+    =========================
+    Garden Reveal Handshake
+    =========================
+
+    此時：
+    - gardenScreen 已解除 hidden
+    - 拉門仍完全關閉
+    - Admission / Hydrate / Paint Gate
+      都已經通過
+
+    等待兩個真正的 browser frame，
+    讓 Scene + Character DOM
+    有機會完成 layout / paint /
+    compositor preparation。
+  */
+
+
+    /*
+  DOM 已經解除 hidden，
+  但拉門仍然關閉。
+
+  如果 transaction 在進入
+  Reveal Handshake 前就已經過期，
+  不再浪費 frame，也不允許開門。
+*/
+if (
+  !isGardenPresentationTransactionCurrent(
+    gardenEntryTransaction
+  )
+) {
+  const hasNewerPresentationOwner =
+    !!(
+      gardenActivePresentationTransaction &&
+      gardenActivePresentationTransaction
+        .generation !==
+        gardenEntryTransaction.generation
+    );
+
+  if (!hasNewerPresentationOwner) {
+    rollbackGardenEntryToMenu(
+      "presentationTransaction:beforeRevealHandshake"
+    );
+  }
+
+  return false;
+}
+  await new Promise(
+    (resolve) => {
+      requestAnimationFrame(
+        () => {
+          requestAnimationFrame(
+            resolve
+          );
+        }
+      );
+    }
+  );
+
+
+  /*
+  等待真正 browser frame 期間，
+  transaction 仍有可能失效。
+
+  開門前再做最後一次 ownership 檢查。
+*/
+if (
+  !isGardenPresentationTransactionCurrent(
+    gardenEntryTransaction
+  )
+) {
+  const hasNewerPresentationOwner =
+    !!(
+      gardenActivePresentationTransaction &&
+      gardenActivePresentationTransaction
+        .generation !==
+        gardenEntryTransaction.generation
+    );
+
+  if (!hasNewerPresentationOwner) {
+    rollbackGardenEntryToMenu(
+      "presentationTransaction:revealHandshakeStale"
+    );
+  }
+
+  return false;
+}
+
+
+const presentationCompleted =
+  completeGardenPresentationTransaction(
+    gardenEntryTransaction
+  );
+
+
+if (!presentationCompleted) {
+  const hasNewerPresentationOwner =
+    !!(
+      gardenActivePresentationTransaction &&
+      gardenActivePresentationTransaction
+        .generation !==
+        gardenEntryTransaction.generation
+    );
+
+  if (!hasNewerPresentationOwner) {
+    rollbackGardenEntryToMenu(
+      "presentationTransaction:completeRejected"
+    );
+  }
+
+  return false;
+}
+
+
+if (GARDEN_DEBUG_ENABLED) {
+  console.log(
+    "[Garden Reveal Handshake] ready"
+  );
+}
+
+
 updateGardenSceneNav();
 
   startGardenUiAutoHide();
@@ -8369,6 +13070,24 @@ async function switchGardenSceneWithFade(
   sceneId,
   options = {}
 ) {
+  const presentationTransaction =
+    options.presentationTransaction ??
+    null;
+
+
+  const transactionRequired =
+    presentationTransaction !==
+    null;
+
+
+  const isTransactionCurrent =
+    () =>
+      !transactionRequired ||
+      isGardenPresentationTransactionCurrent(
+        presentationTransaction
+      );
+
+
   /*
     同場景且不是 force，
     不需要做一次黑幕。
@@ -8378,6 +13097,18 @@ async function switchGardenSceneWithFade(
     sceneId === gardenViewSceneId
   ) {
     return true;
+  }
+
+
+  /*
+    Legacy / Debug caller 如果沒有傳
+    transaction，維持原本行為。
+
+    正式 Scene Navigation 有 transaction 時，
+    stale 工作不允許再開始切換。
+  */
+  if (!isTransactionCurrent()) {
+    return false;
   }
 
 
@@ -8401,6 +13132,24 @@ async function switchGardenSceneWithFade(
 
 
   /*
+    黑幕記住目前是哪一個
+    Presentation generation 在使用。
+
+    未來即使新的 Scene Switch
+    取代舊 transaction，
+    舊 finally 也不能把新黑幕打開。
+  */
+  if (transactionRequired) {
+    overlay.dataset
+      .gardenPresentationGeneration =
+        String(
+          presentationTransaction
+            .generation
+        );
+  }
+
+
+  /*
     ① 先把目前場景完全遮黑
   */
   overlay.setAttribute(
@@ -8420,6 +13169,15 @@ async function switchGardenSceneWithFade(
 
   try {
     /*
+      黑幕關閉期間也可能已經有
+      更新的 Presentation 接手。
+    */
+    if (!isTransactionCurrent()) {
+      return false;
+    }
+
+
+    /*
       ② 畫面全黑之後，
       才開始真正準備 / 切換場景。
 
@@ -8428,10 +13186,25 @@ async function switchGardenSceneWithFade(
       而不是舊畫面卡住。
     */
     const switched =
-  await switchGardenScene(
-    sceneId,
-    options
-  );
+      await switchGardenScene(
+        sceneId,
+        options
+      );
+
+
+    if (!switched) {
+      return false;
+    }
+
+
+    /*
+      switchGardenScene() 內部雖然已在
+      Player View mutation 前檢查 generation，
+      async 返回後仍再確認一次 ownership。
+    */
+    if (!isTransactionCurrent()) {
+      return false;
+    }
 
 
     /*
@@ -8440,30 +13213,66 @@ async function switchGardenSceneWithFade(
     await waitGardenScenePaint();
 
 
-    return switched;
+    /*
+      黑幕真正 Reveal 前最後一次檢查。
+    */
+    if (!isTransactionCurrent()) {
+      return false;
+    }
+
+
+    return true;
 
   } finally {
     /*
-      ④ 不論成功或發生錯誤，
-      都一定把黑幕重新打開。
+      ④ 只有仍擁有這層黑幕的 transaction
+      才能把黑幕重新打開。
+
+      Legacy caller 沒有 transaction 時，
+      完全維持原本行為。
     */
-    overlay.classList.remove(
-      "is-active"
-    );
+    const ownsOverlay =
+      !transactionRequired ||
+      overlay.dataset
+        .gardenPresentationGeneration ===
+          String(
+            presentationTransaction
+              .generation
+          );
 
 
-    await waitGardenSceneFade(
-      overlay
-    );
+    if (ownsOverlay) {
+      overlay.classList.remove(
+        "is-active"
+      );
 
 
-    overlay.setAttribute(
-      "aria-hidden",
-      "true"
-    );
+      await waitGardenSceneFade(
+        overlay
+      );
+
+
+      overlay.setAttribute(
+        "aria-hidden",
+        "true"
+      );
+
+
+      if (
+        transactionRequired &&
+        overlay.dataset
+          .gardenPresentationGeneration ===
+            String(
+              presentationTransaction
+                .generation
+            )
+      ) {
+        delete overlay.dataset
+          .gardenPresentationGeneration;
+      }
+    }
   }
 }
-
 
 
 
@@ -8517,6 +13326,20 @@ async function handleGardenSceneNav(
   }
 
 
+  /*
+    Scene Navigation 正式取得
+    Presentation ownership。
+
+    這裡只管理 Player View，
+    不修改 Character World / Travel /
+    Schedule。
+  */
+  const sceneSwitchTransaction =
+    beginGardenPresentationTransaction(
+      `sceneSwitch:${gardenViewSceneId}->${targetSceneId}`
+    );
+
+
   gardenSceneSwitchBusy = true;
 
 
@@ -8538,25 +13361,37 @@ async function handleGardenSceneNav(
 
   try {
     const switched =
-  await switchGardenSceneWithFade(
-    targetSceneId,
-    {
-      resetCharacters: false,
+      await switchGardenSceneWithFade(
+        targetSceneId,
+        {
+          resetCharacters: false,
+
+          presentationTransaction:
+            sceneSwitchTransaction,
+        }
+      );
+
+
+    /*
+      舊 Scene Switch 如果已被更新的
+      Presentation 取代，不允許再修改
+      visibility / nav / UI。
+    */
+    if (
+      !isGardenPresentationTransactionCurrent(
+        sceneSwitchTransaction
+      )
+    ) {
+      return;
     }
-  );
 
 
     if (switched) {
-
-
- /*
-    玩家切完場景後，
-    馬上重新判斷角色是否應該可見。
-  */
-  updateGardenCharacterVisibility();
-
-
-
+      /*
+        玩家切完場景後，
+        馬上重新判斷角色是否應該可見。
+      */
+      updateGardenCharacterVisibility();
 
 
       /*
@@ -8573,9 +13408,37 @@ async function handleGardenSceneNav(
       showGardenUi({
         restartTimer: true,
       });
+
+
+      /*
+        只有目前 transaction
+        仍然擁有 Presentation ownership
+        才能正式完成。
+      */
+      completeGardenPresentationTransaction(
+        sceneSwitchTransaction
+      );
+
+    } else {
+      /*
+        真正失敗而且這個 transaction
+        仍是 active 時才取消。
+
+        stale transaction 不允許影響
+        更新的 Presentation。
+      */
+      cancelGardenPresentationTransaction(
+        sceneSwitchTransaction,
+        "sceneSwitchFailed"
+      );
     }
 
   } catch (err) {
+    cancelGardenPresentationTransaction(
+      sceneSwitchTransaction,
+      "sceneSwitchError"
+    );
+
     console.error(
       "[Garden] scene nav failed:",
       err
@@ -29827,8 +34690,6 @@ function resetChinatsuAutoWalk() {
 ========================= */
 
 
-const GARDEN_INITIAL_CHAT_CHANCE = 0.5;
-
 // 散步中自然聊天：不要太頻繁
 const GARDEN_WANDER_CHAT_CHANCE = 0.18;
 const GARDEN_CHAT_CHECK_MIN_MS = 5000;
@@ -30292,37 +35153,7 @@ function isGardenChatSpotValidInScene(
 }
 
 
-/*
-  舊名稱保留作 wrapper。
 
-  但 Chat 正式邏輯之後
-  都應該傳明確 sceneId。
-*/
-function isGardenChatSpotValid(
-  spot
-) {
-  const sceneId =
-    getGardenSharedCharacterSceneId();
-
-  if (!sceneId) {
-    return false;
-  }
-
-  return isGardenChatSpotValidInScene(
-    sceneId,
-    spot
-  );
-}
-
-function pickRandomGardenChatSpot() {
-  const validSpots = GARDEN_CHAT_SPOTS.filter(isGardenChatSpotValid);
-
-  if (validSpots.length === 0) {
-    return null;
-  }
-
-  return validSpots[Math.floor(Math.random() * validSpots.length)];
-}
 
 function buildChifuyuChatArrivalPath(
   start,
@@ -32357,16 +37188,6 @@ renderChinatsuWalkTest();
 return true;
 }
 
-function startGardenChatAtRandomSpot(now = performance.now()) {
-  const spot = pickRandomGardenChatSpot();
-
-  if (!spot) {
-    return false;
-  }
-
-  return startGardenChat(now, spot);
-}
-
 function endGardenChat(now = performance.now()) {
   const canonicalEndedAt =
     getGardenWorldNow();
@@ -32925,131 +37746,20 @@ setGardenCharacterAnimationMode(
 }
 
 
-function planGardenInitialMode() {
-  /*
-    Garden World 已經存在。
+/*
+  =========================
+  Legacy Garden Init Fallback
+  =========================
 
-    重新進入只是重新打開 View，
-    不再重新抽「初次進場 Chat」。
-  */
-  if (
-    gardenWorldInitialized
-  ) {
-    gardenPendingInitialMode =
-      null;
+  正常 Fresh / Restore 流程
+  不應走到這裡。
 
+  只有 canonical world
+  無法在 Cold Start 正常建立時，
+  initGardenScreen() 才會使用
+  這個 legacy fallback。
+*/
 
-    if (
-      gardenChatState.mode ===
-      "chat"
-    ) {
-      return "chat";
-    }
-
-
-    return "wander";
-  }
-
-
-  /*
-    第一次真正建立 Garden World。
-  */
-  if (
-    gardenPendingInitialMode
-  ) {
-    return gardenPendingInitialMode;
-  }
-
-  /*
-    Canonical World 建立後，
-
-    Initial Chat 不可以由
-    每個 client 自己 Math.random()。
-
-    在正式 deterministic CHAT
-    Timeline 完成前，
-    新 World 一律由 WANDER 開始。
-  */
-  if (
-    GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED
-  ) {
-    gardenPendingInitialMode =
-      "wander";
-
-    return gardenPendingInitialMode;
-  }
-
-
-
-
-  gardenPendingInitialMode =
-    Math.random() <
-    GARDEN_INITIAL_CHAT_CHANCE
-      ? "chat"
-      : "wander";
-
-
-  return gardenPendingInitialMode;
-}
-
-
-
-
-function setupGardenInitialMode(
-  now = performance.now()
-) {
-  clearGardenChatState();
-
-
-  /*
-    planGardenInitialMode()
-    理論上已經決定 Wander。
-
-    這裡再做一次 Runtime Guard，
-    避免其他 caller 跳過 plan。
-  */
-  if (
-    GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED
-  ) {
-    gardenPendingInitialMode =
-      null;
-
-    return "wander";
-  }
-
-
-  let startAsChat;
-
-  /*
-    iPad：
-    使用進門前已經決定好的模式。
-
-    這樣 preload 才能準確知道
-    到底只需要 Talk 還是 Idle。
-  */
-  if (gardenPendingInitialMode) {
-  startAsChat =
-    gardenPendingInitialMode ===
-    "chat";
-
-  gardenPendingInitialMode = null;
-} else {
-  startAsChat =
-    Math.random() <
-    GARDEN_INITIAL_CHAT_CHANCE;
-}
-
-  if (startAsChat) {
-    const started =
-      startGardenChatAtRandomSpot(now);
-
-    if (started) {
-      return "chat";
-    }
-  }
-
-  return "wander";
-}
 
 
 
@@ -34910,6 +39620,8 @@ function stopChifuyuWalkMoveTest() {
   }
 }
 
+
+
 function initGardenScreen() {
   const now =
     performance.now();
@@ -34923,151 +39635,27 @@ function initGardenScreen() {
     now;
 
 
-  let initialMode =
-    "wander";
+  /*
+  initGardenScreen() 現在只負責
+  Presentation。
+
+  canonical world 必須在進入這裡前
+  就已經建立完成。
+*/
+if (!gardenWorldInitialized) {
+  console.error(
+    "[Garden Presentation] init denied: canonical world unavailable"
+  );
+
+  return null;
+}
 
 
-  /* =========================
-     First Garden Initialization
-  ========================= */
-
-  if (
-    !gardenWorldInitialized
-  ) {
-    /*
-      只有第一次進 Garden
-      才允許產生初始 Chat / Wander。
-    */
-    initialMode =
-      setupGardenInitialMode(
-        now
-      );
-
-
-    /*
-      如果第一次不是直接聊天，
-      才隨機生成初始站位。
-    */
-    if (
-  initialMode !==
-    "chat" &&
-  !GARDEN_CANONICAL_WANDER_RUNTIME_ENABLED
-) {
-      randomizeGardenCharacterStartPositions();
-
-
-      /*
-        千冬安全位置檢查。
-      */
-      if (
-        !isGardenWalkablePointInScene(
-          gardenViewSceneId,
-          chifuyuWalkTestState.x,
-          chifuyuWalkTestState.y
-        )
-      ) {
-        chifuyuWalkTestState.x =
-          600;
-
-        chifuyuWalkTestState.y =
-          1725;
-
-        chifuyuWalkTestState.path =
-          [];
-
-        chifuyuWalkTestState.isMoving =
-          false;
-      }
-
-
-      /*
-        千夏安全位置檢查。
-      */
-      if (
-        !isGardenWalkablePointInScene(
-          gardenViewSceneId,
-          chinatsuWalkTestState.x,
-          chinatsuWalkTestState.y
-        )
-      ) {
-        chinatsuWalkTestState.x =
-          430;
-
-        chinatsuWalkTestState.y =
-          1680;
-
-        chinatsuWalkTestState.path =
-          [];
-
-        chinatsuWalkTestState.isMoving =
-          false;
-      }
-
-
-      setGardenCharacterAnimationMode(
-  "chifuyu",
-  "idle",
-  true
-);
-
-setGardenCharacterAnimationMode(
-  "chinatsu",
-  "idle",
-  true
-);
-
-resetChifuyuAutoWalk();
-
-resetChinatsuAutoWalk();
-    }
-
-
-    /*
-      只有 World 第一次建立時，
-      才設定角色初始場景。
-
-      之後永遠不再由 Player View
-      覆蓋角色 sceneId。
-    */
-    gardenCharacterWorldState
-      .chifuyu.sceneId =
-        gardenViewSceneId;
-
-
-    gardenCharacterWorldState
-      .chinatsu.sceneId =
-        gardenViewSceneId;
-
-
-    gardenWorldInitialized =
-      true;
-  }
-
-
-  /* =========================
-     Resume Existing Garden World
-  ========================= */
-
-  else {
-    /*
-      不呼叫：
-      setupGardenInitialMode()
-      randomizeGardenCharacterStartPositions()
-
-      不修改：
-      sceneId
-      x / y
-      path
-      travel
-      chat
-    */
-
-    initialMode =
-      gardenChatState.mode ===
-        "chat"
-        ? "chat"
-        : "wander";
-  }
+const initialMode =
+  gardenChatState.mode ===
+    "chat"
+    ? "chat"
+    : "wander";
 
 
   /*
@@ -35130,16 +39718,6 @@ if (
 updateMoonBridgeMoonPosition();
 
 
-if (
-  gardenViewSceneId ===
-    "moonBridge"
-) {
-  startMoonBridgeClouds();
-} else {
-  stopMoonBridgeClouds();
-}
-
-
   /*
     場景自己的動畫屬於 Player View，
     所以重新進 Garden 時要恢復。
@@ -35174,10 +39752,11 @@ if (
 
 
   /*
-    從保存的 World State
-    繼續模擬。
-  */
-  startChifuyuWalkMoveTest();
+  Presentation 初始化完成後，
+  從目前的 canonical world state
+  繼續角色 Runtime。
+*/
+startChifuyuWalkMoveTest();
 
 
   return initialMode;
@@ -71736,20 +76315,754 @@ gardenLastTravelHydratePreparation =
   ]);
 
 
+ /*
+  這是關鍵。
+
+  告訴 initGardenScreen：
+
+  世界不是第一次出生，
+  不准重新 randomize / overwrite。
+*/
+gardenWorldInitialized =
+  true;
+
+
+return true;
+}
+
+/* =========================
+  Fresh World Bootstrap
+  =========================
+
+  Fresh World 的責任：
+
+  完全沒有 Snapshot 時，
+  直接依「現在的正式 Schedule」
+  建立角色此刻應存在的
+  canonical world state。
+
+  這裡不播放歷史過程：
+
+  - 不從 Courtyard 追趕 Travel
+  - 不重播 Activity Spot Approach
+  - 不重播 Bath Enter Transition
+
+  Fresh Bootstrap 只建立：
+  「現在應該存在的穩定世界結果」。
+
+  進場要看哪個 Scene、
+  要不要演 Entry Presentation，
+  之後交給 Presentation Planner /
+  Scene Admission Gate。
+*/
+
+
+function getGardenFreshBootstrapFallbackSceneId(
+  characterId
+) {
+  const currentSceneId =
+    gardenCharacterWorldState[
+      characterId
+    ]?.sceneId ?? null;
+
+
+  if (
+    currentSceneId &&
+    getGardenSceneById(
+      currentSceneId
+    )
+  ) {
+    return currentSceneId;
+  }
+
+
+  return "courtyard";
+}
+
+
+function resolveGardenFreshBootstrapPlacement({
+  characterId,
+
+  sceneId,
+
+  runtimeActivityId,
+
+  targetSpotId = null,
+
+  timestamp =
+    getGardenWorldNow(),
+} = {}) {
+  if (
+    !characterId ||
+    !sceneId ||
+    !runtimeActivityId ||
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
   /*
-    這是關鍵。
+    =========================
+    1. Settled Bath
+    =========================
 
-    告訴 initGardenScreen：
+    Bath Spot 尚未走通用
+    Activity Spot Registry，
+    所以暫時保留一個
+    activity-specific placement resolver。
 
-    世界不是第一次出生，
-    不准重新 randomize / overwrite。
+    注意：
+    特例只存在「位置解析」這一層，
+    Fresh Bootstrap 本身已經是通用的。
   */
-  gardenWorldInitialized =
-    true;
+  if (
+    runtimeActivityId ===
+      GARDEN_CHARACTER_ACTIVITY
+        .BATH &&
+    sceneId ===
+      "hotSpring"
+  ) {
+    const bathSpot =
+      HOT_SPRING_BATH_SPOTS.find(
+        spot =>
+          spot.name ===
+            "hot-spring-night-pair"
+      ) ??
+      HOT_SPRING_BATH_SPOTS[0] ??
+      null;
 
 
-  gardenPendingInitialMode =
+    const point =
+      bathSpot?.[
+        characterId
+      ] ?? null;
+
+
+    if (
+      point &&
+      Number.isFinite(
+        point.x
+      ) &&
+      Number.isFinite(
+        point.y
+      )
+    ) {
+      return Object.freeze({
+        source:
+          "bathSpot",
+
+        spotId:
+          bathSpot.name ?? null,
+
+        x:
+          point.x,
+
+        y:
+          point.y,
+
+        direction:
+          point.direction === -1
+            ? -1
+            : 1,
+
+        isMoving:
+          false,
+      });
+    }
+  }
+
+
+  /*
+    =========================
+    2. Generic Activity Spot
+    =========================
+
+    REST 以及未來所有
+    已註冊固定 Spot 的 Activity
+    都直接吃這條。
+
+    Fresh World 不重播
+    Approach animation，
+    直接建立「已抵達 Spot」
+    的 canonical result。
+  */
+  if (targetSpotId) {
+    const spot =
+      getGardenActivitySpot(
+        sceneId,
+        targetSpotId,
+        runtimeActivityId
+      );
+
+
+    if (spot) {
+      return Object.freeze({
+        source:
+          "activitySpot",
+
+        spotId:
+          spot.id,
+
+        x:
+          spot.x,
+
+        y:
+          spot.y,
+
+        direction:
+          spot.direction,
+
+        isMoving:
+          false,
+      });
+    }
+  }
+
+
+  /*
+    =========================
+    3. Canonical Wander Sample
+    =========================
+
+    WANDER：
+    直接取現在真正的 deterministic
+    wander position / moving state。
+
+    未來若某個 Activity
+    沒有固定 Spot，
+    也可以暫時借同 Scene 的
+    canonical wander position
+    作為穩定空間基準。
+  */
+  const wanderSample =
+    resolveGardenWanderRuntimeSampleAtTimestamp(
+      characterId,
+      sceneId,
+      timestamp
+    );
+
+
+  if (wanderSample) {
+    const direction =
+      resolveGardenCanonicalWanderDirection(
+        characterId,
+        wanderSample
+      );
+
+
+    return Object.freeze({
+      source:
+        "canonicalWander",
+
+      spotId:
+        null,
+
+      x:
+        wanderSample.x,
+
+      y:
+        wanderSample.y,
+
+      direction:
+        direction === -1
+          ? -1
+          : 1,
+
+      isMoving:
+        runtimeActivityId ===
+          GARDEN_CHARACTER_ACTIVITY
+            .WANDER &&
+        wanderSample.isMoving ===
+          true,
+
+      sample:
+        wanderSample,
+    });
+  }
+
+
+  /*
+    =========================
+    4. Scene Default Spawn
+    =========================
+
+    最後保險。
+
+    只有 Scene 沒有可解析的
+    Canonical Wander / Activity Spot
+    時才會走到這裡。
+  */
+  const scene =
+    getGardenSceneById(
+      sceneId
+    );
+
+
+  const defaultSpawn =
+    scene?.defaultSpawn ?? null;
+
+
+  if (
+    defaultSpawn &&
+    Number.isFinite(
+      defaultSpawn.x
+    ) &&
+    Number.isFinite(
+      defaultSpawn.y
+    )
+  ) {
+    return Object.freeze({
+      source:
+        "sceneDefaultSpawn",
+
+      spotId:
+        null,
+
+      x:
+        defaultSpawn.x,
+
+      y:
+        defaultSpawn.y,
+
+      direction:
+        1,
+
+      isMoving:
+        false,
+    });
+  }
+
+
+  return null;
+}
+
+
+function resolveGardenFreshWorldCharacterBootstrap(
+  characterId,
+  schedules,
+  timestamp =
+    getGardenWorldNow()
+) {
+  if (
+    !characterId ||
+    !isValidGardenWorldTimestamp(
+      timestamp
+    )
+  ) {
+    return null;
+  }
+
+
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  if (
+    !worldState ||
+    !runtime?.moveState
+  ) {
+    return null;
+  }
+
+
+  const resolution =
+    resolveGardenCharacterScheduleAtTimestamp(
+      schedules,
+      characterId,
+      timestamp
+    );
+
+
+  if (!resolution) {
+    return null;
+  }
+
+
+  const entry =
+    resolution.activeEntry ??
     null;
+
+
+  /*
+    Schedule GAP：
+
+    Fresh World 沒有更早的 Snapshot
+    可以告訴我們角色最後在哪。
+
+    所以：
+    - 保留合法的初始 Scene
+    - 直接建立普通 canonical WANDER
+  */
+  if (!entry) {
+    const sceneId =
+      getGardenFreshBootstrapFallbackSceneId(
+        characterId
+      );
+
+
+    const placement =
+      resolveGardenFreshBootstrapPlacement({
+        characterId,
+
+        sceneId,
+
+        runtimeActivityId:
+          GARDEN_CHARACTER_ACTIVITY
+            .WANDER,
+
+        timestamp,
+      });
+
+
+    if (!placement) {
+      return null;
+    }
+
+
+    return Object.freeze({
+      characterId,
+
+      resolution,
+
+      entry:
+        null,
+
+      scheduleState:
+        resolution.state,
+
+      semanticActivityId:
+        GARDEN_CHARACTER_ACTIVITY
+          .WANDER,
+
+      runtimeActivityId:
+        GARDEN_CHARACTER_ACTIVITY
+          .WANDER,
+
+      sceneId,
+
+      targetSpotId:
+        null,
+
+      activityData:
+        null,
+
+      placement,
+    });
+  }
+
+
+  const targetSceneId =
+    entry.target
+      ?.sceneId ??
+    getGardenFreshBootstrapFallbackSceneId(
+      characterId
+    );
+
+
+  if (
+    !targetSceneId ||
+    !getGardenSceneById(
+      targetSceneId
+    )
+  ) {
+    console.warn(
+      "[Garden Fresh Start] invalid target scene:",
+      characterId,
+      targetSceneId,
+      entry
+    );
+
+    return null;
+  }
+
+
+  const semanticActivityId =
+    entry.activity
+      ?.selectedActivityId ??
+    null;
+
+
+  const runtimeActivityId =
+    resolveGardenScheduleRuntimeActivity(
+      entry
+    );
+
+
+  const targetSpotId =
+    entry.target
+      ?.spotId ??
+    null;
+
+
+  /*
+    Schedule Bridge 的 metadata
+    已經是正式單一來源。
+
+    但 Fresh Bootstrap 不可以讓
+    Bridge 因「目前還在 Courtyard」
+    回傳 TRAVEL。
+
+    所以建立一份 probe state，
+    先假設角色已位於
+    Schedule target Scene。
+
+    這只用來取得：
+    - runtimeActivityId
+    - semanticActivityId
+    - activityData
+
+    不執行 Travel / Activity。
+  */
+  const probeWorldState = {
+    sceneId:
+      targetSceneId,
+
+    activity:
+      GARDEN_CHARACTER_ACTIVITY
+        .WANDER,
+
+    activityData:
+      null,
+
+    wanderContinuity:
+      null,
+
+    activitySpotApproach:
+      null,
+
+    bathTransition:
+      null,
+
+    bathPositioning:
+      null,
+
+    travel:
+      null,
+  };
+
+
+  const decision =
+    createGardenScheduleBridgeDecisionAtTimestamp(
+      schedules,
+      characterId,
+      timestamp,
+      {
+        worldState:
+          probeWorldState,
+      }
+    );
+
+
+  if (
+    !decision ||
+    decision.action !==
+      GARDEN_SCHEDULE_BRIDGE_ACTION
+        .ACTIVITY
+  ) {
+    console.warn(
+      "[Garden Fresh Start] schedule decision unavailable:",
+      characterId,
+      decision
+    );
+
+    return null;
+  }
+
+
+  const activityData =
+    createGardenScheduleActivityData(
+      decision
+    );
+
+
+  if (!activityData) {
+    console.warn(
+      "[Garden Fresh Start] activity metadata unavailable:",
+      characterId,
+      decision
+    );
+
+    return null;
+  }
+
+
+  const placement =
+    resolveGardenFreshBootstrapPlacement({
+      characterId,
+
+      sceneId:
+        targetSceneId,
+
+      runtimeActivityId,
+
+      targetSpotId,
+
+      timestamp,
+    });
+
+
+  if (!placement) {
+    console.warn(
+      "[Garden Fresh Start] placement unavailable:",
+      characterId,
+      {
+        targetSceneId,
+        runtimeActivityId,
+        targetSpotId,
+      }
+    );
+
+    return null;
+  }
+
+
+  return Object.freeze({
+    characterId,
+
+    resolution,
+
+    entry,
+
+    decision,
+
+    scheduleState:
+      resolution.state,
+
+    semanticActivityId,
+
+    runtimeActivityId,
+
+    sceneId:
+      targetSceneId,
+
+    targetSpotId,
+
+    activityData,
+
+    placement,
+  });
+}
+
+
+function applyGardenFreshWorldCharacterBootstrap(
+  plan
+) {
+  if (!plan?.characterId) {
+    return false;
+  }
+
+
+  const characterId =
+    plan.characterId;
+
+
+  const worldState =
+    gardenCharacterWorldState[
+      characterId
+    ];
+
+
+  const runtime =
+    getGardenCharacterRuntime(
+      characterId
+    );
+
+
+  if (
+    !worldState ||
+    !runtime?.moveState ||
+    !plan.sceneId ||
+    !plan.runtimeActivityId ||
+    !plan.placement
+  ) {
+    return false;
+  }
+
+
+  /*
+    Fresh World 不繼承任何
+    transient spatial ownership。
+  */
+  worldState.travel =
+    null;
+
+  worldState.bathTransition =
+    null;
+
+  worldState.bathPositioning =
+    null;
+
+  worldState.wanderContinuity =
+    null;
+
+  worldState.activitySpotApproach =
+    null;
+
+
+  worldState.sceneId =
+    plan.sceneId;
+
+
+  const activityApplied =
+    setGardenCharacterActivity(
+      characterId,
+      plan.runtimeActivityId,
+      plan.activityData
+    );
+
+
+  if (
+    activityApplied ===
+      false
+  ) {
+    return false;
+  }
+
+
+  /*
+    Fresh Bootstrap 已經拿到
+    「現在」的 canonical placement。
+
+    所以 local path 一律清空。
+  */
+  runtime.setPath?.([]);
+
+  runtime.moveState.path =
+    [];
+
+  runtime.moveState.x =
+    plan.placement.x;
+
+  runtime.moveState.y =
+    plan.placement.y;
+
+  runtime.moveState.direction =
+    plan.placement.direction === -1
+      ? -1
+      : 1;
+
+  runtime.moveState.isMoving =
+    plan.placement.isMoving ===
+      true;
+
+
+  if (
+    runtime.autoState
+  ) {
+    runtime.autoState.wasMoving =
+      false;
+  }
 
 
   return true;
@@ -71758,22 +77071,260 @@ gardenLastTravelHydratePreparation =
 
 /*
   =========================
-  Fresh World Bootstrap
-  Active Bath Resolver
+  Emergency Canonical Bootstrap
   =========================
 
-  只用「現在的正式 Schedule」判斷：
+  只有正常 Restore / Fresh Bootstrap
+  無法建立 canonical world 時使用。
 
-  Fresh Cold Start 時，
-  角色此刻是否本來就應該
-  已經處於 Hot Spring Bath。
-
-  不依賴：
-  - Snapshot
-  - Runtime 當前位置
+  這裡不依賴：
+  - Schedule Provider
   - Player View
+  - Math.random()
+  - 歷史 Travel / Activity
+
+  只建立一份最小、固定、
+  deterministic 的安全世界。
 */
-function resolveGardenFreshStartBathState(
+function bootstrapGardenEmergencyFallbackWorldState(
+  timestamp = getGardenWorldNow(),
+  options = {}
+) {
+  const plans =
+    Object.freeze({
+      chifuyu:
+        Object.freeze({
+          characterId:
+            "chifuyu",
+
+          sceneId:
+            "courtyard",
+
+          runtimeActivityId:
+            GARDEN_CHARACTER_ACTIVITY
+              .WANDER,
+
+          activityData:
+            null,
+
+          placement:
+            Object.freeze({
+              source:
+                "emergencyFallback",
+
+              spotId:
+                null,
+
+              x:
+                600,
+
+              y:
+                1725,
+
+              direction:
+                1,
+
+              isMoving:
+                false,
+            }),
+        }),
+
+      chinatsu:
+        Object.freeze({
+          characterId:
+            "chinatsu",
+
+          sceneId:
+            "courtyard",
+
+          runtimeActivityId:
+            GARDEN_CHARACTER_ACTIVITY
+              .WANDER,
+
+          activityData:
+            null,
+
+          placement:
+            Object.freeze({
+              source:
+                "emergencyFallback",
+
+              spotId:
+                null,
+
+              x:
+                430,
+
+              y:
+                1680,
+
+              direction:
+                1,
+
+              isMoving:
+                false,
+            }),
+        }),
+    });
+
+
+  /*
+    修改任何正式 World State 前，
+    先確認兩人的 Runtime 都存在。
+
+    避免只成功套用一半。
+  */
+  for (
+    const characterId of
+    Object.keys(plans)
+  ) {
+    const worldState =
+      gardenCharacterWorldState[
+        characterId
+      ];
+
+    const runtime =
+      getGardenCharacterRuntime(
+        characterId
+      );
+
+    if (
+      !worldState ||
+      !runtime?.moveState
+    ) {
+      console.error(
+        "[Garden Emergency Bootstrap] runtime unavailable:",
+        characterId
+      );
+
+      return null;
+    }
+  }
+
+
+  if (
+    typeof clearGardenChatState ===
+      "function"
+  ) {
+    clearGardenChatState();
+  }
+
+
+  const appliedCharacters =
+    {};
+
+
+  for (
+    const characterId of
+    Object.keys(plans)
+  ) {
+    const plan =
+      plans[
+        characterId
+      ];
+
+    const applied =
+      applyGardenFreshWorldCharacterBootstrap(
+        plan
+      );
+
+    if (!applied) {
+      console.error(
+        "[Garden Emergency Bootstrap] character apply failed:",
+        characterId
+      );
+
+      return null;
+    }
+
+
+    appliedCharacters[
+      characterId
+    ] =
+      Object.freeze({
+        sceneId:
+          plan.sceneId,
+
+        activity:
+          plan.runtimeActivityId,
+
+        x:
+          plan.placement.x,
+
+        y:
+          plan.placement.y,
+
+        direction:
+          plan.placement.direction,
+      });
+  }
+
+
+  gardenWorldInitialized =
+    true;
+
+
+  if (
+    typeof resetGardenScheduleBoundaryWatcher ===
+      "function"
+  ) {
+    resetGardenScheduleBoundaryWatcher();
+  }
+
+
+  const shouldSave =
+    options.save !==
+      false;
+
+
+  const savedSnapshot =
+    shouldSave
+      ? saveGardenWorldState(
+          "emergencyFallback"
+        )
+      : null;
+
+
+  const result =
+    Object.freeze({
+      timestamp:
+        isValidGardenWorldTimestamp(
+          timestamp
+        )
+          ? timestamp
+          : null,
+
+      bootstrapped:
+        true,
+
+      emergency:
+        true,
+
+      source:
+        "emergencyFallback",
+
+      saved:
+        !!savedSnapshot,
+
+      characters:
+        Object.freeze(
+          appliedCharacters
+        ),
+    });
+
+
+  console.warn(
+    "[Garden Emergency Bootstrap] canonical fallback applied:",
+    result
+  );
+
+
+  return result;
+}
+
+
+
+function resolveGardenFreshWorldBootstrap(
   timestamp =
     getGardenWorldNow()
 ) {
@@ -71786,338 +77337,243 @@ function resolveGardenFreshStartBathState(
   }
 
 
+  /*
+    必須沿用正式 Provider。
+
+    不直接寫死：
+    provideGardenOfficialWorldSchedules()
+
+    這樣未來：
+    - Schedule Override
+    - 特殊日 Routine
+    - 其他 Provider
+
+    Fresh Bootstrap 都會自動沿用
+    正式世界資料源。
+  */
   const schedules =
-    provideGardenOfficialWorldSchedules(
-      timestamp
-    );
+    getGardenWorldSchedulesFromProvider({
+      resumedAt:
+        timestamp,
+    });
 
 
   if (
     !Array.isArray(
       schedules
     ) ||
-    schedules.length === 0
+    schedules.length ===
+      0
   ) {
     return null;
   }
 
 
-  const result = {};
+  const characters =
+    {};
 
 
+  /*
+    先全部 Resolve。
+
+    任一角色失敗時，
+    完全不修改正式 World State。
+
+    避免：
+    千冬已 Bootstrap，
+    千夏卻失敗，
+    留下半套世界。
+  */
   for (
-    const characterId of [
-      "chifuyu",
-      "chinatsu",
-    ]
+    const characterId of
+    Object.keys(
+      gardenCharacterWorldState
+    )
   ) {
-    const resolution =
-      resolveGardenCharacterScheduleAtTimestamp(
-        schedules,
+    const plan =
+      resolveGardenFreshWorldCharacterBootstrap(
         characterId,
+        schedules,
         timestamp
       );
 
 
-    const entry =
-      resolution?.activeEntry ??
-      null;
+    if (!plan) {
+      return null;
+    }
 
 
-    const isBath =
-      !!entry &&
-      entry.intentId ===
-        "hotSpringBath" &&
-      entry.target?.sceneId ===
-        "hotSpring" &&
-      entry.activity
-        ?.selectedActivityId ===
-        GARDEN_CHARACTER_ACTIVITY
-          .BATH;
-
-
-    result[
+    characters[
       characterId
-    ] = Object.freeze({
-      characterId,
-
-      isBath,
-
-      resolution,
-
-      entry,
-    });
+    ] =
+      plan;
   }
 
 
   return Object.freeze({
     timestamp,
 
-    chifuyu:
-      result.chifuyu,
+    schedules,
 
-    chinatsu:
-      result.chinatsu,
-
-    bothBathing:
-      result.chifuyu
-        ?.isBath === true &&
-      result.chinatsu
-        ?.isBath === true,
+    characters:
+      Object.freeze(
+        characters
+      ),
   });
 }
 
 
-
-function bootstrapGardenFreshStartBathState(
+function bootstrapGardenFreshWorldState(
   timestamp =
-    getGardenWorldNow()
+    getGardenWorldNow(),
+  options = {}
 ) {
-  const freshState =
-    resolveGardenFreshStartBathState(
+  const resolved =
+    resolveGardenFreshWorldBootstrap(
       timestamp
     );
+
+
+  if (!resolved) {
+    return null;
+  }
 
 
   /*
-    目前第一版只處理：
-    兩人都命中正式 Hot Spring Bath。
+    Fresh 頁面理論上本來就是乾淨的。
 
-    其他時間完全不介入，
-    繼續走原本 Fresh Garden 初始化。
+    這裡仍明確清掉 Runtime-only Chat，
+    讓手動 Debug 重跑 Bootstrap 時
+    也不會留下舊 Chat ownership。
   */
   if (
-    !freshState?.bothBathing
+    typeof clearGardenChatState ===
+      "function"
   ) {
-    return null;
+    clearGardenChatState();
   }
 
 
-  const schedules =
-    provideGardenOfficialWorldSchedules(
-      timestamp
-    );
-
-
-  const bathSpot =
-    HOT_SPRING_BATH_SPOTS.find(
-      spot =>
-        spot.name ===
-          "hot-spring-night-pair"
-    ) ??
-    HOT_SPRING_BATH_SPOTS[0] ??
-    null;
-
-
-  if (!bathSpot) {
-    console.warn(
-      "[Garden Fresh Start] Bath Spot unavailable"
-    );
-
-    return null;
-  }
-
-
-  const results = {};
+  const appliedCharacters =
+    {};
 
 
   for (
-    const characterId of [
-      "chifuyu",
-      "chinatsu",
-    ]
+    const [
+      characterId,
+      plan,
+    ] of Object.entries(
+      resolved.characters
+    )
   ) {
-    const worldState =
-      gardenCharacterWorldState[
-        characterId
-      ];
+    const applied =
+      applyGardenFreshWorldCharacterBootstrap(
+        plan
+      );
+
+
+    if (!applied) {
+      console.warn(
+        "[Garden Fresh Start] apply failed:",
+        characterId,
+        plan
+      );
+
+      return null;
+    }
+
 
     const runtime =
       getGardenCharacterRuntime(
         characterId
       );
 
-    const spot =
-      bathSpot[
-        characterId
-      ];
 
-
-    if (
-      !worldState ||
-      !runtime?.moveState ||
-      !spot
-    ) {
-      console.warn(
-        "[Garden Fresh Start] Bath bootstrap unavailable:",
-        characterId
-      );
-
-      return null;
-    }
-
-
-    /*
-      用正式 Schedule Bridge Decision
-      取得完整 activityData。
-
-      注意：
-      這裡只借它產生 metadata，
-      不 execute decision，
-      所以不會觸發 Travel / Enter。
-    */
-    const decision =
-      createGardenScheduleBridgeDecisionAtTimestamp(
-        schedules,
-        characterId,
-        timestamp
-      );
-
-
-    const activityData =
-      createGardenScheduleActivityData(
-        decision
-      );
-
-
-    if (
-      !decision ||
-      decision.activeEntry
-        ?.intentId !==
-        "hotSpringBath" ||
-      !activityData
-    ) {
-      console.warn(
-        "[Garden Fresh Start] Bath Schedule metadata unavailable:",
-        characterId,
-        decision
-      );
-
-      return null;
-    }
-
-
-    /*
-      =========================
-      Semantic World State
-      =========================
-    */
-
-    worldState.sceneId =
-      "hotSpring";
-
-    worldState.travel =
-      null;
-
-    worldState.bathTransition =
-      null;
-
-    worldState.bathPositioning =
-      null;
-
-    worldState.wanderContinuity =
-      null;
-
-    worldState.activitySpotApproach =
-      null;
-
-
-    setGardenCharacterActivity(
-      characterId,
-      GARDEN_CHARACTER_ACTIVITY
-        .BATH,
-      activityData
-    );
-
-
-    /*
-      =========================
-      Exact Settled Bath Spot
-      =========================
-    */
-
-    runtime.setPath?.([]);
-
-    runtime.moveState.path =
-      [];
-
-    runtime.moveState.isMoving =
-      false;
-
-    runtime.moveState.x =
-      spot.x;
-
-    runtime.moveState.y =
-      spot.y;
-
-    runtime.moveState.direction =
-      spot.direction === -1
-        ? -1
-        : 1;
-
-
-    if (
-      runtime.autoState
-    ) {
-      runtime.autoState.wasMoving =
-        false;
-    }
-
-
-    results[
+    appliedCharacters[
       characterId
-    ] = {
-      sceneId:
-        worldState.sceneId,
+    ] =
+      Object.freeze({
+        sceneId:
+          gardenCharacterWorldState[
+            characterId
+          ]?.sceneId ?? null,
 
-      activity:
-        worldState.activity,
+        activity:
+          gardenCharacterWorldState[
+            characterId
+          ]?.activity ?? null,
 
-      activityData:
-        worldState.activityData,
+        activityData:
+          gardenCharacterWorldState[
+            characterId
+          ]?.activityData ?? null,
 
-      x:
-        runtime.moveState.x,
+        placementSource:
+          plan.placement
+            ?.source ?? null,
 
-      y:
-        runtime.moveState.y,
+        spotId:
+          plan.placement
+            ?.spotId ?? null,
 
-      direction:
-        runtime.moveState.direction,
-    };
+        x:
+          runtime?.moveState
+            ?.x ?? null,
+
+        y:
+          runtime?.moveState
+            ?.y ?? null,
+
+        direction:
+          runtime?.moveState
+            ?.direction ?? null,
+
+        isMoving:
+          runtime?.moveState
+            ?.isMoving === true,
+      });
   }
 
 
-  /*
-    非常重要：
+/*
+  告訴 initGardenScreen：
 
-    告訴 initGardenScreen：
-    這個世界已經依現在時間
-    正式 Bootstrap 完成。
+  這個世界已經依「現在」
+  完成正式 Fresh Bootstrap。
 
-    不准再：
-    - setupGardenInitialMode
-    - randomize
-    - 把 sceneId 覆蓋成 Player View
+  不准再：
+  - setupGardenInitialMode
+  - randomize
+  - 用 Player View 覆蓋 character sceneId
+*/
+gardenWorldInitialized =
+  true;
+
+
+/*
+  Fresh Bootstrap 後，
+    Boundary Watcher 下一次只需要
+    seed 目前 Schedule signature。
   */
-  gardenWorldInitialized =
-    true;
+  if (
+    typeof resetGardenScheduleBoundaryWatcher ===
+      "function"
+  ) {
+    resetGardenScheduleBoundaryWatcher();
+  }
 
-  gardenPendingInitialMode =
-    null;
+
+  const shouldSave =
+    options.save !==
+      false;
 
 
-  /*
-    立即留下一份正式 Snapshot。
-
-    這樣同一個無痕 Session
-    如果重新整理，也會走一般
-    Cold Start Restore，
-    不會再次 Fresh Bootstrap。
-  */
-  saveGardenWorldState(
-    "freshStartBathBootstrap"
-  );
+  const savedSnapshot =
+    shouldSave
+      ? saveGardenWorldState(
+          "freshWorldBootstrap"
+        )
+      : null;
 
 
   const result =
@@ -72127,28 +77583,113 @@ function bootstrapGardenFreshStartBathState(
       bootstrapped:
         true,
 
-      mode:
-        "settledBath",
+      source:
+        "freshWorldSchedule",
 
-      spotName:
-        bathSpot.name,
+      saved:
+        !!savedSnapshot,
 
-      chifuyu:
-        results.chifuyu,
-
-      chinatsu:
-        results.chinatsu,
+      characters:
+        Object.freeze(
+          appliedCharacters
+        ),
     });
 
 
   console.log(
-    "[Garden Fresh Start] settled Bath bootstrapped:",
+    "[Garden Fresh Start] canonical world bootstrapped:",
     result
   );
 
 
   return result;
 }
+
+
+/*
+  Debug Inspector
+
+  只 Resolve，
+  不修改 World State，
+  不存 Snapshot。
+*/
+function inspectGardenFreshWorldBootstrap(
+  timestamp =
+    getGardenWorldNow()
+) {
+  const resolved =
+    resolveGardenFreshWorldBootstrap(
+      timestamp
+    );
+
+
+  if (!resolved) {
+    console.warn(
+      "[Garden Fresh Start] bootstrap plan unavailable"
+    );
+
+    return null;
+  }
+
+
+  const rows =
+    Object.values(
+      resolved.characters
+    ).map(
+      plan => ({
+        character:
+          plan.characterId,
+
+        scheduleState:
+          plan.scheduleState,
+
+        intent:
+          plan.entry
+            ?.intentId ?? null,
+
+        semanticActivity:
+          plan.semanticActivityId,
+
+        runtimeActivity:
+          plan.runtimeActivityId,
+
+        scene:
+          plan.sceneId,
+
+        targetSpot:
+          plan.targetSpotId,
+
+        placement:
+          plan.placement
+            ?.source ?? null,
+
+        x:
+          Math.round(
+            plan.placement
+              ?.x ?? 0
+          ),
+
+        y:
+          Math.round(
+            plan.placement
+              ?.y ?? 0
+          ),
+
+        moving:
+          plan.placement
+            ?.isMoving === true,
+      })
+    );
+
+
+  console.table(
+    rows
+  );
+
+
+  return resolved;
+}
+
 
 
 
@@ -72166,30 +77707,50 @@ function restoreGardenWorldFromStorage() {
     Fresh World：
 
     完全沒有 Snapshot 時，
-    不代表角色應該從預設 Courtyard
-    從頭追趕今天已經發生的 Schedule。
+    直接使用「現在的正式 Schedule」
+    建立 canonical world state。
 
-    先嘗試依「現在」建立
-    可直接重建的 canonical 狀態。
-
-    第一版先支援 settled Bath。
+    不從預設 Courtyard
+    追趕今天已經發生的歷史流程。
   */
   const freshBootstrap =
-    bootstrapGardenFreshStartBathState(
+    bootstrapGardenFreshWorldState(
       getGardenWorldNow()
     );
 
 
   if (freshBootstrap) {
+    gardenWorldLastColdStartRestore =
+      freshBootstrap;
+
     return freshBootstrap;
   }
 
 
-  /*
-    現在不是已支援的 Fresh Bootstrap
-    狀態時，保留原本行為。
-  */
-  return null;
+ /*
+  正常 Fresh Bootstrap
+  無法建立世界時，
+
+  不再把初始化責任丟給
+  initGardenScreen()。
+
+  直接在 Presentation Plan 之前
+  建立 deterministic
+  Emergency Canonical World。
+*/
+const emergencyBootstrap =
+  bootstrapGardenEmergencyFallbackWorldState(
+    getGardenWorldNow()
+  );
+
+
+if (emergencyBootstrap) {
+  gardenWorldLastColdStartRestore =
+    emergencyBootstrap;
+}
+
+
+return emergencyBootstrap;
 }
 
 
@@ -72200,13 +77761,22 @@ function restoreGardenWorldFromStorage() {
 
 
   if (!restored) {
-    console.warn(
-      "[Garden World] cold start hydrate failed"
+  console.warn(
+    "[Garden World] cold start hydrate failed"
+  );
+
+  const emergencyBootstrap =
+    bootstrapGardenEmergencyFallbackWorldState(
+      getGardenWorldNow()
     );
 
-
-    return null;
+  if (emergencyBootstrap) {
+    gardenWorldLastColdStartRestore =
+      emergencyBootstrap;
   }
+
+  return emergencyBootstrap;
+}
 
 
   /*
@@ -72223,8 +77793,22 @@ function restoreGardenWorldFromStorage() {
 
 
   if (!context) {
-    return null;
+  console.warn(
+    "[Garden World] cold start context unavailable"
+  );
+
+  const emergencyBootstrap =
+    bootstrapGardenEmergencyFallbackWorldState(
+      getGardenWorldNow()
+    );
+
+  if (emergencyBootstrap) {
+    gardenWorldLastColdStartRestore =
+      emergencyBootstrap;
   }
+
+  return emergencyBootstrap;
+}
 
 
   const reconciliationResults =
@@ -72525,21 +78109,18 @@ function forceGardenBathPerformanceTestState() {
     "hotSpring";
 
 
-  /*
-    告訴 initGardenScreen：
-    世界已經建立完畢，
-    不准重新 randomize / reset。
-  */
-  gardenWorldInitialized =
-    true;
-
-  gardenPendingInitialMode =
-    null;
+ /*
+  告訴 initGardenScreen：
+  世界已經建立完畢，
+  不准重新 randomize / reset。
+*/
+gardenWorldInitialized =
+  true;
 
 
-  console.log(
-    "[Garden Bath Test] settled Bath forced."
-  );
+console.log(
+  "[Garden Bath Test] settled Bath forced."
+);
 
 
   return true;
@@ -73580,6 +79161,14 @@ async function switchGardenScene(
       必須明確傳 true。
     */
     resetCharacters = false,
+
+    /*
+      正式 Scene Navigation 會傳入。
+
+      Legacy / Debug caller 沒傳時，
+      switchGardenScene() 完全維持原本行為。
+    */
+    presentationTransaction = null,
   } = options;
 
 
@@ -73601,6 +79190,29 @@ async function switchGardenScene(
       sceneId
     );
 
+    return false;
+  }
+
+
+  const transactionRequired =
+    presentationTransaction !==
+      null;
+
+
+  const isTransactionCurrent =
+    () =>
+      !transactionRequired ||
+      isGardenPresentationTransactionCurrent(
+        presentationTransaction
+      );
+
+
+  /*
+    stale Scene Switch 不允許建立
+    Hot Spring Mist、也不允許開始
+    後續 Player View mutation。
+  */
+  if (!isTransactionCurrent()) {
     return false;
   }
 
@@ -73651,6 +79263,19 @@ if (sceneId === "hotSpring") {
     sceneMode,
     targetScene
   );
+
+
+  /*
+    Resource await 期間可能被更新的
+    Presentation generation 取代。
+
+    這一道檢查發生在 gardenViewSceneId
+    真正改變之前，是 Scene Switch
+    最重要的 mutation gate。
+  */
+  if (!isTransactionCurrent()) {
+    return false;
+  }
 
 
   /*
