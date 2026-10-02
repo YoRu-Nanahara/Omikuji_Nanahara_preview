@@ -21337,26 +21337,8 @@ state.animFinished =
 
 
 if (layer) {
-  if (
-    GARDEN_BATH_TEST_ENABLED &&
-    safeMode ===
-      "bathSoakIdle"
-  ) {
-    prepareGardenBathTransformLayer(
-      "chifuyu",
-      layer,
-      anim
-    );
-
-    applyGardenBathTransformFrame(
-      layer,
-      anim.positions[0]
-    );
-
-  } else {
-    layer.style.backgroundPosition =
-      anim.positions[0];
-  }
+  layer.style.backgroundPosition =
+    anim.positions[0];
 }
 
 
@@ -21588,28 +21570,14 @@ function updateChifuyuAnimationFrame(
     }
 
 
-    state.frameIndex =
+state.frameIndex =
   nextFrameIndex;
 
 
-if (
-  GARDEN_BATH_TEST_ENABLED &&
-  state.animMode ===
-    "bathSoakIdle"
-) {
-  applyGardenBathTransformFrame(
-    layer,
-    anim.positions[
-      state.frameIndex
-    ]
-  );
-
-} else {
-  layer.style.backgroundPosition =
-    anim.positions[
-      state.frameIndex
-    ];
-}
+layer.style.backgroundPosition =
+  anim.positions[
+    state.frameIndex
+  ];
 
 
     /*
@@ -25158,28 +25126,9 @@ const layer =
 
 
 if (layer) {
-  if (
-    GARDEN_BATH_TEST_ENABLED &&
-    safeMode ===
-      "bathSoakIdle"
-  ) {
-    prepareGardenBathTransformLayer(
-      "chinatsu",
-      layer,
-      anim
-    );
-
-    applyGardenBathTransformFrame(
-      layer,
-      anim.positions[0]
-    );
-
-  } else {
-    layer.style.backgroundPosition =
-      anim.positions[0];
-  }
+  layer.style.backgroundPosition =
+    anim.positions[0];
 }
-
 
   showChinatsuSpriteLayer(
     safeMode
@@ -25386,28 +25335,14 @@ function updateChinatsuAnimationFrame(
     }
 
 
-   state.frameIndex =
+ state.frameIndex =
   nextFrameIndex;
 
 
-if (
-  GARDEN_BATH_TEST_ENABLED &&
-  state.animMode ===
-    "bathSoakIdle"
-) {
-  applyGardenBathTransformFrame(
-    layer,
-    anim.positions[
-      state.frameIndex
-    ]
-  );
-
-} else {
-  layer.style.backgroundPosition =
-    anim.positions[
-      state.frameIndex
-    ];
-}
+layer.style.backgroundPosition =
+  anim.positions[
+    state.frameIndex
+  ];
 
 
     /*
