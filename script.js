@@ -21250,6 +21250,20 @@ function updateChifuyuAnimationFrame(
     return;
   }
 
+  /*
+  Bath Texture Repaint Diagnostic
+
+  保持真正 Bath texture 顯示，
+  但停止 background-position 換格。
+*/
+if (
+  GARDEN_BATH_TEST_ENABLED &&
+  state.animMode ===
+    "bathSoakIdle"
+) {
+  return;
+}
+
 
   /*
     =========================
@@ -25018,6 +25032,13 @@ function updateChinatsuAnimationFrame(
     return;
   }
 
+  if (
+  GARDEN_BATH_TEST_ENABLED &&
+  state.animMode ===
+    "bathSoakIdle"
+) {
+  return;
+}
 
 
   /*
