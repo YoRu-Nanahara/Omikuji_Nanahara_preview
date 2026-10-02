@@ -1864,7 +1864,7 @@ async function precacheGardenCharacterModeCompressed(
 
 
 /*
-  Garden 角色統一使用 50% spritesheet。
+  Garden 角色統一使用 75% spritesheet。
 
   雖然檔名目前還保留 -ipad，
   但現在所有桌機 / 手機 / 平板都會使用這一套。
@@ -1914,11 +1914,14 @@ const CHINATSU_BATH_SOAK_IDLE_SHEET_SRC =
 
   
 /*
-  50% spritesheet 的 CSS logical size。
+  75% spritesheet 的 CSS logical size。
 
-  實際 PNG 已縮小成 50%，
+  實際 PNG 已縮小成原始尺寸的 75%，
   但 background-size 放大回原本座標系，
   所以既有 frame position 不必修改。
+
+  Bath 角色動畫也使用相同的
+  75% asset pipeline。
 */
 const GARDEN_WALK_IDLE_LOGICAL_SHEET_SIZE = 3924;
 const GARDEN_TALK_LOGICAL_SHEET_SIZE = 5232;
@@ -20349,165 +20352,6 @@ function requestGardenHotSpringEntranceVisualGate(
   return false;
 }
 
-/*
-  =========================
-  Bath Transform Atlas Test
-  =========================
-
-  只在 ?gardenBathTest=1 使用。
-
-  原本：
-  650×650 viewport
-  + 每格改 background-position
-
-  測試：
-  atlas layer 本身放大成整張 logical sheet
-  + parent 650×650 負責裁切
-  + 每格只改 transform
-*/
-function parseGardenSpriteBackgroundPosition(
-  position
-) {
-  if (
-    typeof position !==
-    "string"
-  ) {
-    return null;
-  }
-
-  const match =
-    position.match(
-      /^(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px$/
-    );
-
-  if (!match) {
-    return null;
-  }
-
-  const x =
-    Number(match[1]);
-
-  const y =
-    Number(match[2]);
-
-  if (
-    !Number.isFinite(x) ||
-    !Number.isFinite(y)
-  ) {
-    return null;
-  }
-
-  return {
-    x,
-    y,
-  };
-}
-
-
-function prepareGardenBathTransformLayer(
-  characterId,
-  layer,
-  anim
-) {
-  if (
-    !GARDEN_BATH_TEST_ENABLED ||
-    !layer ||
-    !anim ||
-    !Number.isFinite(
-      anim.logicalWidth
-    ) ||
-    !Number.isFinite(
-      anim.logicalHeight
-    )
-  ) {
-    return false;
-  }
-
-
-  const viewport =
-    characterId ===
-      "chifuyu"
-      ? chifuyuWalkTest
-      : characterId ===
-          "chinatsu"
-        ? chinatsuWalkTest
-        : null;
-
-
-  if (!viewport) {
-    return false;
-  }
-
-
-  /*
-    外層仍維持 650×650，
-    專門當裁切 viewport。
-  */
-  viewport.style.overflow =
-    "hidden";
-
-
-  /*
-    Bath layer 本身變成整張 atlas。
-  */
-  layer.style.width =
-    `${anim.logicalWidth}px`;
-
-  layer.style.height =
-    `${anim.logicalHeight}px`;
-
-
-  /*
-    不再用 background-position 選格。
-    背景固定在 atlas 原點。
-  */
-  layer.style.backgroundPosition =
-    "0px 0px";
-
-
-  /*
-    這次診斷的核心：
-    frame 切換只更新 transform。
-  */
-  layer.style.willChange =
-    "transform";
-
-  layer.style.backfaceVisibility =
-    "hidden";
-
-
-  return true;
-}
-
-
-function applyGardenBathTransformFrame(
-  layer,
-  position
-) {
-  if (
-    !layer
-  ) {
-    return false;
-  }
-
-
-  const parsed =
-    parseGardenSpriteBackgroundPosition(
-      position
-    );
-
-
-  if (!parsed) {
-    return false;
-  }
-
-
-  layer.style.transform =
-    `translate3d(${parsed.x}px, ${parsed.y}px, 0)`;
-
-
-  return true;
-}
 
 function bindGardenSpriteLayerImage(
   character,
