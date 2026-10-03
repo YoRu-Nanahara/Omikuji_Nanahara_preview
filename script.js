@@ -2401,6 +2401,68 @@ const HOT_SPRING_SCENE_LAYER_ASSETS = [
 ];
 
 
+/* =========================
+   Indoor Transition Scene Assets
+========================= */
+
+const INDOOR_TRANSITION_SCENE_LAYER_ASSETS = [
+  {
+    selector:
+      ".indoor-transition-bg",
+
+    /*
+      日間版尚未完成，
+      目前 day 暫時沿用 night。
+    */
+    day:
+      "images/garden/indoor-transition/indoor-transition-bg-night.jpg",
+
+    night:
+      "images/garden/indoor-transition/indoor-transition-bg-night.jpg",
+  },
+
+
+  {
+    selector:
+      ".indoor-transition-front",
+
+    /*
+      前景樹木 + 門。
+
+      目前同樣只有夜間版，
+      日間先暫時沿用 night。
+    */
+    day:
+      "images/garden/indoor-transition/indoor-transition-front-night.png",
+
+    night:
+      "images/garden/indoor-transition/indoor-transition-front-night.png",
+  },
+];
+
+
+/* =========================
+   Corridor 01 Scene Assets
+========================= */
+
+const CORRIDOR_01_SCENE_LAYER_ASSETS = [
+  {
+    selector:
+      ".corridor-01-bg",
+
+    /*
+      純室內場景，
+      日夜共用同一張基底。
+    */
+    day:
+      "images/garden/corridor/corridor-base.jpg",
+
+    night:
+      "images/garden/corridor/corridor-base.jpg",
+  },
+];
+
+
 
 /* =========================
    Moon Bridge Scene Assets
@@ -3205,6 +3267,19 @@ function applyGardenSceneMode(
   }
 
 
+  /*
+    Scene 圖片套用之前，
+    先同步場景環境狀態。
+
+    Scene Switch 時這裡仍位於
+    黑幕期間，因此玩家不會看到
+    Sakura / Lighting 突然跳變。
+  */
+  applyGardenSceneEnvironmentPolicy(
+    scene
+  );
+
+
   const sceneLayers =
     scene.sceneLayers || [];
 
@@ -3226,6 +3301,8 @@ const allRegisteredSceneLayers = [
   ...GARDEN_SCENE_LAYER_ASSETS,
   ...MOON_BRIDGE_SCENE_LAYER_ASSETS,
   ...HOT_SPRING_SCENE_LAYER_ASSETS,
+  ...INDOOR_TRANSITION_SCENE_LAYER_ASSETS,
+  ...CORRIDOR_01_SCENE_LAYER_ASSETS,
 ];
 
 for (
@@ -15542,6 +15619,12 @@ function pauseSakuraForGarden() {
   }
 }
 
+
+
+
+
+
+
 function resumeSakuraFromGarden() {
   const canvas = document.getElementById("sakura");
   if (canvas) {
@@ -15551,10 +15634,125 @@ function resumeSakuraFromGarden() {
   sakuraPausedByGarden = false;
   document.body.classList.remove("garden-active");
 
+    document.body.classList.remove(
+    "garden-character-lighting-lit",
+    "garden-sakura-disabled"
+  );
+
   if (typeof resetPetals === "function") {
     resetPetals();
   }
 }
+
+
+/*
+  =========================
+  Garden Scene Environment Policy
+  =========================
+
+  Scene Registry 決定：
+  - Sakura 是否存在
+  - Character Lighting 如何處理
+
+  不根據 sceneId 寫死例外。
+*/
+function applyGardenSceneEnvironmentPolicy(
+  scene
+) {
+  if (!scene) {
+    return;
+  }
+
+
+  /*
+    沒有宣告 sakura:false 的舊 Scene，
+    全部維持既有 Garden 行為。
+  */
+  const sakuraEnabled =
+    scene.ambientEffects?.sakura !==
+      false;
+
+
+  /*
+    目前支援：
+
+    world
+      跟隨七原世界 Day / Night
+
+    lit
+      室內照明，不套夜間角色壓暗
+  */
+  const characterLighting =
+    scene.characterLighting === "lit"
+      ? "lit"
+      : "world";
+
+
+  document.body.classList.toggle(
+    "garden-character-lighting-lit",
+    characterLighting === "lit"
+  );
+
+
+  document.body.classList.toggle(
+    "garden-sakura-disabled",
+    !sakuraEnabled
+  );
+
+
+  const canvas =
+    document.getElementById(
+      "sakura"
+    );
+
+
+  if (sakuraEnabled) {
+    const wasPaused =
+      sakuraPausedByGarden;
+
+    sakuraPausedByGarden =
+      false;
+
+    if (canvas) {
+      canvas.style.display = "";
+    }
+
+    /*
+      從室內重新走回戶外時，
+      重新建立花瓣位置，
+      不讓凍結前的舊畫面突然接續。
+    */
+    if (
+      wasPaused &&
+      typeof resetPetals ===
+        "function"
+    ) {
+      resetPetals();
+    }
+
+    return;
+  }
+
+
+  /*
+    Sakura OFF：
+
+    先停止粒子更新，
+    再清掉 Canvas，
+    最後把 Canvas 隱藏。
+  */
+  sakuraPausedByGarden =
+    true;
+
+  clearSakuraCanvas();
+
+  if (canvas) {
+    canvas.style.display =
+      "none";
+  }
+}
+
+
 
 let sakuraWindPower = 1;
 let sakuraWindTargetPower = 1;
@@ -22508,12 +22706,55 @@ function drawGardenWalkDebug() {
     return;
   }
 
-  canvas.style.display = "block";
+ canvas.style.display = "block";
 
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+const scene =
+  getCurrentGardenScene();
 
-  ctx.clearRect(0, 0, 1080, 1920);
+const worldSize =
+  typeof getGardenSceneWorldSize ===
+    "function"
+    ? getGardenSceneWorldSize(scene)
+    : {
+        width: 1080,
+        height: 1920,
+      };
+
+/*
+  Debug Canvas 必須和目前 Scene World
+  使用相同座標範圍。
+
+  1080 場景 → 1080 × 1920
+  Corridor 1 → 2160 × 1920
+*/
+if (
+  canvas.width !== worldSize.width ||
+  canvas.height !== worldSize.height
+) {
+  canvas.width =
+    worldSize.width;
+
+  canvas.height =
+    worldSize.height;
+}
+
+canvas.style.width =
+  `${worldSize.width}px`;
+
+canvas.style.height =
+  `${worldSize.height}px`;
+
+const ctx =
+  canvas.getContext("2d");
+
+if (!ctx) return;
+
+ctx.clearRect(
+  0,
+  0,
+  worldSize.width,
+  worldSize.height
+);
 
   function drawPolygon(area, fillStyle, strokeStyle) {
     const points = area.points;
@@ -22549,9 +22790,6 @@ function drawGardenWalkDebug() {
     ctx.fillStyle = strokeStyle;
     ctx.fillText(area.name, label.x + 12, label.y - 12);
   }
-
-  const scene =
-  getCurrentGardenScene();
 
 const walkAreas =
   scene?.walkAreas || {
@@ -39711,6 +39949,19 @@ if (
   }
 
 
+  /*
+    Garden Entry / Restore 時，
+    先把 Player View 的 Camera
+    套到這張 Scene 的初始位置。
+
+    Corridor 1 因 initialX = 0，
+    所以第一次 Reveal 一定先看左半部。
+  */
+  resetGardenCameraForScene(
+    getCurrentGardenScene()
+  );
+
+
 /*
   回到 Garden 時，
   重新依現在時間刷新月亮。
@@ -40394,6 +40645,26 @@ const MOON_BRIDGE_WALK_AREAS = {
 };
 
 
+const INDOOR_TRANSITION_WALK_AREAS = {
+  // 內容先完全和 MOON_BRIDGE_WALK_AREAS 一樣
+  ground: [
+    {
+      name: "indoor-transition-ground",
+
+      points: [
+        { x: 160, y: 1180 },
+        { x: 920, y: 1180 },
+        { x: 920, y: 1420 },
+        { x: 160, y: 1420 },
+      ],
+    },
+  ],
+
+  far: [],
+};
+
+
+
 /*
   因為橋面目前是完整凸矩形，
   任意兩個可走點之間都能直接連線。
@@ -40404,6 +40675,7 @@ const MOON_BRIDGE_WALK_AREAS = {
 */
 const MOON_BRIDGE_PATH_NODES = [];
 
+const INDOOR_TRANSITION_PATH_NODES = [];
 
 /*
   自動散步目的地。
@@ -40454,6 +40726,320 @@ const MOON_BRIDGE_AUTO_TARGET_POINTS = [
     zone: "ground",
   },
 ];
+
+const INDOOR_TRANSITION_AUTO_TARGET_POINTS = [
+  {
+    name: "indoor-transition-left-back",
+    x: 250,
+    y: 1230,
+    zone: "ground",
+  },
+
+  {
+    name: "indoor-transition-center-back",
+    x: 540,
+    y: 1230,
+    zone: "ground",
+  },
+
+  {
+    name: "indoor-transition-right-back",
+    x: 830,
+    y: 1230,
+    zone: "ground",
+  },
+
+  {
+    name: "indoor-transition-left-front",
+    x: 250,
+    y: 1360,
+    zone: "ground",
+  },
+
+  {
+    name: "indoor-transition-center-front",
+    x: 540,
+    y: 1360,
+    zone: "ground",
+  },
+
+  {
+    name: "indoor-transition-right-front",
+    x: 830,
+    y: 1360,
+    zone: "ground",
+  },
+];
+
+
+/*
+  =========================
+  Moon Bridge
+  ↔ Indoor Transition
+  Character Travel Anchors
+  =========================
+*/
+
+/*
+  Moon Bridge → Indoor Transition
+
+  賞月橋右側離場。
+*/
+const MOON_BRIDGE_INDOOR_TRANSITION_EXIT = {
+  chifuyu: {
+    approach: {
+      x: 900,
+      y: 1240,
+    },
+
+    out: {
+      x: 1320,
+      y: 1240,
+    },
+  },
+
+  chinatsu: {
+    approach: {
+      x: 900,
+      y: 1360,
+    },
+
+    out: {
+      x: 1400,
+      y: 1360,
+    },
+  },
+};
+
+
+/*
+  Indoor Transition
+  從 Moon Bridge 左側進場。
+*/
+const INDOOR_TRANSITION_FROM_MOON_BRIDGE_ENTRANCE = {
+  chifuyu: {
+    spawn: {
+      x: -240,
+      y: 1240,
+    },
+
+    enter: {
+      x: 260,
+      y: 1240,
+    },
+  },
+
+  chinatsu: {
+    spawn: {
+      x: -320,
+      y: 1360,
+    },
+
+    enter: {
+      x: 250,
+      y: 1360,
+    },
+  },
+};
+
+
+/*
+  Indoor Transition → Moon Bridge
+
+  中繼場景左側離場。
+*/
+const INDOOR_TRANSITION_MOON_BRIDGE_EXIT = {
+  chifuyu: {
+    approach: {
+      x: 180,
+      y: 1240,
+    },
+
+    out: {
+      x: -300,
+      y: 1240,
+    },
+  },
+
+  chinatsu: {
+    approach: {
+      x: 180,
+      y: 1360,
+    },
+
+    out: {
+      x: -340,
+      y: 1360,
+    },
+  },
+};
+
+
+/*
+  Moon Bridge
+  從 Indoor Transition 右側進場。
+*/
+const MOON_BRIDGE_FROM_INDOOR_TRANSITION_ENTRANCE = {
+  chifuyu: {
+    spawn: {
+      x: 1320,
+      y: 1240,
+    },
+
+    enter: {
+      x: 820,
+      y: 1240,
+    },
+  },
+
+  chinatsu: {
+    spawn: {
+      x: 1400,
+      y: 1360,
+    },
+
+    enter: {
+      x: 830,
+      y: 1360,
+    },
+  },
+};
+
+
+/*
+  =========================
+  Indoor Transition
+  ↔ Corridor 01
+  Character Travel Anchors
+  =========================
+*/
+
+/*
+  Indoor Transition → Corridor 01
+
+  中繼場景右側離場。
+*/
+const INDOOR_TRANSITION_CORRIDOR_01_EXIT = {
+  chifuyu: {
+    approach: {
+      x: 900,
+      y: 1240,
+    },
+
+    out: {
+      x: 1320,
+      y: 1240,
+    },
+  },
+
+  chinatsu: {
+    approach: {
+      x: 900,
+      y: 1360,
+    },
+
+    out: {
+      x: 1400,
+      y: 1360,
+    },
+  },
+};
+
+
+/*
+  Corridor 01
+  從 Indoor Transition 左側進場。
+*/
+const CORRIDOR_01_FROM_INDOOR_TRANSITION_ENTRANCE = {
+  chifuyu: {
+    spawn: {
+      x: -320,
+      y: 1510,
+    },
+
+    enter: {
+      x: 280,
+      y: 1510,
+    },
+  },
+
+  chinatsu: {
+    spawn: {
+      x: -380,
+      y: 1680,
+    },
+
+    enter: {
+      x: 280,
+      y: 1680,
+    },
+  },
+};
+
+
+/*
+  Corridor 01 → Indoor Transition
+
+  Corridor 左側離場。
+*/
+const CORRIDOR_01_INDOOR_TRANSITION_EXIT = {
+  chifuyu: {
+    approach: {
+      x: 150,
+      y: 1510,
+    },
+
+    out: {
+      x: -360,
+      y: 1510,
+    },
+  },
+
+  chinatsu: {
+    approach: {
+      x: 150,
+      y: 1680,
+    },
+
+    out: {
+      x: -420,
+      y: 1680,
+    },
+  },
+};
+
+
+/*
+  Indoor Transition
+  從 Corridor 01 右側進場。
+*/
+const INDOOR_TRANSITION_FROM_CORRIDOR_01_ENTRANCE = {
+  chifuyu: {
+    spawn: {
+      x: 1320,
+      y: 1240,
+    },
+
+    enter: {
+      x: 820,
+      y: 1240,
+    },
+  },
+
+  chinatsu: {
+    spawn: {
+      x: 1400,
+      y: 1360,
+    },
+
+    enter: {
+      x: 830,
+      y: 1360,
+    },
+  },
+};
+
+
 
 /* =========================
    Moon Bridge Chat Spots
@@ -65589,148 +66175,7 @@ function getGardenOfficialScheduleDefinitionsForDate(
 
 
 
-  /*
-    =========================
-    Chifuyu — Courtyard Ambient
-    =========================
-
-    Garden 的 baseline spatial schedule。
-
-    01:00 ～ 23:00 JST
-    沒有更高 Priority 行程時，
-    千冬預設在庭院 Wander。
-
-    這不是特殊活動，
-    而是角色日常世界位置的
-    最低優先級 canonical ownership。
-  */
-  const chifuyuCourtyardAmbient =
-    createGardenScheduleIntentDefinition({
-      id:
-        "official-chifuyu-courtyard-ambient",
-
-      characterId:
-        "chifuyu",
-
-      intentId:
-        "courtyardAmbient",
-
-      instanceId:
-        "daily",
-
-      windowStart:
-        "01:00",
-
-      windowEnd:
-        "01:00",
-
-      durationMinMinutes:
-        22 * 60,
-
-      durationMaxMinutes:
-        22 * 60,
-
-      priority:
-        GARDEN_SCHEDULE_PRIORITY
-          .LOW,
-
-      sceneId:
-        "courtyard",
-
-      activityId:
-        "wander",
-
-      fallbackActivityId:
-        "wander",
-
-      canDelay:
-        false,
-
-      canBeOverridden:
-        true,
-
-      latePolicy:
-        GARDEN_SCHEDULE_LATE_POLICY
-          .SKIP,
-
-      tags: [
-        "official",
-        "dailyRoutine",
-        "ambient",
-        "baseline",
-        "courtyard",
-      ],
-    });
-
-
-  /*
-    =========================
-    Chinatsu — Courtyard Ambient
-    =========================
-
-    與千冬相同：
-
-    01:00 ～ 23:00 JST
-    若沒有更高 Priority 行程，
-    預設在庭院 Wander。
-  */
-  const chinatsuCourtyardAmbient =
-    createGardenScheduleIntentDefinition({
-      id:
-        "official-chinatsu-courtyard-ambient",
-
-      characterId:
-        "chinatsu",
-
-      intentId:
-        "courtyardAmbient",
-
-      instanceId:
-        "daily",
-
-      windowStart:
-        "01:00",
-
-      windowEnd:
-        "01:00",
-
-      durationMinMinutes:
-        22 * 60,
-
-      durationMaxMinutes:
-        22 * 60,
-
-      priority:
-        GARDEN_SCHEDULE_PRIORITY
-          .LOW,
-
-      sceneId:
-        "courtyard",
-
-      activityId:
-        "wander",
-
-      fallbackActivityId:
-        "wander",
-
-      canDelay:
-        false,
-
-      canBeOverridden:
-        true,
-
-      latePolicy:
-        GARDEN_SCHEDULE_LATE_POLICY
-          .SKIP,
-
-      tags: [
-        "official",
-        "dailyRoutine",
-        "ambient",
-        "baseline",
-        "courtyard",
-      ],
-    });
+ 
 
   /*
     =========================
@@ -65893,7 +66338,392 @@ const chinatsuAfternoonRest =
   });
 
 
+/*
+  =========================
+  Morning / Day Ambient
+  Corridor1 → Courtyard
+  =========================
 
+  Night Walk 於 01:00 結束後：
+
+  01:00
+  → Afternoon Rest 實際開始時間
+  角色在 Corridor1 Wander。
+
+  Afternoon Rest 開始後：
+  角色前往 Courtyard。
+
+  Rest 結束後：
+  Courtyard Ambient 繼續接手，
+  不再返回 Corridor1。
+
+  Afternoon Rest 的開始時間
+  本來就是 deterministic daily decision，
+  所以這裡直接使用同一天產生的
+  Schedule Entry 作為 Ambient 分界。
+*/
+
+
+const chifuyuAfternoonRestPreview =
+  generateGardenDailyScheduleEntry(
+    chifuyuAfternoonRest,
+    dateKey
+  );
+
+
+const chinatsuAfternoonRestPreview =
+  generateGardenDailyScheduleEntry(
+    chinatsuAfternoonRest,
+    dateKey
+  );
+
+
+/*
+  如果未來 Afternoon Rest 定義異常，
+  fallback 到最早可能開始的 14:00。
+
+  正常正式狀態下，
+  這裡會直接取得 deterministic
+  start.timelineMinute / start.time。
+*/
+const chifuyuAfternoonRestStartMinute =
+  Number.isFinite(
+    chifuyuAfternoonRestPreview
+      ?.start
+      ?.timelineMinute
+  )
+    ? chifuyuAfternoonRestPreview
+        .start
+        .timelineMinute
+    : 14 * 60;
+
+
+const chinatsuAfternoonRestStartMinute =
+  Number.isFinite(
+    chinatsuAfternoonRestPreview
+      ?.start
+      ?.timelineMinute
+  )
+    ? chinatsuAfternoonRestPreview
+        .start
+        .timelineMinute
+    : 14 * 60;
+
+
+const chifuyuAfternoonRestStartTime =
+  chifuyuAfternoonRestPreview
+    ?.start
+    ?.time ??
+  "14:00";
+
+
+const chinatsuAfternoonRestStartTime =
+  chinatsuAfternoonRestPreview
+    ?.start
+    ?.time ??
+  "14:00";
+
+
+/*
+  =========================
+  Chifuyu — Corridor Ambient
+  =========================
+*/
+
+const chifuyuCorridorAmbient =
+  createGardenScheduleIntentDefinition({
+    id:
+      "official-chifuyu-corridor-ambient",
+
+    characterId:
+      "chifuyu",
+
+    intentId:
+      "corridorAmbient",
+
+    instanceId:
+      "daily",
+
+    windowStart:
+      "01:00",
+
+    windowEnd:
+      "01:00",
+
+    durationMinMinutes:
+      Math.max(
+        0,
+        chifuyuAfternoonRestStartMinute -
+          60
+      ),
+
+    durationMaxMinutes:
+      Math.max(
+        0,
+        chifuyuAfternoonRestStartMinute -
+          60
+      ),
+
+    priority:
+      GARDEN_SCHEDULE_PRIORITY
+        .LOW,
+
+    sceneId:
+      "corridor1",
+
+    activityId:
+      "wander",
+
+    fallbackActivityId:
+      "wander",
+
+    canDelay:
+      false,
+
+    canBeOverridden:
+      true,
+
+    latePolicy:
+      GARDEN_SCHEDULE_LATE_POLICY
+        .SKIP,
+
+    tags: [
+      "official",
+      "dailyRoutine",
+      "ambient",
+      "baseline",
+      "corridor",
+    ],
+  });
+
+
+/*
+  =========================
+  Chinatsu — Corridor Ambient
+  =========================
+*/
+
+const chinatsuCorridorAmbient =
+  createGardenScheduleIntentDefinition({
+    id:
+      "official-chinatsu-corridor-ambient",
+
+    characterId:
+      "chinatsu",
+
+    intentId:
+      "corridorAmbient",
+
+    instanceId:
+      "daily",
+
+    windowStart:
+      "01:00",
+
+    windowEnd:
+      "01:00",
+
+    durationMinMinutes:
+      Math.max(
+        0,
+        chinatsuAfternoonRestStartMinute -
+          60
+      ),
+
+    durationMaxMinutes:
+      Math.max(
+        0,
+        chinatsuAfternoonRestStartMinute -
+          60
+      ),
+
+    priority:
+      GARDEN_SCHEDULE_PRIORITY
+        .LOW,
+
+    sceneId:
+      "corridor1",
+
+    activityId:
+      "wander",
+
+    fallbackActivityId:
+      "wander",
+
+    canDelay:
+      false,
+
+    canBeOverridden:
+      true,
+
+    latePolicy:
+      GARDEN_SCHEDULE_LATE_POLICY
+        .SKIP,
+
+    tags: [
+      "official",
+      "dailyRoutine",
+      "ambient",
+      "baseline",
+      "corridor",
+    ],
+  });
+
+
+/*
+  =========================
+  Chifuyu — Courtyard Ambient
+  =========================
+
+  Afternoon Rest 開始的同一分鐘
+  就建立 Courtyard baseline。
+
+  Rest 本身是 NORMAL priority，
+  Ambient 是 LOW priority，
+  因此 Rest 期間一定由 Rest 接管。
+
+  Rest 結束後，
+  Courtyard Ambient 自動重新成為 winner。
+*/
+
+const chifuyuCourtyardAmbient =
+  createGardenScheduleIntentDefinition({
+    id:
+      "official-chifuyu-courtyard-ambient",
+
+    characterId:
+      "chifuyu",
+
+    intentId:
+      "courtyardAmbient",
+
+    instanceId:
+      "daily",
+
+    windowStart:
+      chifuyuAfternoonRestStartTime,
+
+    windowEnd:
+      chifuyuAfternoonRestStartTime,
+
+    durationMinMinutes:
+      Math.max(
+        0,
+        23 * 60 -
+          chifuyuAfternoonRestStartMinute
+      ),
+
+    durationMaxMinutes:
+      Math.max(
+        0,
+        23 * 60 -
+          chifuyuAfternoonRestStartMinute
+      ),
+
+    priority:
+      GARDEN_SCHEDULE_PRIORITY
+        .LOW,
+
+    sceneId:
+      "courtyard",
+
+    activityId:
+      "wander",
+
+    fallbackActivityId:
+      "wander",
+
+    canDelay:
+      false,
+
+    canBeOverridden:
+      true,
+
+    latePolicy:
+      GARDEN_SCHEDULE_LATE_POLICY
+        .SKIP,
+
+    tags: [
+      "official",
+      "dailyRoutine",
+      "ambient",
+      "baseline",
+      "courtyard",
+    ],
+  });
+
+
+/*
+  =========================
+  Chinatsu — Courtyard Ambient
+  =========================
+*/
+
+const chinatsuCourtyardAmbient =
+  createGardenScheduleIntentDefinition({
+    id:
+      "official-chinatsu-courtyard-ambient",
+
+    characterId:
+      "chinatsu",
+
+    intentId:
+      "courtyardAmbient",
+
+    instanceId:
+      "daily",
+
+    windowStart:
+      chinatsuAfternoonRestStartTime,
+
+    windowEnd:
+      chinatsuAfternoonRestStartTime,
+
+    durationMinMinutes:
+      Math.max(
+        0,
+        23 * 60 -
+          chinatsuAfternoonRestStartMinute
+      ),
+
+    durationMaxMinutes:
+      Math.max(
+        0,
+        23 * 60 -
+          chinatsuAfternoonRestStartMinute
+      ),
+
+    priority:
+      GARDEN_SCHEDULE_PRIORITY
+        .LOW,
+
+    sceneId:
+      "courtyard",
+
+    activityId:
+      "wander",
+
+    fallbackActivityId:
+      "wander",
+
+    canDelay:
+      false,
+
+    canBeOverridden:
+      true,
+
+    latePolicy:
+      GARDEN_SCHEDULE_LATE_POLICY
+        .SKIP,
+
+    tags: [
+      "official",
+      "dailyRoutine",
+      "ambient",
+      "baseline",
+      "courtyard",
+    ],
+  });
 
 /*
   =========================
@@ -66220,6 +67050,25 @@ durationMaxMinutes:
       "nightWalk",
     ],
   });
+
+
+if (
+  chifuyuCorridorAmbient
+) {
+  definitions.push(
+    chifuyuCorridorAmbient
+  );
+}
+
+
+if (
+  chinatsuCorridorAmbient
+) {
+  definitions.push(
+    chinatsuCorridorAmbient
+  );
+}
+
 
 
   if (
@@ -78293,6 +79142,415 @@ GARDEN_SCENE_REGISTRY.testScene = {
 
 /*
   =========================
+Indoor Transition
+室內外轉換中繼場景
+  =========================
+
+  第一階段只建立 Scene Registry 骨架。
+
+  目前：
+  - 尚未開放 Player Navigation
+  - 尚未加入 Character Travel
+  - 尚未加入正式 Scene Assets
+  - 尚未建立 Walk Area
+  - 尚未加入 Schedule / Activity
+
+  等正式 Corridor 素材與空間配置確定後，
+  再逐步補齊。
+*/
+GARDEN_SCENE_REGISTRY.indoorTransition = {
+  id: "indoorTransition",
+
+  /*
+    最終預定：
+
+    Moon Bridge ← Corridor → Indoor Area
+
+    第一版先只描述 Corridor
+    能回到 Moon Bridge。
+
+    Moon Bridge 本身目前還不會
+    開放進入 Corridor 的箭頭。
+  */
+ nav: {
+  left: "moonBridge",
+  right: "corridor1",
+},
+
+
+  /*
+    Character World Travel
+    下一階段才建立。
+
+    先保留正式資料欄位，
+    避免之後再改 Scene Contract。
+  */
+ exits: {
+  "indoor-transition-to-moon-bridge": {
+    targetSceneId:
+      "moonBridge",
+
+    targetEntranceId:
+      "indoor-transition-right",
+
+    exitType:
+      "approachOut",
+
+    characters:
+      INDOOR_TRANSITION_MOON_BRIDGE_EXIT,
+  },
+
+  "indoor-transition-to-corridor-01": {
+    targetSceneId:
+      "corridor1",
+
+    targetEntranceId:
+      "indoor-transition-left",
+
+    exitType:
+      "approachOut",
+
+    characters:
+      INDOOR_TRANSITION_CORRIDOR_01_EXIT,
+  },
+},
+
+entrances: {
+  "moon-bridge-right": {
+    fromSceneId:
+      "moonBridge",
+
+    direction:
+      1,
+
+    characters:
+      INDOOR_TRANSITION_FROM_MOON_BRIDGE_ENTRANCE,
+  },
+
+  "corridor-01-left": {
+    fromSceneId:
+      "corridor1",
+
+    direction:
+      -1,
+
+    characters:
+      INDOOR_TRANSITION_FROM_CORRIDOR_01_ENTRANCE,
+  },
+},
+
+
+  /*
+    正式可走區會依 Corridor
+    完稿畫面重新設定。
+
+    現在保持空陣列，
+    不讓角色誤用其他場景座標。
+  */
+ walkAreas:
+  INDOOR_TRANSITION_WALK_AREAS,
+
+pathNodes:
+  INDOOR_TRANSITION_PATH_NODES,
+
+autoTargets:
+  INDOOR_TRANSITION_AUTO_TARGET_POINTS,
+
+  chatSpots: [],
+
+  activitySpots: [],
+
+  lanternLights: [],
+
+
+  ambientEffects: {
+    sakura: true,
+  },
+
+  characterLighting:
+    "world",
+
+  /*
+    第一階段故意沒有 Scene Asset。
+
+    很重要：
+    不暫借 Courtyard / Moon Bridge
+    的 sceneLayers。
+
+    Resource Lease v2 已會真正
+    release inactive Scene texture，
+    如果兩個 Scene 共用同一批 DOM
+    selector，可能造成錯誤解除目前
+    正在觀看的另一張 Scene。
+
+    所以等 Corridor 有自己的
+    HTML layer / asset registry 後
+    再正式接入。
+  */
+sceneLayers:
+  INDOOR_TRANSITION_SCENE_LAYER_ASSETS,
+
+
+  /*
+    暫時只是未啟用的安全值。
+
+    Character Travel 開始施工時
+    會依實際 Corridor 畫面改掉。
+  */
+  defaultSpawn: {
+    x: 540,
+    y: 1300,
+  },
+
+  depthRules: [],
+};
+
+
+
+const CORRIDOR_01_WALK_AREAS = {
+  ground: [
+    {
+      name:
+        "corridor-01-ground",
+
+      points: [
+        {
+          x: 120,
+          y: 1450,
+        },
+
+        {
+          x: 2040,
+          y: 1450,
+        },
+
+        {
+          x: 2040,
+          y: 1760,
+        },
+
+        {
+          x: 120,
+          y: 1760,
+        },
+      ],
+    },
+  ],
+
+  far: [],
+};
+
+const CORRIDOR_01_AUTO_TARGET_POINTS = [
+  /*
+    後排
+  */
+  {
+    name: "corridor-01-back-01",
+    x: 280,
+    y: 1510,
+    zone: "ground",
+  },
+
+  {
+    name: "corridor-01-back-02",
+    x: 680,
+    y: 1510,
+    zone: "ground",
+  },
+
+  {
+    name: "corridor-01-back-03",
+    x: 1080,
+    y: 1510,
+    zone: "ground",
+  },
+
+  {
+    name: "corridor-01-back-04",
+    x: 1480,
+    y: 1510,
+    zone: "ground",
+  },
+
+  {
+    name: "corridor-01-back-05",
+    x: 1880,
+    y: 1510,
+    zone: "ground",
+  },
+
+
+  /*
+    前排
+  */
+  {
+    name: "corridor-01-front-01",
+    x: 280,
+    y: 1680,
+    zone: "ground",
+  },
+
+  {
+    name: "corridor-01-front-02",
+    x: 680,
+    y: 1680,
+    zone: "ground",
+  },
+
+  {
+    name: "corridor-01-front-03",
+    x: 1080,
+    y: 1680,
+    zone: "ground",
+  },
+
+  {
+    name: "corridor-01-front-04",
+    x: 1480,
+    y: 1680,
+    zone: "ground",
+  },
+
+  {
+    name: "corridor-01-front-05",
+    x: 1880,
+    y: 1680,
+    zone: "ground",
+  },
+];
+
+
+
+
+
+
+
+/*
+  =========================
+  Corridor 01
+  一般室內走廊
+  =========================
+
+  第一階段：
+  - 建立 2160 × 1920 Scene
+  - 開放 Player Navigation
+  - 使用共用 Corridor Base
+  - 尚未建立 Camera
+  - 尚未加入 Character Travel
+  - 尚未建立正式 Walk Area
+*/
+GARDEN_SCENE_REGISTRY.corridor1 = {
+  id: "corridor1",
+
+  /*
+    Scene 使用 World-space 尺寸。
+
+    Viewport 仍然只有 1080 × 1920，
+    多出的水平區域交給 Camera 顯示。
+  */
+  worldSize: {
+    width: 2160,
+    height: 1920,
+  },
+
+  /*
+    從 Indoor Transition 第一次進入時，
+    cameraX = 0。
+
+    所以 Reveal 的第一幀
+    一定先看到 Corridor 1 左半部。
+
+    未來若 Corridor 右側也接其他 Scene，
+    Character Entrance / Portal 可以再覆蓋
+    初始 Camera，而不用改 Camera Core。
+  */
+ camera: {
+  mode: "horizontal",
+  initialX: 0,
+  control: "manual",
+},
+
+  nav: {
+    left: "indoorTransition",
+    right: null,
+  },
+
+  exits: {
+  "corridor-01-to-indoor-transition": {
+    targetSceneId:
+      "indoorTransition",
+
+    targetEntranceId:
+      "corridor-01-left",
+
+    exitType:
+      "approachOut",
+
+    characters:
+      CORRIDOR_01_INDOOR_TRANSITION_EXIT,
+  },
+},
+
+entrances: {
+  "indoor-transition-left": {
+    fromSceneId:
+      "indoorTransition",
+
+    direction:
+      1,
+
+    characters:
+      CORRIDOR_01_FROM_INDOOR_TRANSITION_ENTRANCE,
+  },
+},
+
+  /*
+    2160 寬場景不能沿用
+    Moon Bridge 的 1080 座標幾何。
+
+    Camera 建立後再正式設定。
+  */
+ walkAreas:
+  CORRIDOR_01_WALK_AREAS,
+
+ pathNodes: [],
+
+autoTargets:
+  CORRIDOR_01_AUTO_TARGET_POINTS,
+
+  chatSpots: [],
+
+  activitySpots: [],
+
+  lanternLights: [],
+
+
+  ambientEffects: {
+    sakura: false,
+  },
+
+  characterLighting:
+    "lit",
+
+
+  sceneLayers:
+    CORRIDOR_01_SCENE_LAYER_ASSETS,
+
+  /*
+    暫時安全值。
+    Character Travel 尚未使用。
+  */
+  defaultSpawn: {
+    x: 540,
+    y: 1300,
+  },
+
+  depthRules: [],
+};
+
+
+/*
+  =========================
   Moon Bridge
   賞月橋
   =========================
@@ -78300,12 +79558,12 @@ GARDEN_SCENE_REGISTRY.testScene = {
 GARDEN_SCENE_REGISTRY.moonBridge = {
   id: "moonBridge",
 
-  nav: {
-    left: "courtyard",
-    right: null,
-  },
+nav: {
+  left: "courtyard",
+  right: "indoorTransition",
+},
 
-  exits: {
+exits: {
   "moon-bridge-to-courtyard": {
     targetSceneId:
       "courtyard",
@@ -78319,20 +79577,45 @@ GARDEN_SCENE_REGISTRY.moonBridge = {
     characters:
       MOON_BRIDGE_COURTYARD_EXIT,
   },
+
+  "moon-bridge-to-indoor-transition": {
+    targetSceneId:
+      "indoorTransition",
+
+    targetEntranceId:
+      "moon-bridge-right",
+
+    exitType:
+      "approachOut",
+
+    characters:
+      MOON_BRIDGE_INDOOR_TRANSITION_EXIT,
+  },
 },
 
-  entrances: {
-    "courtyard-right": {
-      fromSceneId:
-        "courtyard",
+ entrances: {
+  "courtyard-right": {
+    fromSceneId:
+      "courtyard",
 
-      direction:
-        1,
+    direction:
+      1,
 
-      characters:
-        MOON_BRIDGE_LEFT_ENTRANCE,
-    },
+    characters:
+      MOON_BRIDGE_LEFT_ENTRANCE,
   },
+
+  "indoor-transition-right": {
+    fromSceneId:
+      "indoorTransition",
+
+    direction:
+      -1,
+
+    characters:
+      MOON_BRIDGE_FROM_INDOOR_TRANSITION_ENTRANCE,
+  },
+},
 
   walkAreas:
     MOON_BRIDGE_WALK_AREAS,
@@ -79008,6 +80291,734 @@ function getCurrentGardenScene() {
 }
 
 
+/* =========================
+   Garden Horizontal Camera v1
+========================= */
+
+/*
+  Garden 的可視舞台仍固定為 1080 × 1920。
+
+  寬場景只擴大 #gardenScene 這個 World Container，
+  再用 translate3d(-cameraX, 0, 0) 移動整個世界。
+
+  因此會一起移動：
+  - Scene Layers
+  - Character Depth Layers
+  - World-space effects
+
+  不會移動：
+  - Garden UI
+  - Scene Navigation
+  - Menu Button
+  - Scene Transition 黑幕
+*/
+const GARDEN_CAMERA_VIEWPORT_WIDTH =
+  1080;
+
+const GARDEN_CAMERA_VIEWPORT_HEIGHT =
+  1920;
+
+const gardenSceneWorld =
+  document.getElementById(
+    "gardenScene"
+  );
+
+const gardenCameraState = {
+  sceneId: null,
+  x: 0,
+  y: 0,
+  worldWidth:
+    GARDEN_CAMERA_VIEWPORT_WIDTH,
+  worldHeight:
+    GARDEN_CAMERA_VIEWPORT_HEIGHT,
+  maxX: 0,
+  mode: "fixed",
+};
+
+
+function getGardenSceneWorldSize(
+  scene
+) {
+  const requestedWidth =
+    scene?.worldSize?.width;
+
+  const requestedHeight =
+    scene?.worldSize?.height;
+
+  return Object.freeze({
+    width:
+      Number.isFinite(
+        requestedWidth
+      )
+        ? Math.max(
+            GARDEN_CAMERA_VIEWPORT_WIDTH,
+            requestedWidth
+          )
+        : GARDEN_CAMERA_VIEWPORT_WIDTH,
+
+    height:
+      Number.isFinite(
+        requestedHeight
+      )
+        ? Math.max(
+            GARDEN_CAMERA_VIEWPORT_HEIGHT,
+            requestedHeight
+          )
+        : GARDEN_CAMERA_VIEWPORT_HEIGHT,
+  });
+}
+
+
+function getGardenSceneCameraConfig(
+  scene
+) {
+ const mode =
+  scene?.camera?.mode ===
+    "horizontal"
+    ? "horizontal"
+    : "fixed";
+
+const initialX =
+  Number.isFinite(
+    scene?.camera?.initialX
+  )
+    ? scene.camera.initialX
+    : 0;
+
+const control =
+  scene?.camera?.control ===
+    "manual"
+    ? "manual"
+    : "fixed";
+
+return Object.freeze({
+  mode,
+  initialX,
+  control,
+});
+}
+
+
+function setGardenCameraX(
+  requestedX,
+  scene = getCurrentGardenScene()
+) {
+  if (!scene || !gardenSceneWorld) {
+    return null;
+  }
+
+  const worldSize =
+    getGardenSceneWorldSize(
+      scene
+    );
+
+  const cameraConfig =
+    getGardenSceneCameraConfig(
+      scene
+    );
+
+  const maxX =
+    cameraConfig.mode ===
+      "horizontal"
+      ? Math.max(
+          0,
+          worldSize.width -
+            GARDEN_CAMERA_VIEWPORT_WIDTH
+        )
+      : 0;
+
+  const numericX =
+    Number.isFinite(requestedX)
+      ? requestedX
+      : 0;
+
+  const nextX =
+    Math.max(
+      0,
+      Math.min(
+        maxX,
+        numericX
+      )
+    );
+
+  /*
+    CSS 原本把 #gardenScene 固定為
+    1080 × 1920。
+
+    這裡用 inline size 覆蓋，
+    只有寬場景才真正擴大 World。
+  */
+  gardenSceneWorld.style.width =
+    `${worldSize.width}px`;
+
+  gardenSceneWorld.style.height =
+    `${worldSize.height}px`;
+
+  gardenSceneWorld.style.transform =
+    `translate3d(${-nextX}px, 0, 0)`;
+
+  gardenSceneWorld.style.transformOrigin =
+    "0 0";
+
+  gardenSceneWorld.style.willChange =
+    maxX > 0
+      ? "transform"
+      : "";
+
+
+      const manualControlEnabled =
+  cameraConfig.mode ===
+    "horizontal" &&
+  cameraConfig.control ===
+    "manual" &&
+  maxX > 0;
+
+gardenSceneWorld.classList.toggle(
+  "garden-camera-manual",
+  manualControlEnabled
+);
+
+if (!manualControlEnabled) {
+  gardenSceneWorld.classList.remove(
+    "is-camera-dragging"
+  );
+}
+
+  gardenCameraState.sceneId =
+    scene.id ?? null;
+
+  gardenCameraState.x =
+    nextX;
+
+  gardenCameraState.y =
+    0;
+
+  gardenCameraState.worldWidth =
+    worldSize.width;
+
+  gardenCameraState.worldHeight =
+    worldSize.height;
+
+  gardenCameraState.maxX =
+    maxX;
+
+  gardenCameraState.mode =
+    cameraConfig.mode;
+
+  return nextX;
+}
+
+
+function resetGardenCameraForScene(
+  scene = getCurrentGardenScene()
+) {
+  if (!scene) {
+    return null;
+  }
+
+  const cameraConfig =
+    getGardenSceneCameraConfig(
+      scene
+    );
+
+  return setGardenCameraX(
+    cameraConfig.initialX,
+    scene
+  );
+}
+
+
+function inspectGardenCamera() {
+  const snapshot =
+    Object.freeze({
+      sceneId:
+        gardenCameraState.sceneId,
+
+      mode:
+        gardenCameraState.mode,
+
+      x:
+        gardenCameraState.x,
+
+      y:
+        gardenCameraState.y,
+
+      worldWidth:
+        gardenCameraState.worldWidth,
+
+      worldHeight:
+        gardenCameraState.worldHeight,
+
+      viewportWidth:
+        GARDEN_CAMERA_VIEWPORT_WIDTH,
+
+      viewportHeight:
+        GARDEN_CAMERA_VIEWPORT_HEIGHT,
+
+      maxX:
+        gardenCameraState.maxX,
+    });
+
+  console.log(
+    "[Garden Camera]",
+    snapshot
+  );
+
+  return snapshot;
+}
+
+
+/* =========================
+   Garden Manual Camera Pan
+========================= */
+
+const GARDEN_CAMERA_DRAG_THRESHOLD_PX =
+  8;
+
+
+const gardenCameraPointerState = {
+  active: false,
+
+  pointerId: null,
+
+  sceneId: null,
+
+  startClientX: 0,
+
+  startClientY: 0,
+
+  startCameraX: 0,
+
+  dragging: false,
+
+  suppressNextClick: false,
+};
+
+
+function isGardenManualCameraEnabled(
+  scene = getCurrentGardenScene()
+) {
+  if (!scene) {
+    return false;
+  }
+
+  const cameraConfig =
+    getGardenSceneCameraConfig(
+      scene
+    );
+
+  const worldSize =
+    getGardenSceneWorldSize(
+      scene
+    );
+
+  return (
+    cameraConfig.mode ===
+      "horizontal" &&
+    cameraConfig.control ===
+      "manual" &&
+    worldSize.width >
+      GARDEN_CAMERA_VIEWPORT_WIDTH
+  );
+}
+
+
+function getGardenCameraPointerScaleX() {
+  const rect =
+    gardenScreen
+      ?.getBoundingClientRect();
+
+  if (
+    !rect ||
+    !Number.isFinite(rect.width) ||
+    rect.width <= 0
+  ) {
+    return 1;
+  }
+
+  /*
+    Pointer 的 clientX 是實際螢幕像素。
+
+    Garden World 則使用
+    1080 寬的 Design Coordinate。
+
+    所以必須把拖曳距離
+    換算回 Garden 世界座標。
+  */
+  return (
+    GARDEN_CAMERA_VIEWPORT_WIDTH /
+    rect.width
+  );
+}
+
+
+function resetGardenCameraPointerState() {
+  gardenCameraPointerState.active =
+    false;
+
+  gardenCameraPointerState.pointerId =
+    null;
+
+  gardenCameraPointerState.sceneId =
+    null;
+
+  gardenCameraPointerState.startClientX =
+    0;
+
+  gardenCameraPointerState.startClientY =
+    0;
+
+  gardenCameraPointerState.startCameraX =
+    0;
+
+  gardenCameraPointerState.dragging =
+    false;
+
+  gardenSceneWorld?.classList.remove(
+    "is-camera-dragging"
+  );
+}
+
+
+function handleGardenCameraPointerDown(
+  event
+) {
+  if (
+    !gardenSceneWorld ||
+    !isGardenManualCameraEnabled()
+  ) {
+    return;
+  }
+
+
+  /*
+    多指觸控時只接受主要 Pointer。
+  */
+  if (event.isPrimary === false) {
+    return;
+  }
+
+
+  /*
+    滑鼠只接受左鍵。
+    Touch / Pen 不受這條限制。
+  */
+  if (
+    event.pointerType === "mouse" &&
+    event.button !== 0
+  ) {
+    return;
+  }
+
+
+  /*
+    未來場景內若加入真正的按鈕、
+    表單或明確標示不可拖曳的物件，
+    不從那些元素啟動 Camera。
+  */
+  const blockedTarget =
+    event.target?.closest?.(
+      [
+        "button",
+        "a",
+        "input",
+        "textarea",
+        "select",
+        "[data-garden-camera-no-pan]",
+      ].join(",")
+    );
+
+  if (blockedTarget) {
+    return;
+  }
+
+
+  gardenCameraPointerState.active =
+    true;
+
+  gardenCameraPointerState.pointerId =
+    event.pointerId;
+
+  gardenCameraPointerState.sceneId =
+    gardenViewSceneId;
+
+  gardenCameraPointerState.startClientX =
+    event.clientX;
+
+  gardenCameraPointerState.startClientY =
+    event.clientY;
+
+  gardenCameraPointerState.startCameraX =
+    gardenCameraState.x;
+
+  gardenCameraPointerState.dragging =
+    false;
+
+
+  /*
+    即使手指 / 滑鼠移出原本元素，
+    仍然繼續收到 Pointer Event。
+  */
+  try {
+    gardenSceneWorld.setPointerCapture(
+      event.pointerId
+    );
+  } catch {}
+}
+
+
+function handleGardenCameraPointerMove(
+  event
+) {
+  const state =
+    gardenCameraPointerState;
+
+  if (
+    !state.active ||
+    state.pointerId !==
+      event.pointerId
+  ) {
+    return;
+  }
+
+
+  /*
+    拖曳途中若 Scene 已切換，
+    舊 Pointer 不可以繼續操作
+    新 Scene Camera。
+  */
+  if (
+    state.sceneId !==
+      gardenViewSceneId ||
+    !isGardenManualCameraEnabled()
+  ) {
+    resetGardenCameraPointerState();
+    return;
+  }
+
+
+  const deltaClientX =
+    event.clientX -
+    state.startClientX;
+
+  const deltaClientY =
+    event.clientY -
+    state.startClientY;
+
+
+  if (!state.dragging) {
+    /*
+      小於 8px 視為普通點擊。
+
+      而且必須以水平移動為主，
+      避免手機垂直手勢被誤判。
+    */
+    if (
+      Math.abs(deltaClientX) <
+        GARDEN_CAMERA_DRAG_THRESHOLD_PX ||
+      Math.abs(deltaClientX) <
+        Math.abs(deltaClientY)
+    ) {
+      return;
+    }
+
+
+    state.dragging =
+      true;
+
+    gardenSceneWorld.classList.add(
+      "is-camera-dragging"
+    );
+  }
+
+
+  event.preventDefault();
+
+
+  const designScaleX =
+    getGardenCameraPointerScaleX();
+
+
+  /*
+    手指往左拖：
+      deltaX < 0
+      cameraX 增加
+      → 看向世界右側
+
+    手指往右拖：
+      deltaX > 0
+      cameraX 減少
+      → 看向世界左側
+  */
+  const nextCameraX =
+    state.startCameraX -
+    deltaClientX *
+      designScaleX;
+
+
+  setGardenCameraX(
+    nextCameraX
+  );
+}
+
+
+function finishGardenCameraPointer(
+  event,
+  cancelled = false
+) {
+  const state =
+    gardenCameraPointerState;
+
+  if (
+    !state.active ||
+    state.pointerId !==
+      event.pointerId
+  ) {
+    return;
+  }
+
+
+  const wasDragging =
+    state.dragging;
+
+
+  try {
+    if (
+      gardenSceneWorld
+        ?.hasPointerCapture(
+          event.pointerId
+        )
+    ) {
+      gardenSceneWorld
+        .releasePointerCapture(
+          event.pointerId
+        );
+    }
+  } catch {}
+
+
+  resetGardenCameraPointerState();
+
+
+  /*
+    Drag 結束後瀏覽器有時仍會補送 click。
+
+    這次 click 必須吃掉，
+    不然未來拖過門 / 角色時
+    可能放手就誤觸互動。
+  */
+  if (
+    wasDragging &&
+    !cancelled
+  ) {
+    gardenCameraPointerState
+      .suppressNextClick =
+        true;
+
+    setTimeout(() => {
+      gardenCameraPointerState
+        .suppressNextClick =
+          false;
+    }, 0);
+  }
+}
+
+
+function handleGardenCameraPointerUp(
+  event
+) {
+  finishGardenCameraPointer(
+    event,
+    false
+  );
+}
+
+
+function handleGardenCameraPointerCancel(
+  event
+) {
+  finishGardenCameraPointer(
+    event,
+    true
+  );
+}
+
+
+function handleGardenCameraClickCapture(
+  event
+) {
+  if (
+    !gardenCameraPointerState
+      .suppressNextClick
+  ) {
+    return;
+  }
+
+
+  gardenCameraPointerState
+    .suppressNextClick =
+      false;
+
+  event.preventDefault();
+
+  event.stopPropagation();
+}
+
+
+if (gardenSceneWorld) {
+  gardenSceneWorld.addEventListener(
+    "pointerdown",
+    handleGardenCameraPointerDown
+  );
+
+  gardenSceneWorld.addEventListener(
+    "pointermove",
+    handleGardenCameraPointerMove
+  );
+
+  gardenSceneWorld.addEventListener(
+    "pointerup",
+    handleGardenCameraPointerUp
+  );
+
+  gardenSceneWorld.addEventListener(
+    "pointercancel",
+    handleGardenCameraPointerCancel
+  );
+
+  gardenSceneWorld.addEventListener(
+    "click",
+    handleGardenCameraClickCapture,
+    true
+  );
+}
+
+
+
+/*
+  Camera v1 Debug API。
+
+  Character Travel / Follow Camera
+  完成後仍可保留作為診斷工具。
+*/
+/*
+  setGardenCameraX() 本身就是
+  top-level function，
+  目前 classic script 中可直接從
+  Console 呼叫，不需要再包一層
+  window.setGardenCameraX。
+*/
+
+window.resetGardenCamera =
+  function () {
+    resetGardenCameraForScene();
+    return inspectGardenCamera();
+  };
+
+window.inspectGardenCamera =
+  inspectGardenCamera;
+
+
 function getGardenCharacterSceneId(
   character
 ) {
@@ -79286,6 +81297,19 @@ if (sceneId === "hotSpring") {
     sceneId;
 
 
+  /*
+    Scene Switch 仍在黑幕期間。
+
+    先重設 World Container 尺寸與 Camera，
+    再套用新 Scene 圖片。
+
+    這可以保證 Corridor 1 Reveal 時
+    第一幀就是左半部，而不是先看到
+    上一張 Scene 的 cameraX。
+  */
+  resetGardenCameraForScene(
+    targetScene
+  );
 
 
     if (gardenScreen) {

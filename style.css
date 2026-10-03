@@ -2794,11 +2794,11 @@ body.autumn-mode.night-mode .menu-background.night {
   --garden-char-hue: 0deg;
 }
 
-body.garden-world-night
+body.garden-world-night:not(.garden-character-lighting-lit)
 #gardenScreen
 #chifuyuWalkTest,
 
-body.garden-world-night
+body.garden-world-night:not(.garden-character-lighting-lit)
 #gardenScreen
 #chinatsuWalkTest {
   filter:
@@ -2942,8 +2942,13 @@ body.garden-world-night.garden-active #sakura {
    Garden Night Character Shadow
 ========================= */
 
-body.night-mode #gardenScreen #chifuyuWalkShadow,
-body.night-mode #gardenScreen #chinatsuWalkShadow {
+body.garden-world-night:not(.garden-character-lighting-lit)
+#gardenScreen
+#chifuyuWalkShadow,
+
+body.garden-world-night:not(.garden-character-lighting-lit)
+#gardenScreen
+#chinatsuWalkShadow {
   background: radial-gradient(
     ellipse at center,
     rgba(19, 12, 12, 0.84) 0%,
@@ -3147,12 +3152,26 @@ body.night-mode #gardenScreen #chinatsuWalkShadow {
   background: black;
 }
 
-#gardenScene {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
+#gardenScene.garden-camera-manual {
+  cursor: grab;
+
+  /*
+    一般 Garden Scene 原本是
+    pointer-events: none。
+
+    只有需要 Manual Camera 的 Scene
+    才暫時開啟 Pointer Input。
+  */
+  pointer-events: auto;
+
+  /*
+    垂直手勢仍交給瀏覽器，
+    水平手勢交給 Garden Camera。
+  */
+  touch-action: pan-y;
+
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .garden-layer {
@@ -4372,6 +4391,8 @@ transition:
 }
 
 
+
+
 /* =========================
    Growth Curve
 ========================= */
@@ -4506,6 +4527,71 @@ hotSpringTransitionMistContinuousGrow {
   pointer-events: none;
   display: none
 }
+
+
+
+/* =========================
+   Indoor Transition Scene
+========================= */
+
+/*
+  最底層背景。
+*/
+.indoor-transition-bg {
+  z-index: 0;
+}
+
+
+/*
+  樹木 + 門前景。
+
+  普通角色層約 500，
+  Front Character Layer 最高約 700。
+
+  因此這張固定場景前景放 900，
+  保證角色位於背景與此圖層之間。
+*/
+.indoor-transition-front {
+  z-index: 900;
+}
+
+
+
+/* =========================
+   Corridor 01 Scene
+========================= */
+
+#gardenScene .corridor-01-bg {
+  left: 0;
+  top: 0;
+
+  width: 2160px;
+  height: 1920px;
+
+  z-index: 0;
+}
+
+/* =========================
+   Garden Manual Camera
+========================= */
+
+#gardenScene.garden-camera-manual {
+  cursor: grab;
+
+  /*
+    垂直手勢仍交給瀏覽器，
+    水平手勢交給 Garden Camera。
+  */
+  touch-action: pan-y;
+
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#gardenScene.garden-camera-manual.is-camera-dragging {
+  cursor: grabbing;
+}
+
 
 
 
@@ -4700,3 +4786,6 @@ hotSpringTransitionMistContinuousGrow {
       2px 4px;
   }
 }
+
+
+
