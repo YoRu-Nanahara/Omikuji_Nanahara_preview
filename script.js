@@ -54544,6 +54544,274 @@ function runGardenWorldReconciliation(
   );
 }
 
+
+/*
+  =========================
+  Garden World
+  Reconciliation Convergence
+  =========================
+
+  一次 Handler Pass 不保證
+  世界已經真正推算到 resumedAt。
+
+  例如：
+  Travel Handler priority 200
+  Schedule Handler priority 100
+
+  Schedule 可能在本輪較後方
+  才建立新的 historical Travel。
+
+  因此 Resume / Cold Start 必須
+  重複 reconciliation，
+  直到同一 resumedAt 下
+  canonical world 不再改變。
+
+  這不是讓時間繼續前進；
+  每一輪使用的仍是同一個
+  context.resumedAt。
+*/
+
+const GARDEN_WORLD_RECONCILIATION_MAX_PASSES =
+  16;
+
+
+function getGardenWorldReconciliationStateSignature() {
+  const characters =
+    {};
+
+
+  for (
+    const characterId of
+    Object.keys(
+      gardenCharacterWorldState
+    )
+  ) {
+    const worldState =
+      gardenCharacterWorldState[
+        characterId
+      ];
+
+    const runtime =
+      getGardenCharacterRuntime(
+        characterId
+      );
+
+    const moveState =
+      runtime?.moveState ??
+      null;
+
+
+    characters[
+      characterId
+    ] = {
+      sceneId:
+        worldState?.sceneId ??
+        null,
+
+      activity:
+        worldState?.activity ??
+        null,
+
+      activityData:
+        worldState?.activityData ??
+        null,
+
+      travel:
+        worldState?.travel ??
+        null,
+
+      wanderContinuity:
+        worldState
+          ?.wanderContinuity ??
+        null,
+
+      activitySpotApproach:
+        worldState
+          ?.activitySpotApproach ??
+        null,
+
+      bathTransition:
+        worldState
+          ?.bathTransition ??
+        null,
+
+      bathPositioning:
+        worldState
+          ?.bathPositioning ??
+        null,
+
+      position: {
+        x:
+          Number.isFinite(
+            moveState?.x
+          )
+            ? moveState.x
+            : null,
+
+        y:
+          Number.isFinite(
+            moveState?.y
+          )
+            ? moveState.y
+            : null,
+
+        direction:
+          Number.isFinite(
+            moveState?.direction
+          )
+            ? moveState.direction
+            : null,
+
+        isMoving:
+          moveState?.isMoving ===
+          true,
+      },
+    };
+  }
+
+
+  try {
+    return JSON.stringify(
+      characters
+    );
+  } catch (err) {
+    console.warn(
+      "[Garden World] reconciliation signature failed:",
+      err
+    );
+
+    return null;
+  }
+}
+
+
+function runGardenWorldReconciliationUntilStable(
+  context,
+  options = {}
+) {
+  if (!context) {
+    return Object.freeze({
+      stabilized: false,
+      reason: "missingContext",
+      passCount: 0,
+      results:
+        Object.freeze([]),
+      passes:
+        Object.freeze([]),
+    });
+  }
+
+
+  const requestedMaxPasses =
+    Number.isInteger(
+      options.maxPasses
+    )
+      ? options.maxPasses
+      : GARDEN_WORLD_RECONCILIATION_MAX_PASSES;
+
+
+  const maxPasses =
+    Math.max(
+      1,
+      requestedMaxPasses
+    );
+
+
+  const passes =
+    [];
+
+  let previousSignature =
+    getGardenWorldReconciliationStateSignature();
+
+  let stabilized =
+    false;
+
+
+  for (
+    let passIndex = 0;
+    passIndex < maxPasses;
+    passIndex++
+  ) {
+    const results =
+      runGardenWorldReconciliation(
+        context
+      );
+
+
+    const nextSignature =
+      getGardenWorldReconciliationStateSignature();
+
+
+    const changed =
+      nextSignature !==
+      previousSignature;
+
+
+    passes.push(
+      Object.freeze({
+        pass:
+          passIndex + 1,
+
+        changed,
+
+        results,
+      })
+    );
+
+
+    if (!changed) {
+      stabilized =
+        true;
+
+      break;
+    }
+
+
+    previousSignature =
+      nextSignature;
+  }
+
+
+  const finalResults =
+    passes[
+      passes.length - 1
+    ]?.results ??
+    Object.freeze([]);
+
+
+  if (!stabilized) {
+    console.warn(
+      "[Garden World] reconciliation did not stabilize",
+      {
+        source:
+          context.source,
+
+        resumedAt:
+          context.resumedAt,
+
+        maxPasses,
+      }
+    );
+  }
+
+
+  return Object.freeze({
+    stabilized,
+
+    passCount:
+      passes.length,
+
+    results:
+      finalResults,
+
+    passes:
+      Object.freeze(
+        passes
+      ),
+  });
+}
+
+
 function getGardenWorldReconciliationSnapshot() {
   const handlers =
     Array.from(
@@ -54696,10 +54964,15 @@ if (!context) {
   所有 World System
   在這裡同步推算到「現在」。
 */
-const reconciliationResults =
-  runGardenWorldReconciliation(
+const reconciliationConvergence =
+  runGardenWorldReconciliationUntilStable(
     context
   );
+
+
+const reconciliationResults =
+  reconciliationConvergence
+    .results;
 
 
 /*
@@ -54734,6 +55007,8 @@ const result =
 
     reconciliation:
       reconciliationResults,
+
+    reconciliationConvergence,
   });
 
 
@@ -61538,6 +61813,41 @@ const isTravelContinuationHandoff =
   worldState.wanderContinuity.sceneId ===
     worldState.sceneId;
 
+
+/*
+  Resume / Cold Start 時，
+  上一個 Travel hop 可能早在離線期間
+  就已經完成。
+
+  Live Runtime 會透過 handoffStartedAt
+  明確傳入完成時間。
+
+  Reconciliation 則可能是在下一個
+  Schedule pass 才發現需要下一 hop，
+  因此必須從 Wander Continuity
+  恢復真正的 historical handoff time。
+
+  否則第二 hop 會錯誤地從
+  「玩家現在重新打開網站的時間」
+  才開始。
+*/
+const continuityHandoffStartedAt =
+  isTravelContinuationHandoff &&
+  isValidGardenWorldTimestamp(
+    worldState
+      .wanderContinuity
+      ?.startedAt
+  )
+    ? worldState
+        .wanderContinuity
+        .startedAt
+    : null;
+
+
+const resolvedTravelHandoffStartedAt =
+  handoffStartedAt ??
+  continuityHandoffStartedAt;
+
     /*
       注意：
 
@@ -61563,7 +61873,7 @@ startedAt:
     isTravelContinuationHandoff
   )
     ? (
-        handoffStartedAt ??
+        resolvedTravelHandoffStartedAt ??
         null
       )
     : scheduleStartedAt,
@@ -75421,6 +75731,39 @@ const GARDEN_WORLD_SNAPSHOT_SCHEMA =
 const GARDEN_WORLD_SNAPSHOT_VERSION =
   1;
 
+/*
+  =========================
+  Garden World Rules Version
+  =========================
+
+  Snapshot Schema Version：
+  控制「存檔資料格式」是否相容。
+
+  World Rules Version：
+  控制「這份世界狀態所依據的正式規則」
+  是否仍能安全交給目前版本繼續推演。
+
+  以下類型的重大變更需要 +1：
+  - Official Schedule 結構
+  - Activity 的 Scene / 語意
+  - Scene Travel 拓樸
+  - 已保存 Spot / Travel 狀態的語意
+  - 其他會讓舊世界狀態失去原意的修改
+
+  單純：
+  - 圖片
+  - CSS
+  - 音效
+  - UI
+  - Presentation
+  - 效能優化
+
+  不需要增加。
+*/
+const GARDEN_WORLD_RULESET_VERSION =
+  1;
+
+
 
 /*
   將資料轉成真正可以
@@ -75622,19 +75965,27 @@ function createGardenWorldStateSnapshot(
 
 
   return {
-    schema:
-      GARDEN_WORLD_SNAPSHOT_SCHEMA,
+  schema:
+    GARDEN_WORLD_SNAPSHOT_SCHEMA,
 
-    version:
-      GARDEN_WORLD_SNAPSHOT_VERSION,
+  version:
+    GARDEN_WORLD_SNAPSHOT_VERSION,
 
+  /*
+    這份 Snapshot 所依據的
+    Garden 世界規則版本。
 
-    /*
-      這一定是 World Clock，
-      不使用 performance.now()。
-    */
-    savedAt:
-      getGardenWorldNow(),
+    與 Snapshot 資料格式版本分開。
+  */
+  worldRulesVersion:
+    GARDEN_WORLD_RULESET_VERSION,
+
+  /*
+    這一定是 World Clock，
+    不使用 performance.now()。
+  */
+  savedAt:
+    getGardenWorldNow(),
 
 
     /*
@@ -75732,6 +76083,45 @@ function isValidGardenWorldStateSnapshot(
 }
 
 
+
+function isGardenWorldStateSnapshotCompatibleWithCurrentRules(
+  snapshot
+) {
+  /*
+    資料本身都無法解析，
+    當然也不可能相容。
+  */
+  if (
+    !isValidGardenWorldStateSnapshot(
+      snapshot
+    )
+  ) {
+    return false;
+  }
+
+
+  /*
+    Legacy Snapshot 沒有
+    worldRulesVersion。
+
+    不能假定它與目前世界規則相容。
+  */
+  if (
+    !Number.isInteger(
+      snapshot.worldRulesVersion
+    )
+  ) {
+    return false;
+  }
+
+
+  return (
+    snapshot.worldRulesVersion ===
+    GARDEN_WORLD_RULESET_VERSION
+  );
+}
+
+
 function inspectGardenWorldStateSnapshot() {
   const snapshot =
     createGardenWorldStateSnapshot(
@@ -75800,16 +76190,19 @@ function saveGardenWorldState(
 
 
     if (
-      !isValidGardenWorldStateSnapshot(
-        snapshot
-      )
-    ) {
-      console.warn(
-        "[Garden World] refusing to save invalid snapshot"
-      );
+  !isValidGardenWorldStateSnapshot(
+    snapshot
+  ) ||
+  !isGardenWorldStateSnapshotCompatibleWithCurrentRules(
+    snapshot
+  )
+) {
+  console.warn(
+    "[Garden World] refusing to save invalid or incompatible snapshot"
+  );
 
-      return null;
-    }
+  return null;
+}
 
 
     const json =
@@ -75934,13 +76327,25 @@ function getGardenWorldSaveInfo() {
       GARDEN_WORLD_STORAGE_KEY,
 
     schema:
-      snapshot.schema,
+  snapshot.schema,
 
-    version:
-      snapshot.version,
+version:
+  snapshot.version,
 
-    savedAt:
-      snapshot.savedAt,
+worldRulesVersion:
+  snapshot.worldRulesVersion ??
+  null,
+
+currentWorldRulesVersion:
+  GARDEN_WORLD_RULESET_VERSION,
+
+worldRulesCompatible:
+  isGardenWorldStateSnapshotCompatibleWithCurrentRules(
+    snapshot
+  ),
+
+savedAt:
+  snapshot.savedAt,
 
     savedAtIso:
       new Date(
@@ -78603,6 +79008,114 @@ return emergencyBootstrap;
 }
 
 
+/*
+  =========================
+  World Rules Migration Gate
+  =========================
+
+  Snapshot 的 JSON / Schema
+  雖然仍然可以讀取，
+
+  但如果它來自不同版本的
+  Garden World Rules，
+
+  就不能拿「現在的 Schedule /
+  Travel / Activity 規則」
+  去回推舊世界歷史。
+
+  直接使用目前正式 Schedule
+  建立「現在」的 canonical world。
+*/
+if (
+  !isGardenWorldStateSnapshotCompatibleWithCurrentRules(
+    snapshot
+  )
+) {
+  const previousWorldRulesVersion =
+    Number.isInteger(
+      snapshot.worldRulesVersion
+    )
+      ? snapshot.worldRulesVersion
+      : null;
+
+
+  console.log(
+    "[Garden World] world rules migration:",
+    {
+      from:
+        previousWorldRulesVersion,
+
+      to:
+        GARDEN_WORLD_RULESET_VERSION,
+    }
+  );
+
+
+  const freshBootstrap =
+    bootstrapGardenFreshWorldState(
+      getGardenWorldNow()
+    );
+
+
+  if (freshBootstrap) {
+    /*
+      bootstrapGardenFreshWorldState()
+      本身會保存新的 Snapshot，
+      因此舊 Snapshot 會自然被新版覆蓋。
+
+      不需要先 removeItem()，
+      避免 Bootstrap 失敗時
+      無條件把原存檔刪掉。
+    */
+    const migrationResult =
+      Object.freeze({
+        ...freshBootstrap,
+
+        source:
+          "worldRulesMigration",
+
+        migrated:
+          true,
+
+        previousWorldRulesVersion,
+
+        currentWorldRulesVersion:
+          GARDEN_WORLD_RULESET_VERSION,
+      });
+
+
+    gardenWorldLastColdStartRestore =
+      migrationResult;
+
+
+    return migrationResult;
+  }
+
+
+  /*
+    Fresh Bootstrap 極端情況失敗，
+    仍使用既有 Emergency Canonical
+    fallback。
+
+    不允許再退回不相容 Snapshot。
+  */
+  const emergencyBootstrap =
+    bootstrapGardenEmergencyFallbackWorldState(
+      getGardenWorldNow()
+    );
+
+
+  if (emergencyBootstrap) {
+    gardenWorldLastColdStartRestore =
+      emergencyBootstrap;
+  }
+
+
+  return emergencyBootstrap;
+}
+
+
+
   const restored =
     hydrateGardenWorldState(
       snapshot
@@ -78660,25 +79173,32 @@ return emergencyBootstrap;
 }
 
 
-  const reconciliationResults =
-    runGardenWorldReconciliation(
-      context
-    );
+  const reconciliationConvergence =
+  runGardenWorldReconciliationUntilStable(
+    context
+  );
+
+
+const reconciliationResults =
+  reconciliationConvergence
+    .results;
 
 
   const result =
-    Object.freeze({
-      ...context,
+  Object.freeze({
+    ...context,
 
-      restored:
-        true,
+    restored:
+      true,
 
-      savedReason:
-        snapshot.reason,
+    savedReason:
+      snapshot.reason,
 
-      reconciliation:
-        reconciliationResults,
-    });
+    reconciliation:
+      reconciliationResults,
+
+    reconciliationConvergence,
+  });
 
 
   /*
